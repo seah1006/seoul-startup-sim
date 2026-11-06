@@ -59,6 +59,8 @@ public class SeoulOpenApiClient {
         retry.getEventPublisher().onRetry(e -> log.warn("서울 API 재시도 {}: {}", e.getNumberOfRetryAttempts(), masker.mask(e.getLastThrowable().getMessage())));
     }
 
+    public String circuitBreakerState() { return breaker.getState().name(); }
+
     public record ApiPage(int start, int end, String raw, JsonNode rows) {}
 
     public void pages(String service, String period, Consumer<ApiPage> consumer) {
@@ -121,3 +123,4 @@ public class SeoulOpenApiClient {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }
+

@@ -1,15 +1,15 @@
 package com.seah.startupsim.ingest;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
-/** 명시적으로 켰을 때만 등록되는 로컬 검증용 관리자 API다. */
+/** 관리자 인증과 CSRF 검증으로 보호되는 분기 백필 API다. */
 @RestController
-@ConditionalOnProperty(name = "app.admin.enabled", havingValue = "true")
+
 public class QuarterBackfillController {
     private final QuarterBackfillService service;
 
@@ -23,3 +23,5 @@ public class QuarterBackfillController {
         return service.backfill(source, from, to);
     }
 }
+
+

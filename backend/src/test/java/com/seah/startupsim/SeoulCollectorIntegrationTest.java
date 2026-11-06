@@ -33,7 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"app.admin.enabled=true", "app.external.seoul.api-key=fixture-secret", "app.external.seoul.requests-per-second=100", "app.external.seoul.retry-wait=1ms", "app.external.seoul.failure-threshold=20"})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"ADMIN_USERNAME=fixture-admin", "ADMIN_PASSWORD=fixture-password", "app.external.seoul.api-key=fixture-secret", "app.external.seoul.requests-per-second=100", "app.external.seoul.retry-wait=1ms", "app.external.seoul.failure-threshold=20"})
 class SeoulCollectorIntegrationTest {
     static final WireMockServer API = new WireMockServer(0);
     static { API.start(); }
@@ -70,10 +70,7 @@ class SeoulCollectorIntegrationTest {
     }
 
     HttpResponse<String> backfill(String source) throws Exception {
-        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"
-                + environment.getProperty("local.server.port") + "/admin/api/backfill/" + source
-                + "?from=20262&to=20262")).POST(HttpRequest.BodyPublishers.noBody()).build(),
-                HttpResponse.BodyHandlers.ofString());
+        return AdminWebIntegrationTest.authenticatedPost(environment.getProperty("local.server.port"), "/admin/api/backfill/" + source + "?from=20262&to=20262");
     }
 
     @Test
@@ -162,3 +159,4 @@ class SeoulCollectorIntegrationTest {
         assertEquals(3, API.getAllServeEvents().size());
     }
 }
+
