@@ -14,6 +14,7 @@ CREATE TABLE trade_areas (
     dong_code varchar(10), dong_name text,
     area_m2 numeric,
     geom geometry(MultiPolygon,4326) NOT NULL,
+    geom_repaired boolean NOT NULL DEFAULT false,
     centroid geometry(Point,4326) NOT NULL,
     version_id bigint REFERENCES data_versions(id)
 );
