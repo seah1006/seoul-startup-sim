@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import java.io.IOException;
 import java.net.URI;
@@ -33,7 +34,8 @@ public class SeoulOpenApiClient {
     private final ExternalProperties external;
     private final SecretMasker masker;
     private final HttpClient http;
-    private final JsonMapper mapper = JsonMapper.builder().build();
+    private final JsonMapper mapper = JsonMapper.builder()
+            .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).build();
     private final Retry retry;
     private final RateLimiter limiter;
     private final CircuitBreaker breaker;

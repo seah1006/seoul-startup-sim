@@ -27,10 +27,12 @@ public class QuarterBackfillService {
         if (fromQuarter.compareTo(toQuarter) > 0) throw new IllegalArgumentException("분기 범위 역전");
         List<Result> results = new ArrayList<>();
         for (String quarter = fromQuarter; quarter.compareTo(toQuarter) <= 0; quarter = next(quarter)) {
+            Long[] runId = new Long[1];
             try {
-                results.add(new Result(quarter, service.run(source, quarter), "SUCCEEDED", null));
+                long completedId = service.run(source, quarter, id -> runId[0] = id);
+                results.add(new Result(quarter, completedId, "SUCCEEDED", null));
             } catch (RuntimeException e) {
-                results.add(new Result(quarter, null, "FAILED", masker.mask(e.getMessage())));
+                results.add(new Result(quarter, runId[0], "FAILED", masker.mask(e.getMessage())));
             }
         }
         return results;

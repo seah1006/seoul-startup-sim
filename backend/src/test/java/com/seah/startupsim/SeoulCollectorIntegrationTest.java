@@ -9,6 +9,11 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.seah.startupsim.ingest.IngestService;
+import org.springframework.core.env.Environment;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import com.seah.startupsim.ingest.client.SeoulApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterAll;
@@ -28,7 +33,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Testcontainers
-@SpringBootTest(properties = {"app.external.seoul.api-key=fixture-secret", "app.external.seoul.requests-per-second=100", "app.external.seoul.retry-wait=1ms", "app.external.seoul.failure-threshold=20"})
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"app.admin.enabled=true", "app.external.seoul.api-key=fixture-secret", "app.external.seoul.requests-per-second=100", "app.external.seoul.retry-wait=1ms", "app.external.seoul.failure-threshold=20"})
 class SeoulCollectorIntegrationTest {
     static final WireMockServer API = new WireMockServer(0);
     static { API.start(); }
@@ -41,6 +46,7 @@ class SeoulCollectorIntegrationTest {
         r.add("spring.datasource.password", DB::getPassword);
         r.add("app.external.seoul.base-url", API::baseUrl);
     }
+    @Autowired Environment environment;
     @Autowired IngestService service;
     @Autowired JdbcTemplate jdbc;
     @BeforeEach
@@ -52,11 +58,71 @@ class SeoulCollectorIntegrationTest {
     static void stop() { API.stop(); }
 
     String sample() throws Exception {
-        var mapper = JsonMapper.builder().build();
-        var response = mapper.readTree(Files.readString(Path.of("../docs/data/samples/seoul_VwsmTrdarSelngQq_20262.json"))).path("response");
-        ((tools.jackson.databind.node.ObjectNode) response.path("VwsmTrdarSelngQq")).put("list_total_count", 5);
-        return response.toString();
+        return sampleBody("VwsmTrdarSelngQq");
     }
+    // 숫자 토큰을 파싱/재직렬화하지 않는다. 샘플의 response 원문에서 페이지 총수만 조정한다.
+    String sampleBody(String apiService) throws Exception {
+        String raw = Files.readString(Path.of("../docs/data/samples/seoul_" + apiService + "_20262.json"));
+        int rows = JsonMapper.builder().build().readTree(raw).path("response").path(apiService).path("row").size();
+        String body = raw.substring(raw.indexOf('{', raw.indexOf("\"response\"")));
+        return body.substring(0, body.lastIndexOf('}')).trim()
+                .replaceFirst("\"list_total_count\"\\s*:\\s*[0-9]+", "\"list_total_count\": " + rows);
+    }
+
+    HttpResponse<String> backfill(String source) throws Exception {
+        return HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create("http://localhost:"
+                + environment.getProperty("local.server.port") + "/admin/api/backfill/" + source
+                + "?from=20262&to=20262")).POST(HttpRequest.BodyPublishers.noBody()).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    @Test
+    @DisplayName("세 수집기는 샘플 숫자 원문을 관리자 HTTP 경로로 정확히 적재한다")
+    void rawSamplesThroughAdminEndpoint() throws Exception {
+        String[][] datasets = {{"VwsmTrdarSelngQq", "seoul-area-sales", "area_sales_q"},
+                {"VwsmTrdarStorQq", "seoul-area-stores", "area_stores_q"},
+                {"VwsmTrdarFlpopQq", "seoul-area-floating-pop", "area_floating_pop_q"}};
+        for (String[] dataset : datasets) {
+            API.resetAll();
+            API.stubFor(get(urlPathMatching(".*")).willReturn(aResponse().withBody(sampleBody(dataset[0]))));
+            HttpResponse<String> response = backfill(dataset[1]);
+            assertEquals(200, response.statusCode());
+            assertTrue(response.body().contains("SUCCEEDED"), response.body());
+            int expectedRows = JsonMapper.builder().build().readTree(sampleBody(dataset[0])).path(dataset[0]).path("row").size();
+            assertEquals(expectedRows, jdbc.queryForObject("SELECT count(*) FROM " + dataset[2], Integer.class));
+        }
+        assertEquals(796270824L, jdbc.queryForObject("SELECT max(sales_amount) FROM area_sales_q", Long.class));
+        assertEquals(433442L, jdbc.queryForObject("SELECT total_population FROM area_floating_pop_q WHERE area_code='3110829'", Long.class));
+    }
+
+    @Test
+    @DisplayName("실수 표기와 문자열 숫자 및 7천670억 매출도 손실 없이 정수로 적재한다")
+    void numericRepresentationsAndLargeAmount() throws Exception {
+        String body = sample().replaceFirst("796270824", "767000000000")
+                .replaceFirst("2152039", "2.152039E6")
+                .replaceFirst("4072969", "4072969.0")
+                .replaceFirst("166639436", "\"166639436.0\"");
+        API.stubFor(get(urlPathMatching(".*")).willReturn(aResponse().withBody(body)));
+        assertTrue(backfill("seoul-area-sales").body().contains("SUCCEEDED"));
+        assertEquals(767000000000L, jdbc.queryForObject("SELECT max(sales_amount) FROM area_sales_q", Long.class));
+        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM area_sales_q WHERE sales_amount IN (767000000000,2152039,4072969,166639436,221681)", Integer.class));
+    }
+
+    @Test
+    @DisplayName("소수부가 있는 숫자는 명확히 거절하고 백필 실패 결과에 실행 ID를 포함한다")
+    void fractionalValueReturnsFailedRunId() throws Exception {
+        API.stubFor(get(urlPathMatching(".*")).willReturn(aResponse().withBody(sample().replaceFirst("796270824", "796270824.5"))));
+        var response = backfill("seoul-area-sales");
+        var result = JsonMapper.builder().build().readTree(response.body()).get(0);
+        assertEquals("FAILED", result.path("status").asText());
+        long runId = result.path("runId").longValue();
+        assertTrue(runId > 0, response.body());
+        assertEquals("FAILED", jdbc.queryForObject("SELECT status FROM ingest_runs WHERE id=?", String.class, runId));
+        assertTrue(result.path("error").asText().contains("소수부"));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM area_sales_q", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM raw_payloads WHERE run_id=?", Integer.class, runId));
+    }
+
     @Test
     @DisplayName("실제 샘플 적재는 원본과 활성 버전을 저장하고 재실행 시 멱등이다")
     void sampleAndIdempotency() throws Exception {

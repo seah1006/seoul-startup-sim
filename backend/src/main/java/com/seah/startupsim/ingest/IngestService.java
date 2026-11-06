@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
 
 /** 수집 실행의 시작과 결과를 관리한다. RUNNING 부분 유니크 인덱스로 인스턴스 간 동시 실행을 거절한다. */
@@ -29,6 +30,11 @@ public class IngestService {
     }
 
     public long run(String source, String period) {
+        return run(source, period, id -> {});
+    }
+
+    /** 시작 ID를 호출자에게 전달하여 수집 실패 시에도 정확한 실행 이력을 연결한다. */
+    public long run(String source, String period, LongConsumer onStarted) {
         if (source == null
                 || source.isBlank()
                 || source.length() > 50
@@ -46,6 +52,7 @@ public class IngestService {
             throw new IngestAlreadyRunningException(source);
         }
         try {
+            onStarted.accept(id);
             CollectResult result =
                     collector.collect(new IngestContext(id, source, period, repository));
             repository.succeed(id, result);

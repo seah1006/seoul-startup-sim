@@ -5,6 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -34,6 +35,26 @@ public final class QuarterlyCollector implements Collector {
         this.client = client;
         this.jdbc = jdbc;
         this.transaction = new TransactionTemplate(tx);
+    }
+
+    /** 소수 절삭과 double 문자열 변환 없이 정수와 정수 백분율을 검증한다. */
+    static Long exactLong(JsonNode value, String field) {
+        if (value.isMissingNode() || value.isNull()) {
+            return null;
+        }
+        try {
+            BigDecimal number;
+            if (value.isNumber()) {
+                number = value.decimalValue();
+            } else if (value.isString()) {
+                number = new BigDecimal(value.asText());
+            } else {
+                throw new IllegalArgumentException("숫자 타입이 아닙니다: " + field);
+            }
+            return number.longValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
+            throw new IllegalArgumentException("정수 범위 또는 소수부 오류: " + field, e);
+        }
     }
 
     @Override
@@ -74,7 +95,7 @@ public final class QuarterlyCollector implements Collector {
                     if (industry) values.add(code);
                     for (Field field : fields) {
                         JsonNode value = row.path(field.external());
-                        values.add(value.isMissingNode() || value.isNull() ? null : Long.valueOf(value.asText()));
+                        values.add(exactLong(value, field.external()));
                     }
                     values.add(version);
                     batch.add(values.toArray());

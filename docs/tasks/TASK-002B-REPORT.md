@@ -30,3 +30,11 @@
 - test --tests com.seah.startupsim.SeoulPipelineResilienceTest --offline: 4개 통과, BUILD SUCCESSFUL (30초).
 - 마지막 clean check --offline: 19개 통과, BUILD SUCCESSFUL (51초). 임시 Maven 저장소 없이 공유 Gradle 캐시로 검증.
 - 5페이지 속도 제한 테스트 전체 소요 2.706초(하한 1.5초 충족), 회로 차단 테스트 전체 소요 0.050초. 개별 XML은 backend/build/test-results/test 참조.
+
+## 실제 API 숫자 파싱 회귀 수정
+- 원인: QuarterlyCollector가 숫자 노드도 asText()→Long.valueOf()로 변환했다. HTTP 응답의 실수 노드는 지수 표기 또는 .0 문자열이 되어 실패했다. 전용 DB raw_payloads에서 점포 156.0, 인구 433442.0, 매출 일부 6239093.0을 확인했다. 샘플의 정수 토큰만 사용한 기존 테스트는 이 차이를 놓쳤다.
+- 수정: API mapper의 실수는 BigDecimal로 보존하고, 숫자 노드는 decimalValue(), 문자열은 new BigDecimal() 후 longValueExact()로 검증한다. 정수 %인 개폐업률도 동일 정책이며 소수부가 0이 아니거나 bigint 범위를 넘으면 명시적으로 거절한다.
+- 운영 경로 회귀: RANDOM_PORT 관리자 HTTP→백필→Spring 등록 수집기로 세 샘플을 적재. 샘플의 response 원문을 추출해 숫자 토큰은 그대로 보존하고 list_total_count만 샘플 행 수로 조정한다. 별도로 실수·지수·문자열 숫자 및 767000000000 매출을 검증한다.
+- 실패 runId: IngestService에 시작 ID 콜백 오버로드를 추가해 백필이 자신이 시작한 실행 ID를 보존한다. 동시 실행 등 실행 자체가 시작되지 않은 실패만 null일 수 있다. 기존 run(source,period) 동작과 예외는 유지한다.
+- 실패 시 raw_payloads가 남는 것은 의도된 동작이다. 기존 REQUIRES_NEW 트랜잭션이 분기 적재 롤백과 별도로 원본을 보존해 장애 분석·재처리를 지원한다.
+- 후속 회귀 클래스 7개 통과(32초). 마지막 clean check --offline: BUILD SUCCESSFUL (45초), 전체 22개 통과.
