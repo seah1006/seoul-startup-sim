@@ -1,0 +1,73 @@
+{
+ "source": "서울시 상권분석서비스(영역-상권).zip (OA-15560, 수정일 2023.10.23)",
+ "prj": "PROJCS[\"Korea_2000_Korea_Central_Belt\",GEOGCS[\"GCS_Korea_2000\",DATUM[\"D_Korea_2000\",SPHEROID[\"GRS_1980\",6378137.0,298.257222101]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"False_Easting\",200000.0],PARAMETER[\"False_Northing\",500000.0],PARAMETER[\"Central_Meridian\",127.0],PARAMETER[\"Scale_Factor\",1.0],PARAMETER[\"Latitude_Of_Origin\",38.0],UNIT[\"Meter\",1.0]]",
+ "cpg": "UTF-8",
+ "shapeType": "Polygon(5), 1650 records",
+ "rows": [
+  {
+   "TRDAR_SE_C": "A",
+   "TRDAR_SE_1": "골목상권",
+   "TRDAR_CD": "3110008",
+   "TRDAR_CD_N": "배화여자대학교(박노수미술관)",
+   "XCNTS_VALU": "197093",
+   "YDNTS_VALU": "453418",
+   "SIGNGU_CD": "11110",
+   "SIGNGU_CD_": "종로구",
+   "ADSTRD_CD": "11110515",
+   "ADSTRD_CD_": "청운효자동",
+   "RELM_AR": "149264"
+  },
+  {
+   "TRDAR_SE_C": "U",
+   "TRDAR_SE_1": "관광특구",
+   "TRDAR_CD": "3001494",
+   "TRDAR_CD_N": "종로·청계 관광특구",
+   "XCNTS_VALU": "199796",
+   "YDNTS_VALU": "452274",
+   "SIGNGU_CD": "11110",
+   "SIGNGU_CD_": "종로구",
+   "ADSTRD_CD": "11110615",
+   "ADSTRD_CD_": "종로1·2·3·4가동",
+   "RELM_AR": "653127"
+  },
+  {
+   "TRDAR_SE_C": "R",
+   "TRDAR_SE_1": "전통시장",
+   "TRDAR_CD": "3130021",
+   "TRDAR_CD_N": "신설종합시장",
+   "XCNTS_VALU": "201854",
+   "YDNTS_VALU": "452569",
+   "SIGNGU_CD": "11110",
+   "SIGNGU_CD_": "종로구",
+   "ADSTRD_CD": "11110710",
+   "ADSTRD_CD_": "숭인2동",
+   "RELM_AR": "9800"
+  },
+  {
+   "TRDAR_SE_C": "R",
+   "TRDAR_SE_1": "전통시장",
+   "TRDAR_CD": "3130002",
+   "TRDAR_CD_N": "세종마을음식문화거리(금천교시장)",
+   "XCNTS_VALU": "197423",
+   "YDNTS_VALU": "453030",
+   "SIGNGU_CD": "11110",
+   "SIGNGU_CD_": "종로구",
+   "ADSTRD_CD": "11110530",
+   "ADSTRD_CD_": "사직동",
+   "RELM_AR": "49557"
+  },
+  {
+   "TRDAR_SE_C": "R",
+   "TRDAR_SE_1": "전통시장",
+   "TRDAR_CD": "3130001",
+   "TRDAR_CD_N": "통인시장",
+   "XCNTS_VALU": "197351",
+   "YDNTS_VALU": "453449",
+   "SIGNGU_CD": "11110",
+   "SIGNGU_CD_": "종로구",
+   "ADSTRD_CD": "11110515",
+   "ADSTRD_CD_": "청운효자동",
+   "RELM_AR": "38280"
+  }
+ ]
+}

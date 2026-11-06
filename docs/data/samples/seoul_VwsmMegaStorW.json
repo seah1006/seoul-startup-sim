@@ -1,0 +1,85 @@
+{
+ "request": "http://openapi.seoul.go.kr:8088/{KEY}/json/VwsmMegaStorW/1/5/",
+ "fetchedAt": "2026-11-06T16:09:27.399Z",
+ "response": {
+  "VwsmMegaStorW": {
+   "list_total_count": 2200,
+   "RESULT": {
+    "CODE": "INFO-000",
+    "MESSAGE": "정상 처리되었습니다"
+   },
+   "row": [
+    {
+     "STDR_YYQU_CD": "20243",
+     "MEGA_CD": "11",
+     "MEGA_CD_NM": "서울시",
+     "SVC_INDUTY_CD": "CS200005",
+     "SVC_INDUTY_CD_NM": "스포츠 강습",
+     "SIMILR_INDUTY_STOR_CO": 9049,
+     "STOR_CO": 8759,
+     "FRC_STOR_CO": 290,
+     "OPBIZ_RT": 2,
+     "OPBIZ_STOR_CO": 214,
+     "CLSBIZ_RT": 3,
+     "CLSBIZ_STOR_CO": 253
+    },
+    {
+     "STDR_YYQU_CD": "20243",
+     "MEGA_CD": "11",
+     "MEGA_CD_NM": "서울시",
+     "SVC_INDUTY_CD": "CS300037",
+     "SVC_INDUTY_CD_NM": "중고차판매",
+     "SIMILR_INDUTY_STOR_CO": 945,
+     "STOR_CO": 945,
+     "FRC_STOR_CO": 0,
+     "OPBIZ_RT": 0,
+     "OPBIZ_STOR_CO": 4,
+     "CLSBIZ_RT": 2,
+     "CLSBIZ_STOR_CO": 23
+    },
+    {
+     "STDR_YYQU_CD": "20243",
+     "MEGA_CD": "11",
+     "MEGA_CD_NM": "서울시",
+     "SVC_INDUTY_CD": "CS100002",
+     "SVC_INDUTY_CD_NM": "중식음식점",
+     "SIMILR_INDUTY_STOR_CO": 6406,
+     "STOR_CO": 5559,
+     "FRC_STOR_CO": 847,
+     "OPBIZ_RT": 4,
+     "OPBIZ_STOR_CO": 225,
+     "CLSBIZ_RT": 5,
+     "CLSBIZ_STOR_CO": 340
+    },
+    {
+     "STDR_YYQU_CD": "20243",
+     "MEGA_CD": "11",
+     "MEGA_CD_NM": "서울시",
+     "SVC_INDUTY_CD": "CS200006",
+     "SVC_INDUTY_CD_NM": "일반의원",
+     "SIMILR_INDUTY_STOR_CO": 11189,
+     "STOR_CO": 11189,
+     "FRC_STOR_CO": 0,
+     "OPBIZ_RT": 3,
+     "OPBIZ_STOR_CO": 289,
+     "CLSBIZ_RT": 1,
+     "CLSBIZ_STOR_CO": 105
+    },
+    {
+     "STDR_YYQU_CD": "20243",
+     "MEGA_CD": "11",
+     "MEGA_CD_NM": "서울시",
+     "SVC_INDUTY_CD": "CS200021",
+     "SVC_INDUTY_CD_NM": "기타오락장",
+     "SIMILR_INDUTY_STOR_CO": 1244,
+     "STOR_CO": 1094,
+     "FRC_STOR_CO": 150,
+     "OPBIZ_RT": 2,
+     "OPBIZ_STOR_CO": 26,
+     "CLSBIZ_RT": 6,
+     "CLSBIZ_STOR_CO": 73
+    }
+   ]
+  }
+ }
+}

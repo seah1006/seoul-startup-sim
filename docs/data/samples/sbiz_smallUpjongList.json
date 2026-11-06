@@ -1,0 +1,412 @@
+{
+ "request": "https://apis.data.go.kr/B553077/api/open/sdsc2/smallUpjongList?serviceKey={KEY}&indsLclsCd=I2&type=json",
+ "fetchedAt": "2026-11-06T16:09:27.399Z",
+ "httpStatus": 200,
+ "response": {
+  "header": {
+   "description": "소상공인시장진흥공단 상권정보 업종소분류 코드",
+   "columns": [
+    "상권업종대분류코드",
+    "상권업종대분류코드명",
+    "상권업종중분류코드",
+    "상권업종중분류코드명",
+    "상권업종소분류코드",
+    "상권업종소분류코드명",
+    "데이터기준일자"
+   ],
+   "resultCode": "00",
+   "resultMsg": "NORMAL SERVICE"
+  },
+  "body": {
+   "items": [
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I207",
+     "indsMclsNm": "구내식당·뷔페",
+     "indsSclsCd": "I20701",
+     "indsSclsNm": "구내식당",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I207",
+     "indsMclsNm": "구내식당·뷔페",
+     "indsSclsCd": "I20702",
+     "indsSclsNm": "뷔페",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21099",
+     "indsSclsNm": "그 외 기타 간이 음식점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21007",
+     "indsSclsNm": "김밥/만두/분식",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21002",
+     "indsSclsNm": "떡/한과",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21004",
+     "indsSclsNm": "버거",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21001",
+     "indsSclsNm": "빵/도넛",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21008",
+     "indsSclsNm": "아이스크림/빙수",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21006",
+     "indsSclsNm": "치킨",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21005",
+     "indsSclsNm": "토스트/샌드위치/샐러드",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I210",
+     "indsMclsNm": "기타 간이",
+     "indsSclsCd": "I21003",
+     "indsSclsNm": "피자",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I206",
+     "indsMclsNm": "기타 외국",
+     "indsSclsCd": "I20601",
+     "indsSclsNm": "분류 안된 외국식 음식점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I205",
+     "indsMclsNm": "동남아시아",
+     "indsSclsCd": "I20599",
+     "indsSclsNm": "기타 동남아식 전문",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I205",
+     "indsMclsNm": "동남아시아",
+     "indsSclsCd": "I20501",
+     "indsSclsNm": "베트남식 전문",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I212",
+     "indsMclsNm": "비알코올 ",
+     "indsSclsCd": "I21201",
+     "indsSclsNm": "카페",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I204",
+     "indsMclsNm": "서양식",
+     "indsSclsCd": "I20401",
+     "indsSclsNm": "경양식",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I204",
+     "indsMclsNm": "서양식",
+     "indsSclsCd": "I20499",
+     "indsSclsNm": "기타 서양식 음식점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I204",
+     "indsMclsNm": "서양식",
+     "indsSclsCd": "I20402",
+     "indsSclsNm": "파스타/스테이크",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I204",
+     "indsMclsNm": "서양식",
+     "indsSclsCd": "I20403",
+     "indsSclsNm": "패밀리레스토랑",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I203",
+     "indsMclsNm": "일식",
+     "indsSclsCd": "I20399",
+     "indsSclsNm": "기타 일식 음식점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I203",
+     "indsMclsNm": "일식",
+     "indsSclsCd": "I20303",
+     "indsSclsNm": "일식 면 요리",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I203",
+     "indsMclsNm": "일식",
+     "indsSclsCd": "I20302",
+     "indsSclsNm": "일식 카레/돈가스/덮밥",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I203",
+     "indsMclsNm": "일식",
+     "indsSclsCd": "I20301",
+     "indsSclsNm": "일식 회/초밥",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I211",
+     "indsMclsNm": "주점",
+     "indsSclsCd": "I21102",
+     "indsSclsNm": "무도 유흥 주점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I211",
+     "indsMclsNm": "주점",
+     "indsSclsCd": "I21103",
+     "indsSclsNm": "생맥주 전문",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I211",
+     "indsMclsNm": "주점",
+     "indsSclsCd": "I21104",
+     "indsSclsNm": "요리 주점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I211",
+     "indsMclsNm": "주점",
+     "indsSclsCd": "I21101",
+     "indsSclsNm": "일반 유흥 주점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I202",
+     "indsMclsNm": "중식",
+     "indsSclsCd": "I20202",
+     "indsSclsNm": "마라탕/훠궈",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I202",
+     "indsMclsNm": "중식",
+     "indsSclsCd": "I20201",
+     "indsSclsNm": "중국집",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20109",
+     "indsSclsNm": "곱창 전골/구이",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20102",
+     "indsSclsNm": "국/탕/찌개류",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20105",
+     "indsSclsNm": "국수/칼국수",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20199",
+     "indsSclsNm": "기타 한식 음식점",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20106",
+     "indsSclsNm": "냉면/밀면",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20110",
+     "indsSclsNm": "닭/오리고기 구이/찜",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20107",
+     "indsSclsNm": "돼지고기 구이/찜",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20101",
+     "indsSclsNm": "백반/한정식",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20113",
+     "indsSclsNm": "복 요리 전문",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20108",
+     "indsSclsNm": "소고기 구이/찜",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20104",
+     "indsSclsNm": "전/부침개",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20103",
+     "indsSclsNm": "족발/보쌈",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20112",
+     "indsSclsNm": "해산물 구이/찜",
+     "stdrDt": "2023-02-28"
+    },
+    {
+     "indsLclsCd": "I2",
+     "indsLclsNm": "음식",
+     "indsMclsCd": "I201",
+     "indsMclsNm": "한식",
+     "indsSclsCd": "I20111",
+     "indsSclsNm": "횟집",
+     "stdrDt": "2023-02-28"
+    }
+   ]
+  }
+ }
+}
