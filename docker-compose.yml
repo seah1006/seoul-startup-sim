@@ -11,4 +11,3 @@ services:
       - seoul_startup_sim_db:/var/lib/postgresql/data
 volumes:
   seoul_startup_sim_db:
-    name: seoul_startup_sim_db
