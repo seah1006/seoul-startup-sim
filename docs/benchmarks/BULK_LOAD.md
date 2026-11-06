@@ -39,3 +39,5 @@ COPY는 배치별 고유 UNLOGGED staging을 만들고 finally에서 삭제한�
 ## 파서 선택
 
 RFC4180 직접 구현. 외부 의존성 다운로드가 제한되고 Commons CSV 캐시가 없는 환경에서 의존성 없이 UTF-8 스트리밍 처리가 가능하다. 따옴표/이중따옴표/쉼표/셀 내 개행/CRLF/빈값을 처리하고 좌표 파싱 실패, NaN/Infinity, 세계 범위 밖 좌표는 failed로 집계하여 건너뛴다. 구조가 깨진 CSV는 실패시켜 잘못된 전체 스냅샷 교체를 막는다.
+
+검증 실행: gradlew.bat clean check --offline 성공(13 tests, 실패 0). 기존 수집 테스트 9개, 마스킹 2개, 신규 점포 통합 테스트 2개. 2026-11-07 01:25 KST 기준. bootRun은 실행하지 않았다.

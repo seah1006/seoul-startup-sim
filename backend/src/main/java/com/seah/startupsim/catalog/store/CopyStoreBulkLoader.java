@@ -45,4 +45,3 @@ public class CopyStoreBulkLoader implements StoreBulkLoader {
         });
     }
 }
-
