@@ -16,8 +16,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -37,6 +40,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.HexFormat;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -45,7 +49,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "app.ingest.stale-after=30m")
 class IngestIntegrationTest {
     @Container
     static final PostgreSQLContainer<?> DB =
@@ -65,6 +71,8 @@ class IngestIntegrationTest {
     @Autowired FakeCollector fake;
     @Autowired Environment environment;
     @Autowired PlatformTransactionManager transactions;
+
+    @Autowired ConfigurableApplicationContext context;
 
     @BeforeEach
     void reset() {
@@ -211,6 +219,44 @@ class IngestIntegrationTest {
                 };
         assertThrows(DataIntegrityViolationException.class, () -> service.run("fake", null));
         assertEquals("FAILED", jdbc.queryForObject("SELECT status FROM ingest_runs", String.class));
+    }
+
+    @Test
+    @DisplayName("앱 시작 시 설정 기준보다 오래된 RUNNING만 실패 처리하고 다시 수집할 수 있다")
+    void applicationReadyCleansOnlyStaleRunningRuns() {
+        jdbc.update(
+                """
+                INSERT INTO ingest_runs(source, status, started_at)
+                VALUES ('fake', 'RUNNING', now() - interval '40 minutes'),
+                       ('recent', 'RUNNING', now() - interval '10 minutes'),
+                       ('completed', 'SUCCEEDED', now() - interval '3 hours')
+                """);
+
+        context.publishEvent(
+                new ApplicationReadyEvent(
+                        new SpringApplication(StartupSimApplication.class),
+                        new String[0],
+                        context,
+                        Duration.ZERO));
+
+        var stale = jdbc.queryForMap("SELECT * FROM ingest_runs WHERE source = 'fake'");
+        assertEquals("FAILED", stale.get("status"));
+        assertEquals("중단됨: 앱 재시작 시 정리", stale.get("error_message"));
+        assertNotNull(stale.get("finished_at"));
+        assertEquals(
+                "RUNNING",
+                jdbc.queryForObject(
+                        "SELECT status FROM ingest_runs WHERE source = 'recent'", String.class));
+        assertEquals(
+                "SUCCEEDED",
+                jdbc.queryForObject(
+                        "SELECT status FROM ingest_runs WHERE source = 'completed'", String.class));
+
+        long nextRunId = service.run("fake", null);
+        assertEquals(
+                "SUCCEEDED",
+                jdbc.queryForObject(
+                        "SELECT status FROM ingest_runs WHERE id = ?", String.class, nextRunId));
     }
 
     static class FakeCollector implements Collector {
