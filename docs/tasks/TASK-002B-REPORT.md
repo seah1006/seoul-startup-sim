@@ -1,0 +1,28 @@
+# TASK-002B 구현 보고
+
+## 구현
+- Resilience4j 2.3.0 core 모듈 조합: Boot 4 starter 호환성 의존을 피하고 명시적으로 구성.
+- 기본 RateLimiter 5회/초, Retry 최대 시도 3회(첫 호출 포함), 대기 500ms→1s. 요구서의 0.5→1→2s를 모두 사용하려면 max-attempts=4로 설정한다.
+- CircuitBreaker 최근 5회가 모두 재시도 가능 장애이면 30초 열림. 개별 시도에 적용하여 긴 장애에서 요청을 빠르게 중단. 인증 오류는 차단기 실패율에서 제외.
+- 연결 3초, 요청 응답 제한 10초. 모든 정책은 app.external.seoul 아래 설정.
+- V3 ACTIVE 인덱스를 source+coalesce(period,'')로 변경. 기간 없는 기존 수집기 유일성 유지.
+- 매출은 총액·건수, 주중/주말, 아침/점심/저녁, 남녀 금액만 펼침. 수요 규모·영업 시간·성별 상대 비교에 필요한 최소 필드이며 성별 누락 법인 매출은 원본으로 확인 가능. 인구는 상대 비교만 허용.
+- IngestService 변경 없음. 분기 적재와 버전 전환은 단일 트랜잭션. 원본은 기존 REQUIRES_NEW로 보존.
+- samples 실제 응답을 잘라 적재/멱등/원본/버전 테스트에 사용.
+
+## 검증
+- 최초 clean check: 15개 중 신규 테스트 4개 포함 14개 성공, 기존 마이그레이션 개수 기대값 1이 실패. V1+V3의 2로 수정 후 재검증.
+- 실제 API 20262 적재와 20251~20262 백필: 미검증.
+- 추가 필요 테스트: 정상 2페이지, 중간 페이지 롤백, CircuitBreaker 개방, RateLimiter 최소 시간.
+- bootRun 실행하지 않음. 별도 앱 프로세스 없음.
+- sss-002b-db-1은 전용 sss-002b_seoul_startup_sim_db 볼륨 사용. 기존 공유 볼륨은 마운트하지 않음.
+
+## 남은 문제 / 제안
+- 전체 완료 조건 미충족. 실제 API 검증 및 위 테스트를 메인 에이전트가 이어서 수행해야 함.
+- CLI 네트워크 제한으로 임시 로컬 Maven 저장소를 Gradle init 스크립트로만 참조해 검증. build.gradle은 mavenCentral만 유지하고 임시 파일은 커밋하지 않음.
+- 병합 시 기존 IngestIntegrationTest 마이그레이션 기대값을 전체 마이그레이션 수에 맞게 조정 필요.
+
+## 최종 실행 결과
+- clean check --offline -I ../.deps.init.gradle: BUILD SUCCESSFUL (34초), 테스트 15개 통과.
+- 실제 키를 소스와 테스트 결과 28개 파일에서 검색: 발견 0건.
+

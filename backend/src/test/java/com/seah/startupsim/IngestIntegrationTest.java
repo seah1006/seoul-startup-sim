@@ -85,7 +85,7 @@ class IngestIntegrationTest {
     void migrationAndPostgis() {
         assertNotNull(jdbc.queryForObject("SELECT postgis_version()", String.class));
         assertEquals(
-                1,
+                2,
                 jdbc.queryForObject(
                         "SELECT count(*) FROM flyway_schema_history WHERE success=true",
                         Integer.class));
