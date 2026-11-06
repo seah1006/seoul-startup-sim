@@ -24,6 +24,7 @@
 - 커밋 메시지: `feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:` + 한국어 요약
 
 ## 로컬 실행
+- 포트: DB 5433, 앱 8081 (다른 로컬 프로젝트와 충돌 방지).
 - DB: `docker compose up -d` (루트 `docker-compose.yml`)
 - 백엔드: `cd backend && ./gradlew bootRun` (Windows는 `gradlew.bat`)
 - 전체 검증: `cd backend && ./gradlew clean check`

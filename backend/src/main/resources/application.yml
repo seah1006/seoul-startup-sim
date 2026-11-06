@@ -15,3 +15,5 @@ app:
       api-key: ${SEOUL_OPEN_API_KEY:}
     datagokr:
       service-key: ${DATA_GO_KR_SERVICE_KEY:}
+server:
+  port: ${SERVER_PORT:8081}
