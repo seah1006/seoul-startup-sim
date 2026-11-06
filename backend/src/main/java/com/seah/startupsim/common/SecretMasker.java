@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class SecretMasker {
     private final ExternalProperties properties;
+    @org.springframework.beans.factory.annotation.Value("${ADMIN_PASSWORD:}")
+    private String adminPassword = "";
 
     public SecretMasker(ExternalProperties properties) {
         this.properties = properties;
@@ -21,7 +23,7 @@ public class SecretMasker {
         String result = text;
         for (String key :
                 new String[] {
-                    properties.getSeoul().getApiKey(), properties.getDatagokr().getServiceKey()
+                    properties.getSeoul().getApiKey(), properties.getDatagokr().getServiceKey(), adminPassword
                 }) {
             if (key != null && !key.isBlank()) {
                 result = result.replace(key, "****");
@@ -36,3 +38,4 @@ public class SecretMasker {
         return result;
     }
 }
+
