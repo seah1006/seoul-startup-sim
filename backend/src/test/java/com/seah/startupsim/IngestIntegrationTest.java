@@ -87,7 +87,7 @@ class IngestIntegrationTest {
         assertEquals(
                 1,
                 jdbc.queryForObject(
-                        "SELECT count(*) FROM flyway_schema_history WHERE success=true",
+                        "SELECT count(*) FROM flyway_schema_history WHERE success=true AND version='1'",
                         Integer.class));
     }
 

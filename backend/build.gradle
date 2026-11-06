@@ -23,12 +23,21 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-flyway'
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.hibernate.orm:hibernate-spatial'
-    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.postgresql:postgresql'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.testcontainers:postgresql:1.21.4'
     testImplementation 'org.testcontainers:junit-jupiter:1.21.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags 'benchmark' }
+}
+tasks.register('benchmark', Test) {
+    description = '로컬 compose DB에서 상가 대량 적재 측정 (기존 stores 삭제)'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'benchmark' }
+    systemProperty 'sbiz.csv', System.getProperty('sbiz.csv', '')
+    maxHeapSize = '1g'
+    testLogging { showStandardStreams = true }
 }
