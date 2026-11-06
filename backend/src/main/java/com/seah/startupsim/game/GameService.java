@@ -1,4 +1,5 @@
 package com.seah.startupsim.game;
+import com.seah.startupsim.catalog.IndustryMappingPort;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
