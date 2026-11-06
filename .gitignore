@@ -51,4 +51,3 @@ desktop.ini
 
 !frontend/.env.local.example
 *.tsbuildinfo
-*.tsbuildinfo
