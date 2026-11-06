@@ -32,7 +32,7 @@ public class AreaService {
                 ORDER BY area_code LIMIT 501
                 """, (rs, n) -> {
                     Map<String, Object> properties = new LinkedHashMap<>();
-                    for (String key : List.of("area_code", "name", "area_type_name", "district_name")) properties.put(key, rs.getString(key));
+                    for (String key : List.of("area_code", "name", "area_type_name", "district_name")) properties.put(switch (key) { case "area_code" -> "areaCode"; case "area_type_name" -> "areaTypeName"; case "district_name" -> "districtName"; default -> key; }, rs.getString(key));
                     return Map.<String, Object>of("type", "Feature", "properties", properties, "geometry", mapper.readTree(rs.getString("geometry")));
                 }, tolerance, b[0], b[1], b[2], b[3]);
         boolean truncated = features.size() > 500;
@@ -40,15 +40,17 @@ public class AreaService {
     }
     public Map<String, Object> detail(String code) {
         List<Map<String, Object>> result = jdbc.queryForList("""
-                SELECT area_code,name,area_type_code,area_type_name,district_code,district_name,dong_code,dong_name,area_m2,
-                ST_X(centroid) AS longitude,ST_Y(centroid) AS latitude,version_id FROM trade_areas WHERE area_code=?
+                SELECT area_code AS "areaCode",name,area_type_name AS "areaTypeName",district_name AS "districtName",dong_name AS "dongName",area_m2 AS "areaM2",
+                json_build_object('lng',ST_X(centroid),'lat',ST_Y(centroid))::text AS centroid FROM trade_areas WHERE area_code=?
                 """, code);
         if (result.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상권을 찾을 수 없습니다.");
-        return result.getFirst();
+        return centroid(result.getFirst());
     }
+    private Map<String,Object> centroid(Map<String,Object> row) { row.put("centroid", mapper.readTree((String) row.get("centroid"))); return row; }
     public List<Map<String, Object>> search(String q) {
         if (q.isBlank() || q.length() > 100) throw new IllegalArgumentException("검색어는 1~100자여야 합니다.");
         String escaped = q.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-        return jdbc.queryForList("SELECT area_code,name,area_type_name,district_name FROM trade_areas WHERE name LIKE ? ESCAPE '!' ORDER BY name,area_code LIMIT 20", "%" + escaped + "%");
+        return jdbc.queryForList("SELECT area_code AS \"areaCode\",name,area_type_name AS \"areaTypeName\",district_name AS \"districtName\",json_build_object('lng',ST_X(centroid),'lat',ST_Y(centroid))::text AS centroid FROM trade_areas WHERE name LIKE ? ESCAPE '!' ORDER BY name,area_code LIMIT 20", "%" + escaped + "%").stream().map(this::centroid).toList();
     }
 }
+

@@ -140,13 +140,13 @@ class AreaWebIntegrationTest {
         assertEquals(200, search.statusCode());
         JsonNode matches = mapper.readTree(search.body());
         assertEquals(1, matches.size());
-        String code = matches.get(0).path("area_code").asText();
+        String code = matches.get(0).path("areaCode").asText();
         HttpResponse<String> detail = request("/api/areas/" + code);
         assertEquals(200, detail.statusCode());
         JsonNode area = mapper.readTree(detail.body());
-        assertEquals(code, area.path("area_code").asText());
-        assertTrue(area.path("longitude").asDouble() > 126.7);
-        assertTrue(area.path("latitude").asDouble() > 37.4);
+        assertEquals(code, area.path("areaCode").asText());
+        assertTrue(area.path("centroid").path("lng").asDouble() > 126.7);
+        assertTrue(area.path("centroid").path("lat").asDouble() > 37.4);
         assertEquals(0, mapper.readTree(request("/api/areas?bbox=120,30,121,31&zoom=15").body()).path("features").size());
         assertEquals(400, request("/api/areas?bbox=bad&zoom=15").statusCode());
         assertEquals(404, request("/api/areas/nonexistent").statusCode());
@@ -171,3 +171,4 @@ class AreaWebIntegrationTest {
                 HttpResponse.BodyHandlers.ofString());
     }
 }
+
