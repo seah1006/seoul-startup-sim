@@ -1,0 +1,9 @@
+import {describe,it,expect,vi} from 'vitest';
+import {render,screen} from '@testing-library/react';
+import {ResultCard} from '../components/ResultCard';
+import {candidates,mockRequest,sampleResult} from '../api/mock';
+import {advanceWithRecovery} from '../api/client';
+import type {Background,GameState} from '../api/types';
+describe('결산 카드',()=>{it('큰 금액을 만 원 단위로 표시한다',()=>{render(<ResultCard result={sampleResult}/>);expect(screen.getByText('1,240만 원')).toBeInTheDocument();expect(screen.getByText(/12곳 중/)).toBeInTheDocument();});});
+describe('후보',()=>{it('모든 배경·시드에서 3명, 합계 240이며 결정론적이다',()=>{for(const b of ['OFFICE_WORKER','CULINARY','PART_TIMER','LOCAL'] as Background[])for(const seed of [1,123,124,999]){const list=candidates(b,seed);expect(list).toHaveLength(3);expect(list).toEqual(candidates(b,seed));for(const c of list)expect(Object.values(c.stats).reduce((a,b)=>a+b,0)).toBe(240);}});});
+describe('분기 진행',()=>{it('409면 최신 상태를 다시 조회한다',async()=>{const g=await mockRequest<GameState>('/games','POST',{ownerName:'테스트',background:'OFFICE_WORKER',candidateId:'c1',candidateSeed:123,focusStats:[]});const refresh=vi.fn();await expect(advanceWithRecovery({...g,version:99},refresh)).rejects.toMatchObject({status:409});expect(refresh).toHaveBeenCalledWith(g);});it('같은 키 재요청은 한 번만 진행한다',async()=>{const g=await mockRequest<GameState>('/games','POST',{ownerName:'테스트',background:'LOCAL',candidateId:'c1',candidateSeed:123,focusStats:[]});await mockRequest(`/games/${g.gameId}/turns/0/decision`,'PUT',{marketingBudget:0});const first=await mockRequest(`/games/${g.gameId}/advance`,'POST',{expectedVersion:0},'fixed-key');const second=await mockRequest(`/games/${g.gameId}/advance`,'POST',{expectedVersion:0},'fixed-key');expect(second).toEqual(first);const latest=await mockRequest<GameState>(`/games/${g.gameId}`,'GET');expect(latest.currentTurn).toBe(1);});});
