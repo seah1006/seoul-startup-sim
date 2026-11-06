@@ -127,3 +127,49 @@
   "dataNotes": ["이 상권의 커피-음료 매출은 자치구 평균으로 추정한 값입니다"]
 }
 ```
+
+## 3. v1.1 추가 (전환점, 동네 반응, 엔딩, 랭킹) — 2026-11-07
+
+### GameState 추가 필드
+- `pendingTurningPoint: boolean` — true면 전환점을 먼저 선택해야 다음 분기 진행 가능. 이 상태에서 advance 요청은 409 `TURNING_POINT_PENDING`
+
+### QuarterResult 필드 채움
+- `moment`: `{ "title": "단골손님이 친구들을 데려왔어요", "text": "…", "stat": "service", "success": true }` 또는 null
+- `reactions`: `[{ "kind": "REVIEW", "author": "망원동 주민", "rating": 4, "text": "…", "likes": 12 }, { "kind": "COMMUNITY", "author": "동네 커뮤니티", "text": "…", "likes": 31 }]` — 게임 속 가상 반응. 실제 상호 사용 금지
+
+### 전환점
+- `GET /api/games/{gameId}/turning-point` → 대기 중이면 200, 없으면 204
+  ```json
+  { "gameTurningPointId": 7, "code": "FRANCHISE_OFFER", "title": "프랜차이즈 가맹 제안",
+    "description": "…", "options": [
+      { "optionId": 1, "label": "가맹한다", "successRatePct": 70,
+        "onSuccess": "매출 +20%, 원가율 +5%p", "onFail": "가맹비 3,000만 원만 나간다" },
+      { "optionId": 2, "label": "독립 가게로 남는다", "successRatePct": 100, "onSuccess": "변화 없음", "onFail": "-" } ] }
+  ```
+- `POST /api/games/{gameId}/turning-point/choice` `{ "optionId": 1 }` 헤더 `Idempotency-Key`
+  → `200 { "success": true, "resultText": "…", "effects": [{ "label": "매출", "value": "+20%" }], "game": GameState }`
+
+### 엔딩
+- `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
+- 자동 엔딩: CLOSED(잔액 2분기 연속 음수), LONG_RUNNING(데이터 마지막 분기 도달)
+- `GET /api/games/{gameId}/summary` →
+  ```json
+  { "gameId": 10, "endingType": "LONG_RUNNING", "ownerName": "김사장", "shopName": "망원커피",
+    "areaName": "망원역", "serviceName": "커피-음료", "survivedQuarters": 14,
+    "totalProfit": 182000000, "bestQuarterProfit": 31000000, "shopCount": 1,
+    "shareUrl": "/share/10" }
+  ```
+
+### 랭킹 (인증 불필요)
+- `GET /api/rankings?date=2026-11-07&kind=ALL` (kind: `ALL|INDUSTRY|AREA`, INDUSTRY/AREA는 `key`=serviceCode/areaCode)
+  ```json
+  { "date": "2026-11-07", "refreshedAt": "2026-11-07T10:30:00+09:00", "kind": "ALL",
+    "entries": [ { "rank": 1, "nickname": "손님-4821", "ownerName": "김사장", "shopName": "망원커피",
+                   "areaName": "망원역", "serviceName": "커피-음료", "endingType": "LONG_RUNNING",
+                   "survivedQuarters": 14, "totalProfit": 182000000 } ] }
+  ```
+  - 순위: 생존 분기 수 → 누적 순이익 → 최고 분기 순이익 → 매장 수. 같으면 공동 순위. 30분마다 갱신. 최근 7일 조회 가능
+- 홈 미리보기: `GET /api/rankings?kind=ALL&limit=3`
+
+### 공유 페이지 (Thymeleaf)
+- `GET /share/{gameId}` — 엔딩 요약 HTML, OG 태그(og:title, og:description, og:image는 정적 기본 이미지)
