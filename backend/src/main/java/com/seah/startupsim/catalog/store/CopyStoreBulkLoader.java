@@ -32,7 +32,7 @@ public class CopyStoreBulkLoader implements StoreBulkLoader {
                     }
                     connection.unwrap(PGConnection.class).getCopyAPI().copyIn(
                             "COPY " + table + " FROM STDIN WITH (FORMAT csv)", new StringReader(data.toString()));
-                    statement.execute("INSERT INTO stores SELECT id,name,branch,large,middle,small,small_name,industry,"
+                    statement.execute("INSERT INTO stores(store_id,name,branch_name,large_code,middle_code,small_code,small_name,std_industry_code,district_code,dong_code,road_address,geom,snapshot,version_id) SELECT id,name,branch,large,middle,small,small_name,industry,"
                             + "district,dong,address,ST_SetSRID(ST_MakePoint(lng,lat),4326),snapshot,version FROM "
                             + table + " WHERE true " + JdbcStoreBulkLoader.UPSERT.substring(JdbcStoreBulkLoader.UPSERT.indexOf("ON CONFLICT")));
                 } catch (java.io.IOException e) {
@@ -45,3 +45,4 @@ public class CopyStoreBulkLoader implements StoreBulkLoader {
         });
     }
 }
+

@@ -21,6 +21,7 @@ public class StoreSnapshotService {
         jdbc.execute("CREATE TEMP TABLE store_previous ON COMMIT DROP AS TABLE stores");
         jdbc.execute("TRUNCATE stores");
         StoreCsvParser.Counts counts = parser.read(file, Integer.MAX_VALUE, rows -> loader.load(rows, snapshot, version));
+        jdbc.update("UPDATE stores s SET service_code=m.service_code FROM industry_mappings m WHERE s.small_code=m.sbiz_small_code AND m.match_type<>'NONE'");
         jdbc.update("DELETE FROM store_snapshot_diffs WHERE snapshot=?", snapshot);
         jdbc.update("""
                 INSERT INTO store_snapshot_diffs
@@ -35,3 +36,4 @@ public class StoreSnapshotService {
         return counts;
     }
 }
+

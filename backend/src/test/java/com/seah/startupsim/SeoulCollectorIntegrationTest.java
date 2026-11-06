@@ -50,9 +50,14 @@ class SeoulCollectorIntegrationTest {
     @Autowired IngestService service;
     @Autowired JdbcTemplate jdbc;
     @BeforeEach
-    void reset() {
+    void reset() throws Exception {
         API.resetAll();
         jdbc.execute("TRUNCATE raw_payloads,ingest_runs,data_versions RESTART IDENTITY CASCADE");
+        for (String api : new String[]{"VwsmTrdarSelngQq","VwsmTrdarStorQq","VwsmTrdarFlpopQq"}) {
+            for (var row : JsonMapper.builder().build().readTree(sampleBody(api)).path(api).path("row")) {
+                jdbc.update("INSERT INTO trade_areas(area_code,name,geom,centroid) VALUES (?, '표본',ST_Multi(ST_MakeEnvelope(126,37,127,38,4326)),ST_SetSRID(ST_MakePoint(126.9,37.5),4326)) ON CONFLICT DO NOTHING",row.path("TRDAR_CD").asText());
+            }
+        }
     }
     @AfterAll
     static void stop() { API.stop(); }
