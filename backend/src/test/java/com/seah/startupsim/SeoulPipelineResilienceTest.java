@@ -74,7 +74,7 @@ class SeoulPipelineResilienceTest {
     void reset() throws Exception {
         API.resetAll();
         jdbc.execute("TRUNCATE raw_payloads,ingest_runs,data_versions RESTART IDENTITY CASCADE");
-        jdbc.execute("INSERT INTO trade_areas(area_code,name,geom,centroid) SELECT lpad(i::text,7,'0'),'표본',ST_Multi(ST_MakeEnvelope(126,37,127,38,4326)),ST_SetSRID(ST_MakePoint(126.9,37.5),4326) FROM generate_series(0,3000) i ON CONFLICT DO NOTHING");
+        jdbc.execute("INSERT INTO trade_areas(area_code,name,geom,centroid) SELECT lpad(i::text,7,'0'),'표본',ST_Multi(ST_MakeEnvelope(126,37,127,38,4326)),ST_SetSRID(ST_MakePoint(126.9,37.5),4326) FROM generate_series(0,5000) i ON CONFLICT DO NOTHING");
         sampleRow = (ObjectNode) MAPPER.readTree(Files.readString(Path.of(
                 "../docs/data/samples/seoul_VwsmTrdarSelngQq_20262.json")))
                 .path("response").path(SERVICE).path("row").get(0);
@@ -204,4 +204,5 @@ class SeoulPipelineResilienceTest {
         assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM raw_payloads", Integer.class));
     }
 }
+
 
