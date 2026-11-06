@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    environment:
+      POSTGRES_DB: seoul_startup_sim
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - seoul_startup_sim_db:/var/lib/postgresql/data
+volumes:
+  seoul_startup_sim_db:
+    name: seoul_startup_sim_db

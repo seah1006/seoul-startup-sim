@@ -1,0 +1,19 @@
+spring:
+  config:
+    import: optional:file:../.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+app:
+  external:
+    seoul:
+      api-key: ${SEOUL_OPEN_API_KEY:}
+    datagokr:
+      service-key: ${DATA_GO_KR_SERVICE_KEY:}
+server:
+  port: ${SERVER_PORT:8081}
