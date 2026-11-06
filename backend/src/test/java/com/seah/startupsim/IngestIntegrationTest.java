@@ -84,7 +84,11 @@ class IngestIntegrationTest {
     @DisplayName("Flyway 마이그레이션과 PostGIS 확장이 적용된다")
     void migrationAndPostgis() {
         assertNotNull(jdbc.queryForObject("SELECT postgis_version()", String.class));
-        assertTrue(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success=true", Integer.class) >= 2);
+        assertEquals(
+                1,
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM flyway_schema_history WHERE success=true AND version='1'",
+                        Integer.class));
     }
 
     @Test
