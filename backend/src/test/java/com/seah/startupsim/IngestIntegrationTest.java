@@ -85,11 +85,11 @@ class IngestIntegrationTest {
     @DisplayName("Flyway 마이그레이션과 PostGIS 확장이 적용된다")
     void migrationAndPostgis() {
         assertNotNull(jdbc.queryForObject("SELECT postgis_version()", String.class));
-        // V1~V4가 모두 성공적으로 적용되어야 한다. (마이그레이션이 늘어나도 깨지지 않게 버전 목록으로 확인)
+        // 지금까지의 마이그레이션이 모두 성공적으로 적용되어야 한다. (새 마이그레이션이 늘어나도 깨지지 않게 포함 여부로 확인)
         assertTrue(
                 jdbc.queryForList(
                         "SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL ORDER BY installed_rank",
-                        String.class).containsAll(List.of("1", "2", "3", "4", "7")));
+                        String.class).containsAll(List.of("1", "2", "3", "4", "5", "7")));
     }
 
     @Test
