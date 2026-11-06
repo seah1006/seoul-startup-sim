@@ -13,12 +13,12 @@
 ## 검증
 - 최초 clean check: 15개 중 신규 테스트 4개 포함 14개 성공, 기존 마이그레이션 개수 기대값 1이 실패. V1+V3의 2로 수정 후 재검증.
 - 실제 API 20262 적재와 20251~20262 백필: 미검증.
-- 추가 필요 테스트: 정상 2페이지, 중간 페이지 롤백, CircuitBreaker 개방, RateLimiter 최소 시간.
+- 추가 테스트: 정상 2페이지(1,001행), 중간 페이지 실패 시 기존 데이터/버전 전체 비교, CircuitBreaker 개방 후 HTTP 미호출 및 FAILED 기록, 초당 2건·5페이지(4,001행)의 1.5초 하한 검증을 추가했다. 테스트별 정책 인스턴스를 격리하고 재시도 1ms·차단 2초로 실행 시간을 줄였다.
 - bootRun 실행하지 않음. 별도 앱 프로세스 없음.
 - sss-002b-db-1은 전용 sss-002b_seoul_startup_sim_db 볼륨 사용. 기존 공유 볼륨은 마운트하지 않음.
 
 ## 남은 문제 / 제안
-- 전체 완료 조건 미충족. 실제 API 검증 및 위 테스트를 메인 에이전트가 이어서 수행해야 함.
+- 실제 API 적재와 백필 검증은 메인 에이전트가 수행한다. 추가 안정성 테스트는 구현 에이전트가 후속 검증한다.
 - CLI 네트워크 제한으로 임시 로컬 Maven 저장소를 Gradle init 스크립트로만 참조해 검증. build.gradle은 mavenCentral만 유지하고 임시 파일은 커밋하지 않음.
 - 병합 시 기존 IngestIntegrationTest 마이그레이션 기대값을 전체 마이그레이션 수에 맞게 조정 필요.
 
@@ -26,3 +26,7 @@
 - clean check --offline -I ../.deps.init.gradle: BUILD SUCCESSFUL (34초), 테스트 15개 통과.
 - 실제 키를 소스와 테스트 결과 28개 파일에서 검색: 발견 0건.
 
+## 후속 핵심 테스트 검증
+- test --tests com.seah.startupsim.SeoulPipelineResilienceTest --offline: 4개 통과, BUILD SUCCESSFUL (30초).
+- 마지막 clean check --offline: 19개 통과, BUILD SUCCESSFUL (51초). 임시 Maven 저장소 없이 공유 Gradle 캐시로 검증.
+- 5페이지 속도 제한 테스트 전체 소요 2.706초(하한 1.5초 충족), 회로 차단 테스트 전체 소요 0.050초. 개별 XML은 backend/build/test-results/test 참조.
