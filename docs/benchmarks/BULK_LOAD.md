@@ -1,43 +1,47 @@
-# 상가 대량 적재 벤치마크
+# 상가업소 대량 적재 벤치마크
 
-## 재실행
+서울 상가업소 CSV(소상공인시장진흥공단, 552,422건)를 `stores` 테이블에 넣는 세 가지 방식을 같은 조건에서 비교했다.
 
-전용 compose DB는 5436, 앱은 8084. 루트 `.env`는 출력하거나 커밋하지 않는다.
-`docker compose -f docker-compose.yml -f compose.local.yml -p sss-002c up -d`
-`compose.local.yml`은 로컬 전용이며 `seoul_startup_sim_db` 볼륨의 이름을 `sss-002c_db`로 변경한다. 기존 공유 볼륨을 사용하면 안 된다.
+## 측정 환경
+
+- 측정: 2026-11-07 01:43~01:55 KST, 다른 빌드·에이전트 작업 없이 단독 실행
+- CPU: AMD Ryzen 5 5600 (6코어 12스레드), RAM 32GB, Windows 11 Pro
+- JDK Temurin 25.0.5, Spring Boot 4.1.2, Docker 29.4.0, PostGIS 16-3.5 (로컬 compose)
+- 공통 조건: 같은 CSV 스트리밍 파서, 1,000행 배치, 매 측정 전 `TRUNCATE`, 파싱과 GiST/B-tree 인덱스 유지 비용 포함
+- 규모별로 웜업 1회 후 3회 측정, **중앙값** 사용 (원시 로그 형식: `BENCH,시각,방식,건수,회차,초,초당건수`)
+
+## 결과
+
+| 방식 | 1만 건 | 10만 건 | 55만 건(전체) | 초당 건수(전체) |
+| --- | ---: | ---: | ---: | ---: |
+| JPA `saveAll` (batch_size=1000, order_inserts) | 7.29초 | 77.56초 | 미측정* | 약 1,300 (10만 기준) |
+| JdbcTemplate `batchUpdate` | 0.66초 | 6.96초 | 38.80초 | 14,238 |
+| `COPY` → 스테이징 → `INSERT … ON CONFLICT` | 0.56초 | 6.05초 | **34.94초** | **15,812** |
+
+\* JPA 전체 규모는 10만 건 결과로 볼 때 회당 약 7분, 4회 약 28분이 걸려 측정을 중단했다(지시서 기준: 15분 초과 시 10만까지만).
+
+운영 수집기(`sbiz-stores-csv`, COPY 방식 + 파일 SHA-256 + 스냅샷 비교 포함) 실제 전체 적재: **50.8초**, 552,422건 (CSV 데이터 행 수와 일치).
+
+## 해석
+
+1. **JPA는 JDBC 배치보다 약 11배 느리다.** batch_size를 켜도 엔티티마다 영속성 컨텍스트 관리, 더티 체킹, 객체 생성 비용이 든다. 대량 적재에는 JPA를 쓰지 않고, 게임 도메인처럼 행 수가 적고 객체 관계가 중요한 곳에만 JPA를 쓴다.
+2. **COPY는 JDBC 배치보다 약 10% 빠른 데 그쳤다.** 현재 구현은 1,000행마다 스테이징 테이블을 만들고 `INSERT … SELECT`로 옮긴 뒤 지운다. 배치마다 붙는 고정 비용 때문에 COPY 본래의 장점(한 번의 스트림)을 살리지 못한 것으로 본다. → 개선 과제: 파일 전체를 한 번의 COPY 스트림으로 스테이징에 넣고 한 번에 반영(측정 후 이 문서 갱신).
+3. 운영 방식으로 COPY를 고른 이유: 현재도 가장 빠르고, 스테이징을 거치므로 본 테이블 반영을 한 번의 `ON CONFLICT` 집합 연산과 스냅샷 비교(NEW/CLOSED/CHANGED)로 처리할 수 있다.
+
+## 반경 조회 성능
+
+망원동 근처 (126.905, 37.556) 반경 300m, 같은 소분류(I21201) 업소 수:
+
+- 실행 시간 **7.7ms** (전체 55만 건, `ANALYZE` 후)
+- 실행 계획: `stores_geom_idx`(GiST, bbox 후보 2,130건)와 `stores_small_code_idx`(B-tree)를 `BitmapAnd`로 결합 → 151건 → `ST_DWithin`(geography, 정확한 미터 거리)로 81건
+- `geom::geography`만으로 거리를 비교하면 GiST를 못 쓰므로, `geom && ST_Expand(...)`로 인덱스 후보를 먼저 거르는 방식을 쓴다.
+
+## 재실행 방법
 
 ```powershell
-$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-25.0.5.8-hotspot'
+docker compose up -d
 cd backend
 .\gradlew.bat benchmark '-Dsbiz.csv=C:\Users\my\dev\seoul-startup-sim\data\raw\sbiz\seoul.csv' --offline --rerun-tasks
 ```
 
-주의: benchmark는 stores 및 store_snapshot_diffs를 TRUNCATE한다. 운영 데이터베이스에서는 실행하지 않는다. 각 규모/전략마다 웜업 1회 후 3회 측정하며 `BENCH` 로그의 run=1,2,3 중앙값을 사용한다. 파일 파싱과 공간 인덱스 유지 비용을 포함한다. 각 전략은 1,000행 배치, JPA는 batch_size=1000 및 order_inserts 사용. JDBC URL에 reWriteBatchedInserts=true를 별도로 붙여 비교할 수 있다(기본 비교에는 미적용).
-
-## 측정 상태
-
-2026-11-07 01:23 KST, 다른 에이전트 2개 동시 작업 중(동시 부하 있음).
-JDK Temurin 25.0.5.8, Docker 29.4.0 (9d7ad9f). CPU/RAM 정보는 CIM 명령이 값을 반환하지 않아 미확인.
-
-| 방식 | 건수 | 중앙 시간 | 초당 건수 | 최대 메모리 |
-| --- | ---: | --- | --- | --- |
-| JPA saveAll | 1만 / 10만 / 552422 | 미측정 | 미측정 | 미측정 |
-| JDBC batch | 1만 / 10만 / 552422 | 미측정 | 미측정 | 미측정 |
-| COPY staging | 1만 / 10만 / 552422 | 미측정 | 미측정 | 미측정 |
-
-수치와 가장 빠른 방식은 아직 검증하지 못했다. 운영 수집기는 잠정적으로 COPY를 사용하며 실측 후 확정해야 한다.
-COPY는 배치별 고유 UNLOGGED staging을 만들고 finally에서 삭제한다. 자동 커밋 모드의 개별 전략 실행과 동일하게 동작시키기 위해 TEMP ON COMMIT DROP을 사용하지 않았다.
-스냅샷 교체 서비스는 트랜잭션 안에서 이전 stores를 TEMP 테이블로 보존하고 전체 교체 및 NEW/CLOSED/CHANGED 집합 비교를 원자적으로 수행한다.
-전체 파일 메모리 적재 없이 파서는 1,000행, COPY는 해당 배치 CSV 문자열만 보관한다.
-
-## 검증
-
-전체 적재 건수 및 망원동 공간 질의 EXPLAIN ANALYZE: 미검증. benchmark 마지막 단계가 운영 수집기를 실행하고 count 및 EXPLAIN 결과를 출력한다.
-공간 질의는 geom의 GiST bounding box 후보와 geography의 정확한 300m 거리를 함께 사용한다. geom::geography만 쓰면 geom 인덱스를 이용할 수 없기 때문이다.
-
-## 파서 선택
-
-RFC4180 직접 구현. 외부 의존성 다운로드가 제한되고 Commons CSV 캐시가 없는 환경에서 의존성 없이 UTF-8 스트리밍 처리가 가능하다. 따옴표/이중따옴표/쉼표/셀 내 개행/CRLF/빈값을 처리하고 좌표 파싱 실패, NaN/Infinity, 세계 범위 밖 좌표는 failed로 집계하여 건너뛴다. 구조가 깨진 CSV는 실패시켜 잘못된 전체 스냅샷 교체를 막는다.
-
-검증 실행: gradlew.bat clean check --offline 성공(13 tests, 실패 0). 기존 수집 테스트 9개, 마스킹 2개, 신규 점포 통합 테스트 2개. 2026-11-07 01:25 KST 기준. bootRun은 실행하지 않았다.
+주의: `benchmark`는 `stores`, `store_snapshot_diffs`를 TRUNCATE한다. 운영 DB에서 실행하지 않는다.
