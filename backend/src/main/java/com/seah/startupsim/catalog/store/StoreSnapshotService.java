@@ -10,8 +10,8 @@ import java.nio.file.Path;
 public class StoreSnapshotService {
     private final JdbcTemplate jdbc;
     private final StoreCsvParser parser;
-    private final CopyStoreBulkLoader loader;
-    public StoreSnapshotService(JdbcTemplate jdbc, StoreCsvParser parser, CopyStoreBulkLoader loader) {
+    private final StreamingCopyStoreBulkLoader loader;
+    public StoreSnapshotService(JdbcTemplate jdbc, StoreCsvParser parser, StreamingCopyStoreBulkLoader loader) {
         this.jdbc = jdbc;
         this.parser = parser;
         this.loader = loader;
@@ -19,8 +19,7 @@ public class StoreSnapshotService {
     @Transactional
     public StoreCsvParser.Counts replace(Path file, String snapshot, Long version) {
         jdbc.execute("CREATE TEMP TABLE store_previous ON COMMIT DROP AS TABLE stores");
-        jdbc.execute("TRUNCATE stores");
-        StoreCsvParser.Counts counts = parser.read(file, Integer.MAX_VALUE, rows -> loader.load(rows, snapshot, version));
+        StoreCsvParser.Counts counts = loader.load(file, Integer.MAX_VALUE, snapshot, version, true);
         jdbc.update("UPDATE stores s SET service_code=m.service_code FROM industry_mappings m WHERE s.small_code=m.sbiz_small_code AND m.match_type<>'NONE'");
         jdbc.update("DELETE FROM store_snapshot_diffs WHERE snapshot=?", snapshot);
         jdbc.update("""

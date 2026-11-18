@@ -45,3 +45,17 @@ cd backend
 ```
 
 주의: `benchmark`는 `stores`, `store_snapshot_diffs`를 TRUNCATE한다. 운영 DB에서 실행하지 않는다.
+
+## TASK-004D 재측정 (2026-11-18 19:04~19:07 KST)
+
+전용 compose `sss-004d` DB 5436에서 파일 전체 PipedReader(64KiB) → 단일 COPY → 단일 INSERT SELECT를 측정했다. 웜업 1회 제외 3회 중앙값. 다른 에이전트 및 로컬 Gradle 빌드·테스트 동시 부하가 있었으므로 기존 단독 실행 값과 공정한 속도 비교는 아니다.
+
+| 방식 | 1만 건 | 10만 건 | 552,422건 | 전체 초당 건수 |
+| --- | ---: | ---: | ---: | ---: |
+| StreamingCopyStoreBulkLoader | 0.413초 | 6.614초 | 35.650초 | 15,496 |
+
+전체 원시 측정: 웜업 34.425초, 본측정 32.447 / 37.371 / 35.650초. 10만: 4.900 / 6.614 / 6.732초. JPA 전체는 측정하지 않았다. 기존 COPY/JDBC의 동일 시점 재측정은 미실시. 벤치마크 도중 별도 clean 작업이 결과 바이너리 파일을 지워 Gradle 보고서 생성은 실패했지만 위 12개 원시 BENCH 행은 모두 로그에 남았다. 이 수치는 이후 추가한 ANALYZE·스냅샷 DELETE 비용은 포함하지 않는다.
+
+운영 수집기는 속도 우위 확정이 아니라 조회 잠금 제거를 위해 streaming으로 전환했다. 이전 TRUNCATE의 ACCESS EXCLUSIVE 잠금은 적재 전체 약 50.8초 동안 유지될 수 있었으나, 변경 후에는 TRUNCATE 없이 COPY 완료 후 upsert + 사라진 점포 DELETE를 수행한다. DML 트랜잭션이 길어도 MVCC SELECT를 막는 ACCESS EXCLUSIVE 잠금은 취득하지 않는다. 실제 전체 스냅샷 잠금 시간 실측은 미완료이며, 별도 연결의 반경 조회를 1.5초 statement_timeout으로 검사하는 통합 테스트를 추가했다.
+
+재실행: `gradlew.bat benchmark --tests '*.streaming' '-Dsbiz.csv=C:\Users\my\dev\seoul-startup-sim\data\raw\sbiz\seoul.csv' --offline --max-workers=2`. 같은 worktree에서 clean 작업과 병행하지 않는다.
