@@ -19,8 +19,9 @@ public class AdminController {
     private final IngestService ingest;
     private final QuarterBackfillService backfill;
     private final SecretMasker masker;
-    public AdminController(AdminService service, IngestService ingest, QuarterBackfillService backfill, SecretMasker masker) {
-        this.service = service; this.ingest = ingest; this.backfill = backfill; this.masker = masker;
+    private final com.seah.startupsim.ingest.DataVersionPurgeService purge;
+    public AdminController(AdminService service, IngestService ingest, QuarterBackfillService backfill, SecretMasker masker, com.seah.startupsim.ingest.DataVersionPurgeService purge) {
+        this.service = service; this.ingest = ingest; this.backfill = backfill; this.masker = masker; this.purge = purge;
     }
     @GetMapping("/admin/login")
     public String login() { return "admin/login"; }
@@ -62,5 +63,10 @@ public class AdminController {
         return "redirect:/admin/ingest/runs";
     }
     @GetMapping("/admin/data-versions")
-    public String versions(Model model) { model.addAttribute("versions", service.versions()); return "admin/versions"; }
+    public String versions(Model model) { model.addAttribute("versions", service.versions()); model.addAttribute("purgeCandidates", purge.preview()); return "admin/versions"; }
+    @PostMapping("/admin/data-versions/purge")
+    public String purge(RedirectAttributes flash) {
+        flash.addFlashAttribute("message", "미사용 버전 " + purge.purge() + "개를 정리했습니다.");
+        return "redirect:/admin/data-versions";
+    }
 }

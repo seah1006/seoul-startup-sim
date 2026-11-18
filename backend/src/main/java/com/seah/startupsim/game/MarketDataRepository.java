@@ -52,8 +52,7 @@ public class MarketDataRepository {
                 WHERE a.district_code = ? AND s.quarter = ? AND s.service_code = ?
                   AND EXISTS (SELECT 1 FROM game_data_pins p WHERE p.game_id = ? AND p.version_id = s.version_id)
                   AND EXISTS (SELECT 1 FROM game_data_pins p WHERE p.game_id = ? AND p.version_id = t.version_id)
-                  AND EXISTS (SELECT 1 FROM game_data_pins p WHERE p.game_id = ? AND p.version_id = a.version_id)
-                """, Long.class, shop.districtCode(), quarter, shop.serviceCode(), game.id(), game.id(), game.id());
+                """, Long.class, shop.districtCode(), quarter, shop.serviceCode(), game.id(), game.id());
         Long market = sales.isEmpty() ? null : sales.getFirst();
         if (market == null && average == null) {
             throw GameException.invalid("고정된 버전에 이 분기의 매출 추정 자료가 없습니다.");
