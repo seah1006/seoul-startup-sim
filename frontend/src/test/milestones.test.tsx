@@ -57,14 +57,12 @@ it('전환점 선택 결과를 확인한 뒤 응답 version으로 계속한다',
       },
     ],
   });
-  const choose = vi
-    .spyOn(api, 'choose')
-    .mockResolvedValue({
-      success: true,
-      resultText: '성공했어요',
-      effects: [{ label: '보유금', value: '+300만 원' }],
-      game: updated,
-    } satisfies TurningPointResult);
+  const choose = vi.spyOn(api, 'choose').mockResolvedValue({
+    success: true,
+    resultText: '성공했어요',
+    effects: [{ label: '보유금', value: '+300만 원' }],
+    game: updated,
+  } satisfies TurningPointResult);
   const onGame = vi.fn();
   render(<TurningPointCard game={g} onGame={onGame} />);
   fireEvent.click(await screen.findByRole('button', { name: '도전한다' }));
