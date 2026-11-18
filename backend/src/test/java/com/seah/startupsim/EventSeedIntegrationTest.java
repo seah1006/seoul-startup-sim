@@ -1,6 +1,11 @@
 package com.seah.startupsim;
 
 import com.seah.startupsim.game.EventDefinitionValidator;
+import com.seah.startupsim.game.GameModifierRepository;
+import com.seah.startupsim.game.QuarterCalculator.Modifier;
+import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import java.sql.DriverManager;
 import java.sql.Connection;
 import java.util.function.Consumer;
@@ -46,7 +51,32 @@ class EventSeedIntegrationTest {
             assertEquals(0, result.getInt(5));
             assertEquals(0, result.getInt(6));
             validateDefinitions(connection);
+            validateModifierWindow(connection);
         }
+    }
+
+    private void validateModifierWindow(Connection connection) {
+        var jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+        jdbc.update("INSERT INTO users (id, nickname) VALUES (1, '보정 테스트')");
+        jdbc.update("""
+                INSERT INTO games (id, user_id, seed, start_quarter, last_quarter, cash, initial_capital, settings)
+                VALUES (1, 1, 123, '20231', '20244', 50000000, 50000000, '{}'),
+                       (2, 1, 123, '20231', '20244', 50000000, 50000000, '{}')
+                """);
+        jdbc.update("""
+                INSERT INTO game_modifiers (game_id, source, target, mode, value, label, start_turn, end_turn)
+                VALUES (1, 'TURNING_POINT', 'revenue', 'MULTIPLY', 1.2, '매출', 1, 3),
+                       (1, 'MOMENT', 'rent', 'ADD', -1000, '임대료', 1, 2),
+                       (1, 'TURNING_POINT', 'revenue', 'ADD', 1000, '추가 매출', 1, 3),
+                       (2, 'TURNING_POINT', 'revenue', 'ADD', 9999, '다른 게임', 1, 3)
+                """);
+        var repository = new GameModifierRepository(jdbc);
+        assertEquals(List.of(), repository.active(1, 0));
+        assertEquals(List.of(new Modifier("rent", "ADD", -1000), new Modifier("revenue", "ADD", 1000),
+                new Modifier("revenue", "MULTIPLY", 1.2)), repository.active(1, 1));
+        assertEquals(List.of(new Modifier("revenue", "ADD", 1000), new Modifier("revenue", "MULTIPLY", 1.2)),
+                repository.active(1, 2));
+        assertEquals(List.of(), repository.active(1, 3));
     }
 
     private void validateDefinitions(Connection connection) throws Exception {

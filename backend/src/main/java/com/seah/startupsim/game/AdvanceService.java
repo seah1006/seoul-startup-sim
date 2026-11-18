@@ -15,10 +15,11 @@ public class AdvanceService {
     private final TurnRepository turns;
     private final LedgerRepository ledger;
     private final MarketDataRepository marketData;
+    private final GameModifierRepository modifiers;
 
     public AdvanceService(GameRepository games, QuarterCalculator calculator, TurnEventHook eventHook,
             ApplicationEventPublisher events, TurnRepository turns, LedgerRepository ledger,
-            MarketDataRepository marketData) {
+            MarketDataRepository marketData, GameModifierRepository modifiers) {
         this.games = games;
         this.calculator = calculator;
         this.eventHook = eventHook;
@@ -26,6 +27,7 @@ public class AdvanceService {
         this.turns = turns;
         this.ledger = ledger;
         this.marketData = marketData;
+        this.modifiers = modifiers;
     }
 
     /** 결산·원장·종료·이벤트 표현·멱등 응답은 실패 시 함께 롤백해야 한다. */
@@ -67,7 +69,9 @@ public class AdvanceService {
         if (shop == null) {
             throw GameException.invalid("먼저 창업해 주세요.");
         }
-        return marketData.snapshot(game, shop, games.owner(game.id()), decision);
+        QuarterSnapshot snapshot = marketData.snapshot(game, shop, games.owner(game.id()), decision);
+        return new QuarterSnapshot(snapshot.input().withModifiers(modifiers.active(game.id(), game.currentTurn())),
+                snapshot.dataNotes());
     }
 
     private void saveSettlement(Game game, QuarterSnapshot snapshot, QuarterOutcome outcome) {
