@@ -30,23 +30,24 @@ public class AdminBoardController {
 
     @GetMapping({"", "/posts"})
     String posts(@RequestParam(required = false) State status, @RequestParam(required = false) PostCategory category,
-            @RequestParam(defaultValue = "") String q, Model model) {
+            @RequestParam(defaultValue = "") String q, @RequestParam(defaultValue = "0") int page, Model model) {
         model.addAttribute("states", State.values()).addAttribute("categories", PostCategory.values());
         model.addAttribute("selectedStatus", status).addAttribute("selectedCategory", category).addAttribute("q", q);
-        model.addAttribute("posts", reads.posts(status, category, q.strip()));
+        page(model, "posts", reads.posts(status, category, q.strip(), page), page);
         return "admin/board/posts";
     }
 
     @GetMapping("/posts/{id}")
-    String post(@PathVariable long id, Model model) {
-        model.addAttribute("post", reads.post(id)).addAttribute("comments", reads.comments(id));
+    String post(@PathVariable long id, @RequestParam(defaultValue = "0") int page, Model model) {
+        model.addAttribute("post", reads.post(id));
+        page(model, "comments", reads.comments(id, page), page);
         return "admin/board/post";
     }
 
     @GetMapping("/reports")
-    String reports(@RequestParam(defaultValue = "PENDING") ReportStatus status, Model model) {
+    String reports(@RequestParam(defaultValue = "PENDING") ReportStatus status, @RequestParam(defaultValue = "0") int page, Model model) {
         model.addAttribute("statuses", ReportStatus.values()).addAttribute("selectedStatus", status);
-        model.addAttribute("reports", reads.reports(status));
+        page(model, "reports", reads.reports(status, page), page);
         return "admin/board/reports";
     }
 
@@ -56,8 +57,7 @@ public class AdminBoardController {
         long postId = report.type() == TargetType.POST ? report.targetId() : reads.commentPostId(report.targetId());
         model.addAttribute("report", report).addAttribute("postId", postId);
         model.addAttribute("target", report.type() == TargetType.POST ? reads.post(postId).content()
-                : reads.comments(postId).stream().filter(c -> c.id() == report.targetId()).findFirst()
-                        .map(Comment::content).orElseThrow(BoardException::notFound));
+                : reads.comment(report.targetId()).content());
         return "admin/board/report";
     }
 
@@ -100,7 +100,7 @@ public class AdminBoardController {
         } catch (BoardException e) {
             if (e.status() != HttpStatus.CONFLICT) throw e;
             error(e, model, response);
-            return post(postId, model);
+            return post(postId, 0, model);
         }
     }
 
@@ -111,7 +111,7 @@ public class AdminBoardController {
             Model model, RedirectAttributes flash, HttpServletResponse response) {
         if (binding.hasErrors()) {
             error(BoardException.invalid("고정 여부는 true 또는 false로 입력해 주세요."), model, response);
-            return post(id, model);
+            return post(id, 0, model);
         }
         try {
             moderation.pin(id, Boolean.parseBoolean(form.pinned()));
@@ -119,8 +119,13 @@ public class AdminBoardController {
         } catch (BoardException e) {
             if (e.status() != HttpStatus.CONFLICT) throw e;
             error(e, model, response);
-            return post(id, model);
+            return post(id, 0, model);
         }
+    }
+
+    private <T> void page(Model model, String name, java.util.List<T> rows, int page) {
+        model.addAttribute(name, rows.stream().limit(20).toList());
+        model.addAttribute("page", page).addAttribute("hasNext", rows.size() > 20);
     }
 
     private void error(BoardException e, Model model, HttpServletResponse response) {

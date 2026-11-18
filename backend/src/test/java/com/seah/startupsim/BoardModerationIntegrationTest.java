@@ -102,6 +102,30 @@ class BoardModerationIntegrationTest {
         mvc.perform(report(other, "POST", id)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_REPORTED"));
     }
 
+    @Test void adminListsUseTwentyRowsAndPreserveFilters() throws Exception {
+        var mvc = mvc(); var owner = guest(); var admin = user("moderator").roles("ADMIN");
+        String title = "paging-" + UUID.randomUUID();
+        long id = 0;
+        for (int i = 0; i < 21; i++) {
+            id = article(owner);
+            jdbc.update("UPDATE posts SET title = ? WHERE id = ?", title, id);
+        }
+        for (int i = 0; i < 21; i++) {
+            jdbc.update("INSERT INTO comments(post_id, author_id, content) VALUES (?, ?, '페이징')", id, owner.id());
+            jdbc.update("INSERT INTO post_reports(target_type,target_id,reporter_id,reason,status) VALUES ('POST',?,?, 'ABUSE','DISMISSED')", id, guest().id());
+        }
+        mvc.perform(get(ADMIN + "posts").with(admin).param("q", title)).andExpect(status().isOk())
+                .andExpect(model().attribute("posts", org.hamcrest.Matchers.hasSize(20)))
+                .andExpect(model().attribute("hasNext", true)).andExpect(content().string(containsString("q=" + title)));
+        mvc.perform(get(ADMIN + "posts").with(admin).param("q", title).param("page", "1"))
+                .andExpect(model().attribute("posts", org.hamcrest.Matchers.hasSize(1))).andExpect(model().attribute("hasNext", false));
+        mvc.perform(get(ADMIN + "posts/" + id).with(admin).param("page", "1"))
+                .andExpect(status().isOk()).andExpect(model().attribute("comments", org.hamcrest.Matchers.hasSize(1)));
+        mvc.perform(get(ADMIN + "reports").with(admin).param("status", "DISMISSED"))
+                .andExpect(status().isOk()).andExpect(model().attribute("reports", org.hamcrest.Matchers.hasSize(20)))
+                .andExpect(model().attribute("hasNext", true));
+        mvc.perform(get(ADMIN + "posts").with(admin).param("page", "-1")).andExpect(status().isBadRequest());
+    }
     @Test void fourthPostIsLimitedOnlyForTheSameGuest() throws Exception {
         var mvc = mvc(); var author = guest(); var other = guest();
         String body = """

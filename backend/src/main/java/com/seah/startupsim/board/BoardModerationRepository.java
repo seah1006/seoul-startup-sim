@@ -52,11 +52,11 @@ class BoardModerationRepository {
     record Post(long id, String title, String content, String category, State status, boolean pinned) {}
     record Comment(long id, Long parentId, String content, State status) {}
 
-    java.util.List<Report> reports(ReportStatus status) {
+    java.util.List<Report> reports(ReportStatus status, int page) {
         return jdbc.query("""
                 SELECT id, target_type, target_id, reason, detail, status, handled_by
-                FROM post_reports WHERE status = ? ORDER BY id DESC
-                """, this::mapReport, status.name());
+                FROM post_reports WHERE status = ? ORDER BY id DESC LIMIT 21 OFFSET ?
+                """, this::mapReport, status.name(), offset(page));
     }
 
     Report report(long id) {
@@ -84,14 +84,14 @@ class BoardModerationRepository {
         }
     }
 
-    java.util.List<Post> posts(State state, PostCategory category, String search) {
+    java.util.List<Post> posts(State state, PostCategory category, String search, int page) {
         return jdbc.query("""
                 SELECT id, title, content, category, status, is_pinned FROM posts
                 WHERE (CAST(? AS text) IS NULL OR status = ?) AND (CAST(? AS text) IS NULL OR category = ?)
                   AND (strpos(lower(title), lower(?)) > 0 OR strpos(lower(content), lower(?)) > 0 OR ? = '')
-                ORDER BY id DESC
+                ORDER BY id DESC LIMIT 21 OFFSET ?
                 """, this::mapPost, state == null ? null : state.name(), state == null ? null : state.name(),
-                category == null ? null : category.name(), category == null ? null : category.name(), search, search, search);
+                category == null ? null : category.name(), category == null ? null : category.name(), search, search, search, offset(page));
     }
 
     Post post(long id) {
@@ -105,12 +105,24 @@ class BoardModerationRepository {
                 State.valueOf(rs.getString("status")), rs.getBoolean("is_pinned"));
     }
 
-    java.util.List<Comment> comments(long postId) {
+    java.util.List<Comment> comments(long postId, int page) {
         return jdbc.query("""
                 SELECT id, parent_id, content, status FROM comments WHERE post_id = ?
-                ORDER BY coalesce(parent_id, id), id
+                ORDER BY coalesce(parent_id, id), id LIMIT 21 OFFSET ?
                 """, (rs, n) -> new Comment(rs.getLong("id"), rs.getObject("parent_id", Long.class),
-                rs.getString("content"), State.valueOf(rs.getString("status"))), postId);
+                rs.getString("content"), State.valueOf(rs.getString("status"))), postId, offset(page));
+    }
+
+    Comment comment(long id) {
+        return jdbc.query("SELECT id, parent_id, content, status FROM comments WHERE id = ?",
+                (rs, n) -> new Comment(rs.getLong("id"), rs.getObject("parent_id", Long.class),
+                        rs.getString("content"), State.valueOf(rs.getString("status"))), id)
+                .stream().findFirst().orElseThrow(BoardException::notFound);
+    }
+
+    private long offset(int page) {
+        if (page < 0) throw BoardException.invalid();
+        return (long) page * 20;
     }
 
     long commentPostId(long id) {
