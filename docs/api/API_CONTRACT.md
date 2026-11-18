@@ -150,6 +150,8 @@
   → `200 { "success": true, "resultText": "…", "effects": [{ "label": "매출", "value": "+20%" }], "game": GameState }`
   - 선택은 분기를 넘기지 않는다. 이후 쓰기에는 응답의 `game.version`을 사용한다. `advance`, `choice`, `sell` 사이에 같은 키를 재사용하면 409 `IDEMPOTENCY_KEY_REUSED`.
 
+- 전환점 에러: 대기 중인 전환점이 없는데 선택 404 `NO_PENDING_TURNING_POINT`, 이미 처리된 전환점 409 `TURNING_POINT_ALREADY_RESOLVED`, 대기 중 advance·sell 409 `TURNING_POINT_PENDING`, 같은 Idempotency-Key를 다른 엔드포인트에 재사용 409 `IDEMPOTENCY_KEY_REUSED` (TASK-004B-1 구현 기준)
+
 ### 엔딩
 - `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) 본문 `{ "expectedVersion": 3 }` → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
   - 영업 4분기 미만은 400, 전환점 대기 중에는 409 `TURNING_POINT_PENDING`.
