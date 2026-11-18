@@ -305,6 +305,23 @@ class EndingIntegrationTest {
                 List.copyOf(json.readTree(body).propertyNames()));
     }
     @Test
+    @DisplayName("엔딩 기록 실패는 결산·종료 상태까지 함께 롤백한다(같은 트랜잭션)")
+    void recordFailureRollsBackEnding() {
+        long id = game();
+        jdbc.update("UPDATE games SET last_quarter = '20231' WHERE id = ?", id);
+        jdbc.update("""
+                INSERT INTO game_records (game_id, user_id, nickname, ending_type, survived_quarters, total_profit,
+                    best_quarter_profit, shop_count, area_code, area_name, service_code, service_name, shop_name,
+                    owner_name, ranking_date)
+                VALUES (?, ?, '선점', 'CLOSED', 0, 0, 0, 1, 'A', 'A', 'S', 'S', 'S', 'S', current_date)
+                """, id, user);
+        assertThrows(org.springframework.dao.DuplicateKeyException.class, () -> next(id, "dup"));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM turn_results WHERE game_id = ?", Integer.class, id));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM ledger_entries WHERE game_id = ?", Integer.class, id));
+        assertEquals("PLAYING", jdbc.queryForObject("SELECT status FROM games WHERE id = ?", String.class, id));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM idempotency_keys WHERE game_id = ?", Integer.class, id));
+    }
+    @Test
     @DisplayName("랭킹 날짜는 KST 기준: 23:50은 그날, 00:10은 다음 날")
     void rankingDateUsesKst() {
         assertEquals(LocalDate.parse("2026-11-18"), GameRecordRepository.rankingDate(Instant.parse("2026-11-18T14:50:00Z")));
