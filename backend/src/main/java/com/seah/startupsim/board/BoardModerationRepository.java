@@ -136,7 +136,7 @@ class BoardModerationRepository {
 
     void change(TargetType type, long id, long postId, State status) {
         String sql = type == TargetType.POST ? """
-                UPDATE posts SET status = ?, hidden_at = CASE WHEN ? = 'HIDDEN' THEN now() ELSE NULL END,
+                UPDATE posts SET is_pinned = false, status = ?, hidden_at = CASE WHEN ? = 'HIDDEN' THEN now() ELSE NULL END,
                 deleted_at = CASE WHEN ? = 'DELETED' THEN now() ELSE NULL END,
                 version = version + 1, updated_at = now() WHERE id = ?
                 """ : """

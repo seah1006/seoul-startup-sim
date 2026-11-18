@@ -126,6 +126,18 @@ class BoardModerationIntegrationTest {
                 .andExpect(model().attribute("hasNext", true));
         mvc.perform(get(ADMIN + "posts").with(admin).param("page", "-1")).andExpect(status().isBadRequest());
     }
+    @Test void hiddenAndDeletedPostsLosePinPermanently() throws Exception {
+        var mvc = mvc(); var owner = guest(); var admin = user("moderator").roles("ADMIN");
+        long id = article(owner);
+        jdbc.update("UPDATE posts SET is_pinned = true WHERE id = ?", id);
+        for (String action : new String[]{"hide", "restore"}) {
+            mvc.perform(post(ADMIN + "posts/" + id + "/" + action).with(admin).with(csrf())).andExpect(status().isSeeOther());
+            assertFalse(jdbc.queryForObject("SELECT is_pinned FROM posts WHERE id = ?", Boolean.class, id));
+        }
+        jdbc.update("UPDATE posts SET is_pinned = true WHERE id = ?", id);
+        mvc.perform(post(ADMIN + "posts/" + id + "/delete").with(admin).with(csrf())).andExpect(status().isSeeOther());
+        assertFalse(jdbc.queryForObject("SELECT is_pinned FROM posts WHERE id = ?", Boolean.class, id));
+    }
     @Test void fourthPostIsLimitedOnlyForTheSameGuest() throws Exception {
         var mvc = mvc(); var author = guest(); var other = guest();
         String body = """
