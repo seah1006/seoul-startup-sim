@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,12 +40,11 @@ public class BoardPostController {
 
     /** Model initializer runs before path/query/body binding, preserving 401 → 400. */
     @ModelAttribute
-    void authenticate(HttpServletRequest request,
-            @RequestHeader(name = "X-Guest-Token", required = false) String token) {
+    void authenticate(HttpServletRequest request) {
         String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         boolean read = BoardGuestAuth.isRead(request);
         if (read && ("/api/board" + POSTS).equals(pattern)) return;
-        auth.bind(request, token, read && ("/api/board" + POST).equals(pattern));
+        auth.bind(request, read && ("/api/board" + POST).equals(pattern));
     }
 
     @GetMapping(POSTS)

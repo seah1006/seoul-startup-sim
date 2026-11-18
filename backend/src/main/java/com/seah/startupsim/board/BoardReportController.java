@@ -19,9 +19,8 @@ public class BoardReportController {
     }
 
     @ModelAttribute
-    void authenticate(HttpServletRequest request,
-            @RequestHeader(name = "X-Guest-Token", required = false) String token) {
-        auth.bind(request, token, false);
+    void authenticate(HttpServletRequest request) {
+        auth.bind(request, false);
     }
 
     @PostMapping

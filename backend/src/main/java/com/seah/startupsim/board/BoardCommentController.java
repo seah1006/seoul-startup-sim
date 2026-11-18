@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,9 +31,8 @@ public class BoardCommentController {
     }
 
     @ModelAttribute
-    void authenticate(HttpServletRequest request,
-            @RequestHeader(name = "X-Guest-Token", required = false) String token) {
-        auth.bind(request, token, BoardGuestAuth.isRead(request));
+    void authenticate(HttpServletRequest request) {
+        auth.bind(request, BoardGuestAuth.isRead(request));
     }
 
     @GetMapping
