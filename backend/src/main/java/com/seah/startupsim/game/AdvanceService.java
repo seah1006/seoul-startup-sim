@@ -39,7 +39,7 @@ public class AdvanceService {
         }
         validateGame(game, expectedVersion);
         QuarterSnapshot snapshot = loadSnapshot(game);
-        QuarterOutcome outcome = calculator.calculate(snapshot.input());
+        QuarterOutcome outcome = calculator.calculate(snapshot.input()).withAdditionalDataNotes(snapshot.dataNotes());
         saveSettlement(game, snapshot, outcome);
         String ending = finishQuarter(game, outcome);
         TurnResultBuilder result = applyEvents(game, outcome, ending);

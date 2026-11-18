@@ -37,7 +37,8 @@ public class GameRepository {
     Map<String, Double> settings(String value) {
         Map<String, Double> settings = new LinkedHashMap<>();
         var tree = json.readTree(value);
-        tree.properties().forEach(entry -> settings.put(entry.getKey(), entry.getValue().doubleValue()));
+        tree.properties().forEach(entry -> settings.put(entry.getKey(), settingNumber(entry.getKey(), entry.getValue().toString())));
+        requireSettings(settings);
         return settings;
     }
 
@@ -89,7 +90,7 @@ public class GameRepository {
         var shops = jdbc.query("""
                 SELECT area_code, area_name, district_code, service_code, service_name, name,
                        ST_X(geom) AS lng, ST_Y(geom) AS lat, area_m2,
-                       (SELECT count(*) FROM rivals WHERE game_id = ?) AS rival_count
+                       (SELECT count(*) FROM rivals WHERE game_id = ? AND closed_turn IS NULL) AS rival_count
                 FROM shops WHERE game_id = ?
                 """, (row, index) -> new Shop(row.getString("area_code"), row.getString("area_name"),
                 row.getString("district_code"), row.getString("service_code"), row.getString("service_name"),
@@ -137,5 +138,22 @@ public class GameRepository {
                 UPDATE games SET current_turn = current_turn + 1, version = version + 1,
                     cash = ?, negative_quarters = ?, status = ?, ending_type = ? WHERE id = ?
                 """, cash, negatives, ending == null ? "PLAYING" : "ENDED", ending, gameId);
-    }}
+    }    double settingNumber(String key, String value) {
+        try {
+            var number = json.readTree(value);
+            if (number == null || !number.isNumber() || !Double.isFinite(number.doubleValue())) {
+                throw GameException.invalid("게임 설정 " + key + "는 유효한 숫자여야 합니다.");
+            }
+            return number.doubleValue();
+        } catch (GameException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw GameException.invalid("게임 설정 " + key + "를 해석할 수 없습니다.");
+        }
+    }
 
+    void requireSettings(Map<String, Double> settings) {
+        if (!settings.containsKey("initialCapital")) {
+            throw GameException.invalid("필수 게임 설정 initialCapital이 없습니다.");
+        }
+    }}

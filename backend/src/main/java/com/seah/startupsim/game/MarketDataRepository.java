@@ -28,7 +28,23 @@ public class MarketDataRepository {
                 WHERE q.area_code = ? AND q.service_code = ? AND q.quarter = ?
                 """, (row, index) -> new StoreCounts(row.getInt(1), row.getLong(2), row.getLong(3)),
                 game.id(), shop.areaCode(), shop.serviceCode(), quarter);
-        StoreCounts count = counts.isEmpty() ? new StoreCounts(0, 0, 0) : counts.getFirst();
+        List<String> dataNotes = List.of();
+        StoreCounts count;
+        if (counts.isEmpty()) {
+            var previous = jdbc.queryForList("""
+                    SELECT q.store_count FROM area_stores_q q
+                    JOIN game_data_pins p ON p.version_id = q.version_id AND p.game_id = ?
+                    WHERE q.area_code = ? AND q.service_code = ? AND q.quarter < ?
+                    ORDER BY q.quarter DESC LIMIT 1
+                    """, Integer.class, game.id(), shop.areaCode(), shop.serviceCode(), quarter);
+            int stores = previous.isEmpty() ? 1 : Math.max(1, previous.getFirst());
+            count = new StoreCounts(stores, 0, 0);
+            dataNotes = List.of(previous.isEmpty()
+                    ? "이 분기의 점포 수 자료가 없어 기본 점포 수 1개로 추정했습니다."
+                    : "이 분기의 점포 수 자료가 없어 직전 자료의 점포 수로 추정했습니다.");
+        } else {
+            count = counts.getFirst();
+        }
         Long average = jdbc.queryForObject("""
                 SELECT (sum(s.sales_amount) / nullif(sum(t.store_count), 0))::bigint
                 FROM area_sales_q s JOIN area_stores_q t USING(area_code, quarter, service_code)
@@ -46,6 +62,6 @@ public class MarketDataRepository {
                 market, average == null ? 0 : average, count.stores(), (int) shop.rivalCount(), shop.areaM2(),
                 count.openings(), count.closings(), owner.stats(), owner.focusStats(), decision,
                 game.settings(), shop.districtCode());
-        return new QuarterSnapshot(input, List.of());
+        return new QuarterSnapshot(input, dataNotes);
     }
 }

@@ -189,5 +189,58 @@ class GameIntegrationTest {
         assertThrows(GameException.class,()->auth.resolve("invalid"));
         assertThrows(GameException.class,()->auth.resolve(null));
     }
-}
+    @Test
+    @DisplayName("점포 자료 누락 시 이전 점포 수와 최소 기본값을 사용하고 닫힌 경쟁점은 제외한다")
+    void missingStoresAndClosedRivals() {
+        long id = game();
+        decision(id, 0);
+        advance.advance(id, user, "before-missing", 1);
+        jdbc.update("DELETE FROM area_stores_q WHERE area_code='A' AND quarter='20232'");
+        jdbc.update("DELETE FROM area_sales_q WHERE area_code='A' AND quarter='20232'");
+        jdbc.update("UPDATE rivals SET closed_turn=1 WHERE game_id=?", id);
+        decision(id, 1);
+        var result = advance.advance(id, user, "missing", 2).result();
+        assertEquals(11, result.areaRank().of());
+        assertEquals(1000000000L, jdbc.queryForObject(
+                "SELECT market_size FROM turn_results WHERE game_id=? AND turn=1", Long.class, id));
+        assertEquals(0L, repository.state(id, user).shop().rivalCount());
+        org.junit.jupiter.api.Assertions.assertTrue(result.dataNotes().stream().anyMatch(note -> note.contains("직전")));
+        long fallback = game();
+        jdbc.update("DELETE FROM area_stores_q WHERE area_code='A'");
+        jdbc.update("DELETE FROM area_sales_q WHERE area_code='A'");
+        decision(fallback, 0);
+        var fallbackResult = advance.advance(fallback, user, "fallback", 1).result();
+        assertEquals(2, fallbackResult.areaRank().of());
+        org.junit.jupiter.api.Assertions.assertTrue(fallbackResult.dataNotes().stream().anyMatch(note -> note.contains("기본 점포 수 1개")));
+    }
 
+    @Test
+    @DisplayName("경쟁점 bbox 선필터는 반경 안 점포를 유지하고 먼 점포를 제외한다")
+    void rivalBoundingBox() {
+        jdbc.update("""
+                INSERT INTO stores(store_id,name,small_code,geom,snapshot,version_id) VALUES
+                    ('NEAR','인근 사실표시용','I21201',ST_SetSRID(ST_MakePoint(127.001,38),4326),'20231',100),
+                    ('FAR','원거리 사실표시용','I21201',ST_SetSRID(ST_MakePoint(128,38),4326),'20231',100)
+                """);
+        long id = game();
+        assertEquals(List.of("NEAR", "S"), jdbc.queryForList(
+                "SELECT sbiz_store_id FROM rivals WHERE game_id=? ORDER BY sbiz_store_id", String.class, id));
+    }
+
+    @Test
+    @DisplayName("필수 설정의 null·문자열·누락은 명확한 오류로 거절한다")
+    void invalidSettings() {
+        String original = jdbc.queryForObject("SELECT value::text FROM game_settings WHERE key='initialCapital'", String.class);
+        try {
+            for (String invalid : List.of("null", "\"잘못된 숫자\"")) {
+                jdbc.update("UPDATE game_settings SET value=?::jsonb WHERE key='initialCapital'", invalid);
+                var exception = assertThrows(GameException.class, this::game);
+                org.junit.jupiter.api.Assertions.assertTrue(exception.getMessage().contains("initialCapital"));
+            }
+            jdbc.update("DELETE FROM game_settings WHERE key='initialCapital'");
+            var exception = assertThrows(GameException.class, this::game);
+            org.junit.jupiter.api.Assertions.assertTrue(exception.getMessage().contains("필수 게임 설정"));
+        } finally {
+            jdbc.update("INSERT INTO game_settings(key,value) VALUES ('initialCapital',?::jsonb) ON CONFLICT(key) DO UPDATE SET value=excluded.value", original);
+        }
+    }}

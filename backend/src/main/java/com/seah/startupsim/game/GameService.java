@@ -30,7 +30,8 @@ public class GameService {
         String start=request.startQuarter()==null?quarters.getFirst():request.startQuarter();
         if(!quarters.contains(start)) throw GameException.invalid("시작 분기 데이터가 없습니다.");
         Map<String,Double> settings=new LinkedHashMap<>();
-        r.jdbc().query("SELECT key,value::text FROM game_settings",rs->{ settings.put(rs.getString(1),Double.parseDouble(rs.getString(2))); });
+        r.jdbc().query("SELECT key,value::text FROM game_settings",rs->{ settings.put(rs.getString(1),r.settingNumber(rs.getString(1), rs.getString(2))); });
+        r.requireSettings(settings);
         long capital=settings.get("initialCapital").longValue();
         Long id=r.jdbc().queryForObject("INSERT INTO games(user_id,seed,start_quarter,last_quarter,cash,initial_capital,settings) VALUES (?,?,?,?,?,?,?::jsonb) RETURNING id",Long.class,user,request.candidateSeed(),start,quarters.getLast(),capital,capital,r.encode(settings));
         r.jdbc().update("INSERT INTO game_data_pins SELECT ?,source,id FROM data_versions WHERE status='ACTIVE'",id);
@@ -50,7 +51,7 @@ public class GameService {
         if(r.jdbc().queryForObject("SELECT count(*) FROM area_sales_q q JOIN game_data_pins p ON p.version_id=q.version_id AND p.game_id=? WHERE area_code=?",Integer.class,id,request.areaCode())==0) throw GameException.invalid("매출 자료가 없는 상권입니다.");
         r.jdbc().update("INSERT INTO shops(game_id,area_code,area_name,district_code,service_code,service_name,name,geom,capital,area_m2) VALUES (?,?,?,?,?,?,?,ST_SetSRID(ST_MakePoint(?,?),4326),?,?)",id,request.areaCode(),a.name(),a.districtCode(),request.serviceCode(),industries.getFirst(),request.shopName(),request.lng(),request.lat(),g.initialCapital(),a.areaM2());
         for(String code:mapping.smallCodes(request.serviceCode())) {
-            r.jdbc().update("INSERT INTO rivals(game_id,sbiz_store_id,service_code,geom) SELECT ?,s.store_id,?,s.geom FROM stores s WHERE s.small_code=? AND EXISTS(SELECT 1 FROM game_data_pins p WHERE p.game_id=? AND p.version_id=s.version_id) AND ST_DWithin(s.geom::geography,ST_SetSRID(ST_MakePoint(?,?),4326)::geography,300)",id,request.serviceCode(),code,id,request.lng(),request.lat());
+            r.jdbc().update("INSERT INTO rivals(game_id,sbiz_store_id,service_code,geom) SELECT ?,s.store_id,?,s.geom FROM stores s WHERE s.small_code=? AND EXISTS(SELECT 1 FROM game_data_pins p WHERE p.game_id=? AND p.version_id=s.version_id) AND s.geom && ST_Envelope(ST_Buffer(ST_SetSRID(ST_MakePoint(?,?),4326)::geography,300)::geometry) AND ST_DWithin(s.geom::geography,ST_SetSRID(ST_MakePoint(?,?),4326)::geography,300)",id,request.serviceCode(),code,id,request.lng(),request.lat(),request.lng(),request.lat());
         }
         r.jdbc().update("UPDATE games SET version=version+1 WHERE id=?",id);
         return r.state(id,user);
@@ -68,4 +69,3 @@ public class GameService {
         if(!"PLAYING".equals(game.status())) throw new GameException(409,"GAME_ENDED","종료된 게임입니다.");
     }
 }
-

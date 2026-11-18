@@ -12,4 +12,12 @@ public record QuarterOutcome(int turn, String quarter, Headline headline, long r
     public record Headline(long amount, String label) {}
     public record AreaRank(int of, int rank) {}
     public record AreaNews(long closings, long openings, String source) {}
-}
+    public QuarterOutcome withAdditionalDataNotes(List<String> notes) {
+        if (notes.isEmpty()) {
+            return this;
+        }
+        var combined = new java.util.ArrayList<>(dataNotes);
+        combined.addAll(notes);
+        return new QuarterOutcome(turn, quarter, headline, revenue, visitors, avgTicket, costs, profit,
+                cashAfter, areaRank, statChanges, areaNews, moment, reactions, List.copyOf(combined));
+    }}
