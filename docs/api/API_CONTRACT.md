@@ -148,11 +148,15 @@
   ```
 - `POST /api/games/{gameId}/turning-point/choice` `{ "optionId": 1 }` 헤더 `Idempotency-Key`
   → `200 { "success": true, "resultText": "…", "effects": [{ "label": "매출", "value": "+20%" }], "game": GameState }`
+  - 선택은 분기를 넘기지 않는다. 이후 쓰기에는 응답의 `game.version`을 사용한다. `advance`, `choice`, `sell` 사이에 같은 키를 재사용하면 409 `IDEMPOTENCY_KEY_REUSED`.
+
+- 전환점 에러: 대기 중인 전환점이 없는데 선택 404 `NO_PENDING_TURNING_POINT`, 이미 처리된 전환점 409 `TURNING_POINT_ALREADY_RESOLVED`, 대기 중 advance·sell 409 `TURNING_POINT_PENDING`, 같은 Idempotency-Key를 다른 엔드포인트에 재사용 409 `IDEMPOTENCY_KEY_REUSED` (TASK-004B-1 구현 기준)
 
 ### 엔딩
-- `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
+- `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) 본문 `{ "expectedVersion": 3 }` → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
+  - 영업 4분기 미만은 400, 전환점 대기 중에는 409 `TURNING_POINT_PENDING`.
 - 자동 엔딩: CLOSED(잔액 2분기 연속 음수), LONG_RUNNING(데이터 마지막 분기 도달)
-- `GET /api/games/{gameId}/summary` →
+- `GET /api/games/{gameId}/summary` → 소유자만, 종료 전에는 409 `GAME_NOT_ENDED`. 종료 후:
   ```json
   { "gameId": 10, "endingType": "LONG_RUNNING", "ownerName": "김사장", "shopName": "망원커피",
     "areaName": "망원역", "serviceName": "커피-음료", "survivedQuarters": 14,
@@ -164,11 +168,11 @@
 - `GET /api/rankings?date=2026-11-07&kind=ALL` (kind: `ALL|INDUSTRY|AREA`, INDUSTRY/AREA는 `key`=serviceCode/areaCode)
   ```json
   { "date": "2026-11-07", "refreshedAt": "2026-11-07T10:30:00+09:00", "kind": "ALL",
-    "entries": [ { "rank": 1, "nickname": "손님-4821", "ownerName": "김사장", "shopName": "망원커피",
+    "entries": [ { "rank": 1, "gameId": 10, "nickname": "손님-4821", "ownerName": "김사장", "shopName": "망원커피",
                    "areaName": "망원역", "serviceName": "커피-음료", "endingType": "LONG_RUNNING",
                    "survivedQuarters": 14, "totalProfit": 182000000 } ] }
   ```
-  - 순위: 생존 분기 수 → 누적 순이익 → 최고 분기 순이익 → 매장 수. 같으면 공동 순위. 30분마다 갱신. 최근 7일 조회 가능
+  - 순위: 생존 분기 수 → 누적 순이익 → 최고 분기 순이익 → 매장 수. 같으면 공동 순위. 30분마다 갱신. 날짜는 KST 오늘(기본) 포함 최근 7일만 조회 가능(범위 밖 400). `limit` 기본 50, 최대 100
 - 홈 미리보기: `GET /api/rankings?kind=ALL&limit=3`
 
 ### 공유 페이지 (Thymeleaf)
@@ -187,7 +191,7 @@
 - ID는 양의 정수, `version`은 0 이상의 정수. 필수 문자열은 양끝 공백 제거 후 `@NotBlank`와 길이 검증(`@Valid`); 정해지지 않은 enum, 음수 페이지·초과 크기·필수값 누락은 400 `VALIDATION_FAILED`. 요청에서 명시한 필드 외에는 저장하지 않는다.
 
 ### 판정 순서와 안전 규칙 (교차 리뷰 반영, 모든 게시판 쓰기 공통)
-- **판정 순서 고정**: `401`(토큰) → `400`(형식 검증) → `404`(대상 없음·비공개·경로 불일치·남의 게임) → `403`(작성자 아님, 자기 글 신고) → `409`(버전·중복·상태). 조건부 UPDATE가 0행이면 대상을 다시 읽어 이 순서로 재판정한다(관리자가 방금 숨긴 글은 409가 아니라 404).
+- **판정 순서 고정**: `401`(토큰) → `400`(형식 검증) → `404`(대상 없음·비공개·경로 불일치·남의 게임) → `403`(작성자 아님, 자기 글 신고) → `409`(버전·중복·상태). 조건부 UPDATE가 0행이면 대상을 다시 읽어 이 순서로 재판정한다(관리자가 방금 숨긴 글은 409가 아니라 404). 예외: 기존 상태를 읽어야 알 수 있는 400(예: 수정 시 RECORD ↔ 다른 카테고리 전환)은 403 다음, 409 전에 판정한다.
 - **비공개 대상에는 아무것도 쓰지 않는다**: HIDDEN·DELETED 글(또는 그 글의 댓글)에 대한 좋아요·댓글·신고는 404이며 행과 카운터가 바뀌지 않는다.
 - **카운터**: `like_count`·`comment_count`·`reply_count`·`view_count` 갱신은 `version`과 `updated_at`을 바꾸지 않는다. 감소는 `WHERE count > 0` 조건으로만 한다. 관리자가 댓글을 숨김·복구·삭제하면 같은 트랜잭션에서 글의 `comment_count`와 부모의 `reply_count`를 다시 맞춘다(ACTIVE 기준).
 - **관리자 상태 전이**: ACTIVE → HIDDEN(숨김, 신고 처리), HIDDEN → ACTIVE(복구, `hidden_at` 초기화), ACTIVE·HIDDEN → DELETED(삭제, 복구 불가). 고정은 ACTIVE 글만. 신고 일괄 처리는 대상 행을 먼저 `FOR UPDATE`로 잠그고, 그다음 같은 대상의 PENDING 신고를 id 순으로 갱신한다(잠금 순서 고정).
@@ -261,7 +265,7 @@
   - 종료 게임 하나당 삭제되지 않은 RECORD 글 하나만 허용. soft delete 뒤 재작성 허용, HIDDEN이면 재작성 불가. 동시 생성도 DB 부분 유일 인덱스로 차단, 위반 시 409 `RECORD_ALREADY_POSTED`; 응답 분실 후 중복이면 내 글에서 확인한다.
 
 ### 엔딩 요약·공유 페이지 연결
-- 3장의 소유자 전용 `GET /api/games/{gameId}/summary`는 그대로 쓴다. React 엔딩 화면은 이 요약으로 첨부 카드 미리보기(업종·상권 이름, 엔딩 종류, 생존 분기, 누적 순이익, 가게/사장님 이름)를 그리고 아래 연결 조회를 호출한다. 접수 전에 카드의 값과 이름이 공개된다고 안내한다. 코드 값은 사용자에게 입력받지 않는다. 공개 인증글이 없으면 작성 버튼을 제공한다(`/board/write?gameId=10`에서 제목·본문을 입력하고 제출; 게임 정보는 조회로 채움). 자신의 게임에 HIDDEN 연결이 있으면 작성 대신 숨김으로 안내한다(내 글 목록 또는 작성 시 409).
+- 3장의 소유자 전용 `GET /api/games/{gameId}/summary`는 그대로 쓴다. React 엔딩 화면은 이 요약으로 첨부 카드 미리보기(업종·상권 이름, 엔딩 종류, 생존 분기, 누적 순이익, 가게/사장님 이름)를 그리고 아래 연결 조회를 호출한다. 접수 전에 카드의 값과 이름이 공개된다고 안내한다. 코드 값은 사용자에게 입력받지 않는다. 공개 인증글이 없으면 작성 버튼을 제공한다(`/board/write?category=RECORD&gameId=10`에서 제목·본문을 입력하고 제출; 게임 정보는 조회로 채움). 자신의 게임에 HIDDEN 연결이 있으면 작성 대신 숨김으로 안내한다(내 글 목록 또는 작성 시 409).
 - `GET /api/board/records/{gameId}` (인증 불필요) → `200` 연결된 공개 인증글 미리보기. 없거나 HIDDEN/DELETED이면 `204`(게임 존재·소유 여부는 이 경로에서 공개하지 않음). 숨김 후 예전 링크를 재사용하지 않도록 `Cache-Control: no-store`.
   ```json
   { "postId": 42, "title": "첫 창업 14분기 생존기", "commentCount": 1, "postUrl": "/board/posts/42" }
@@ -335,3 +339,35 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ### 후속으로 미룬 것
 - 랭킹 행 → 인증글 연결: 3장 랭킹 응답에 `gameId`를 추가하고 일괄 조회로 N+1을 피하는 후속 계약.
 - 이미지 업로드, 동네 반응 답글(선택 코드로 결정론 유지), 관리자 조치 감사 이력.
+
+## 5. v1.3 추가 (회원 인증과 계정) — 2026-11-18
+
+### 공통 인증 규칙
+- 헤더 `Authorization: Bearer <token>` (기존 `X-Guest-Token: <token>`도 허용, 둘 다 오면 Authorization 우선)
+- 토큰 종류: 게스트 토큰(`POST /api/guest`), 회원 토큰(가입·로그인). 서버는 해시만 저장. 회원 토큰 만료 14일(사용 시 연장), 게스트 30일.
+- 역할: `GUEST`, `MEMBER`. 회원 전용 API에 게스트 토큰 → 403 `MEMBER_REQUIRED`. 토큰 없음·무효·만료·폐기 → 401 `UNAUTHORIZED`.
+- **게시판 쓰기(글·댓글·좋아요·신고·RECORD)는 MEMBER만** (4장의 "X-Guest-Token 필수"를 "회원 토큰 필수"로 바꾼다). 읽기와 게임은 그대로.
+
+### 가입·로그인
+- `POST /api/auth/signup` `{ "loginId": "seah01", "password": "…", "nickname": "망원사장" }`
+  - 요청에 유효한 게스트 토큰이 있으면 **그 게스트 사용자를 회원으로 전환**(같은 userId, 게임 유지). 없으면 새 사용자.
+  - loginId 4~20자 영문 소문자·숫자·`_`, 유일. nickname 2~12자, 유일. password 8~64자, 영문과 숫자 포함. UTF-8 기준 72바이트 이하.
+  - `201 { "token": "…", "user": UserMe }`. 중복 409 `LOGIN_ID_TAKEN` / `NICKNAME_TAKEN`, 형식 400.
+  - 전환 시 기존 게스트 토큰은 폐기된다.
+- `POST /api/auth/login` `{ "loginId", "password" }` → `200 { "token", "user": UserMe }`
+  - 실패 401 `INVALID_CREDENTIALS`(아이디 존재 여부를 구분하지 않는 같은 메시지). 15분 안에 5회 실패하면 15분간 423 `ACCOUNT_LOCKED`.
+- `POST /api/auth/logout` (인증 필요) → 204, 현재 토큰 폐기
+
+### 내 계정
+- `GET /api/auth/me` → `UserMe`
+  ```json
+  { "userId": 12, "loginId": "seah01", "nickname": "망원사장", "role": "MEMBER", "createdAt": "2026-11-18T10:00:00+09:00" }
+  ```
+  게스트는 `{ "userId": 5, "loginId": null, "nickname": "손님-1a2b", "role": "GUEST", … }`
+- `PATCH /api/auth/me` `{ "nickname" }` → `UserMe` (회원만, 중복 409)
+- `PUT /api/auth/me/password` `{ "currentPassword", "newPassword" }` → 204. 현재 토큰을 뺀 **다른 세션 모두 폐기**. 현재 비밀번호 틀림 401 `INVALID_CREDENTIALS`
+- `DELETE /api/auth/me` `{ "password" }` → 204. 소프트 삭제, 닉네임 "탈퇴한 사장님", 모든 세션 폐기. 이후 같은 loginId로 재가입 불가(유일성 유지)
+
+### 남용 방지
+- `POST /api/guest`, `/api/auth/signup`, `/api/auth/login`: IP당 10분 20회(설정값), 초과 429 `RATE_LIMITED`
+
