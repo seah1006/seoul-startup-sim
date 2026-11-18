@@ -1,7 +1,7 @@
 import { EndingBoardEntry } from './BoardEntry';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, useMock } from '../api/client';
 import type { GameState, GameSummary, TurningPoint, TurningPointResult } from '../api/types';
 import { money } from './ResultCard';
 export function TurningPointCard({
@@ -113,6 +113,10 @@ export function EndingScreen({ game }: { game: GameState }) {
   }, [game.gameId]);
   async function share() {
     if (!summary) return;
+    if (useMock) {
+      setNotice('공유 페이지는 서버 연결 시 열려요');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(new URL(summary.shareUrl, window.location.origin).href);
       setNotice('공유 링크를 복사했어요.');
@@ -150,9 +154,13 @@ export function EndingScreen({ game }: { game: GameState }) {
           </div>
           <div className="choices">
             <button onClick={() => void share()}>공유하기</button>
-            <a className="button" href={summary.shareUrl}>
-              공유 페이지
-            </a>
+            {useMock ? (
+              <p>공유 페이지는 서버 연결 시 열려요</p>
+            ) : (
+              <a className="button" href={summary.shareUrl}>
+                공유 페이지
+              </a>
+            )}
             <Link className="button primary" to="/new">
               새 창업
             </Link>

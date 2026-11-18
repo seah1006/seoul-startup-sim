@@ -49,7 +49,11 @@ async function guest(): Promise<string> {
       guestPromise = undefined;
       throw e;
     });
-  return guestPromise;
+  try {
+    return await guestPromise;
+  } finally {
+    guestPromise = undefined;
+  }
 }
 export function restartGuest() {
   localStorage.removeItem(guestStorageKey);
@@ -92,21 +96,26 @@ export async function request<T>(
       throw new ApiError(error.status || 500, error.message, error.code);
     }
   }
-  const response = await sendWithGuestRecovery(
-    (token) =>
-      fetch(`/api${url}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(key ? { 'Idempotency-Key': key } : {}),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      }),
-    token,
-  );
+  const send = (token: string | null) =>
+    fetch(`/api${url}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(key ? { 'Idempotency-Key': key } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const response = url.startsWith('/auth/')
+    ? await send(token)
+    : await sendWithGuestRecovery(send, token);
   if (!response.ok) {
     const data = await response.json().catch(() => ({ message: '서버 연결에 실패했습니다.' }));
+    if (response.status === 401 && data.code !== 'INVALID_CREDENTIALS') {
+      localStorage.removeItem(guestStorageKey);
+      window.dispatchEvent(new Event('authchange'));
+      window.dispatchEvent(new Event('authrequired'));
+    }
     throw new ApiError(response.status, data.message, data.code);
   }
   return response.status === 204 ? (null as T) : response.json();

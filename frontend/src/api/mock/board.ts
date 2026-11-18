@@ -20,6 +20,7 @@ type MockPost = {
   content: string;
   version: number;
   mine: boolean;
+  userId?: number;
   deleted?: boolean;
   hidden?: boolean;
 };
@@ -91,7 +92,13 @@ function hiddenPost(): MockPost {
   };
 }
 
-type MockComment = { postId: number; item: CommentItem; mine: boolean; deleted?: boolean };
+type MockComment = {
+  userId?: number;
+  postId: number;
+  item: CommentItem;
+  mine: boolean;
+  deleted?: boolean;
+};
 type MockDb = {
   posts: MockPost[];
   likes: number[];
@@ -263,8 +270,14 @@ export function mockBoardRequest(
   const save = () => localStorage.setItem(key, JSON.stringify(db));
   const user = mockUser(token);
   const authenticated = Boolean(user);
-  for (const p of db.posts) p.mine = Boolean(user && p.item.authorNickname === user.nickname);
-  for (const c of db.comments) c.mine = Boolean(user && c.item.authorNickname === user.nickname);
+  for (const p of db.posts) {
+    p.mine = Boolean(user && p.userId === user.userId);
+    if (p.mine) p.item.authorNickname = user!.nickname;
+  }
+  for (const c of db.comments) {
+    c.mine = Boolean(user && c.userId === user.userId);
+    if (c.mine) c.item.authorNickname = user!.nickname;
+  }
   if ((method !== 'GET' || pathname === '/board/me/posts') && user?.role === 'GUEST')
     return error(403, 'MEMBER_REQUIRED', '로그인이 필요해요');
   function limited(kind: 'post' | 'comment' | 'report', max: number) {
@@ -337,6 +350,7 @@ export function mockBoardRequest(
       content: b.content.trim(),
       version: 0,
       mine: true,
+      userId: user?.userId,
     };
     db.posts.push(created);
     save();
@@ -484,12 +498,13 @@ export function mockBoardRequest(
       const date = new Date().toISOString();
       const comment: MockComment = {
         postId,
+        userId: user?.userId,
         mine: true,
         item: {
           commentId,
           parentId: b.parentId ?? null,
           content: b.content.trim(),
-          authorNickname: '나',
+          authorNickname: user?.nickname || '연습 사장님',
           createdAt: date,
           updatedAt: date,
           version: 0,

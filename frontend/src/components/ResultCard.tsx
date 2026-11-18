@@ -46,7 +46,7 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
         <p>
           개업 {r.areaNews.openings}곳 · 폐업 {r.areaNews.closings}곳
         </p>
-        <small>출처: {r.areaNews.source}</small>
+        <small>출처: {r.areaNews.source.replace(/\b(20\d{2}[1-4])\b/g, quarterLabel)}</small>
         <h3>비용과 잔액</h3>
         <p>
           총비용 {money(r.costs.total)} · 잔액 {money(r.cashAfter)}

@@ -2,8 +2,9 @@ import { request, guestStorageKey } from './client';
 import type { UserMe } from './mock/auth';
 export type { UserMe } from './mock/auth';
 export function clearAuth() {
+  const existed = localStorage.getItem(guestStorageKey);
   localStorage.removeItem(guestStorageKey);
-  window.dispatchEvent(new Event('authchange'));
+  if (existed) window.dispatchEvent(new Event('authchange'));
 }
 export const authApi = {
   me: () => request<UserMe>('/auth/me'),

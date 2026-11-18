@@ -26,12 +26,7 @@ async function boardRequest<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const token =
-    auth === 'required'
-      ? await api.guest()
-      : auth === 'optional'
-        ? localStorage.getItem(guestStorageKey)
-        : null;
+  const token = auth === 'none' ? null : localStorage.getItem(guestStorageKey);
   async function send(guestToken: string | null): Promise<Response> {
     if (useMock) return mockBoardRequest(path, method, guestToken, body);
     try {

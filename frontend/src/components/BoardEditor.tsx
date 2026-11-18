@@ -165,10 +165,11 @@ function RecordEditor({ gameId }: { gameId: number }) {
   if (!state) return <p role="status">엔딩 요약을 불러오는 중입니다.</p>;
   if ('summary' in state) return <Editor summary={state.summary} />;
   const error = state.error;
-  if (!useMock && error instanceof ApiError && [404, 405, 501].includes(error.status)) {
+  if (error instanceof ApiError && [404, 409].includes(error.status)) {
     return (
       <p className="card" role="alert">
-        엔딩 요약을 사용할 수 없습니다. 본인 게임의 엔딩 화면에서 다시 시도해 주세요.
+        {error.status === 404 ? '인증할 게임을 찾을 수 없어요' : '아직 끝나지 않은 게임이에요'}{' '}
+        <Link to="/board">게시판으로 돌아가기</Link>
       </p>
     );
   }

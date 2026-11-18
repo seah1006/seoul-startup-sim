@@ -183,6 +183,7 @@ export type PostCategory = (typeof boardCategories)[number];
 export type PostSort = (typeof boardSorts)[number];
 export type PostSearchType = (typeof boardSearchTypes)[number];
 export type BoardErrorCode =
+  | 'MEMBER_REQUIRED'
   | 'VALIDATION_FAILED'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
