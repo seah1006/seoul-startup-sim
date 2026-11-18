@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import css from '../style.css?raw';
+import { readFileSync } from 'node:fs';
 import { geometryToRings, toKakaoPath } from '../geo';
 import { formatDistance, money } from '../components/ResultCard';
 
@@ -54,6 +54,7 @@ describe('표기 형식', () => {
 });
 
 describe('CSS 규칙', () => {
+  const css = readFileSync('src/style.css', 'utf8');
   it('전역 svg 규칙이 없어 카카오맵 폴리곤/원 SVG를 깨지 않는다', () => {
     expect(css).not.toMatch(/^svg\s*\{/m);
   });
