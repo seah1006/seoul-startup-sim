@@ -12,6 +12,12 @@ public class SecretMasker {
     @org.springframework.beans.factory.annotation.Value("${ADMIN_PASSWORD:}")
     private String adminPassword = "";
 
+    @org.springframework.beans.factory.annotation.Value("${spring.datasource.password:}")
+    private String databasePassword = "";
+    @org.springframework.beans.factory.annotation.Value("${KAKAO_CLIENT_SECRET:}")
+    private String kakaoClientSecret = "";
+    @org.springframework.beans.factory.annotation.Value("${app.auth.kakao.client-secret:}")
+    private String kakaoConfiguredSecret = "";
     public SecretMasker(ExternalProperties properties) {
         this.properties = properties;
     }
@@ -23,7 +29,7 @@ public class SecretMasker {
         String result = text;
         for (String key :
                 new String[] {
-                    properties.getSeoul().getApiKey(), properties.getDatagokr().getServiceKey(), adminPassword
+                    properties.getSeoul().getApiKey(), properties.getDatagokr().getServiceKey(), adminPassword, databasePassword, kakaoClientSecret, kakaoConfiguredSecret
                 }) {
             if (key != null && !key.isBlank()) {
                 result = result.replace(key, "****");
@@ -38,4 +44,3 @@ public class SecretMasker {
         return result;
     }
 }
-
