@@ -18,7 +18,36 @@ public class QuarterCalculator {
     public record Input(long seed, int turn, String quarter, long cash, Long marketSales,
             long districtPerStore, int stores, int rivals, double areaM2, long openings, long closings,
             Map<String, Integer> stats, List<String> focus, Decision decision, Map<String, Double> settings,
-            String districtCode) {}
+            String districtCode, List<Modifier> modifiers) {
+        public Input {
+            modifiers = List.copyOf(modifiers);
+        }
+
+        /** 기존 시장 스냅샷 호출은 빈 보정으로 유지해 데이터 버전 고정 코드와 분리한다. */
+        public Input(long seed, int turn, String quarter, long cash, Long marketSales,
+                long districtPerStore, int stores, int rivals, double areaM2, long openings, long closings,
+                Map<String, Integer> stats, List<String> focus, Decision decision, Map<String, Double> settings,
+                String districtCode) {
+            this(seed, turn, quarter, cash, marketSales, districtPerStore, stores, rivals, areaM2,
+                    openings, closings, stats, focus, decision, settings, districtCode, List.of());
+        }
+
+        public Input withModifiers(List<Modifier> active) {
+            return new Input(seed, turn, quarter, cash, marketSales, districtPerStore, stores, rivals, areaM2,
+                    openings, closings, stats, focus, decision, settings, districtCode, active);
+        }
+    }
+
+    /** 계산기는 지속 기간·출처를 모르고 검증된 수치 보정만 받는다. */
+    public record Modifier(String target, String mode, double value) {
+        public Modifier {
+            if (!List.of("revenue", "costRate", "rent", "visitors").contains(target)
+                    || !List.of("ADD", "MULTIPLY").contains(mode) || !Double.isFinite(value)
+                    || mode.equals("MULTIPLY") && (value < 0.1 || value > 3)) {
+                throw new IllegalArgumentException("허용되지 않은 계산기 보정입니다.");
+            }
+        }
+    }
 
     /** 턴별 시드만 사용하므로 재시도나 다른 게임 진행이 매출 난수에 영향을 주지 않는다. */
     public QuarterOutcome calculate(Input input) {
@@ -48,11 +77,28 @@ public class QuarterCalculator {
                 * settings.getOrDefault("capacityPerHour", 8d));
         long visitors = Math.min(capacity, Math.max(0, (long) (market / (double) (Math.max(0, input.stores()) + 1)
                 * appeal * density * random / price / ticket)));
+        if (hasModifier(input, "visitors")) {
+            double baseVisitors = market / (double) (Math.max(0, input.stores()) + 1)
+                    * appeal * density * random / price / ticket;
+            visitors = Math.min(capacity, Math.max(0, (long) modify(baseVisitors, input, "visitors")));
+        }
         long revenue = Math.multiplyExact(visitors, ticket);
+        if (hasModifier(input, "revenue")) {
+            revenue = Math.round(Math.max(0, modify(revenue, input, "revenue")));
+        }
         long rent = settings.getOrDefault("rent." + input.districtCode(),
                 settings.getOrDefault("rent.default", 9000000d)).longValue();
         long ingredients = Math.round(revenue * settings.getOrDefault("cost.FOOD", .35)
                 * (1 - (input.stats().get("management") - 40) * .002));
+        if (hasModifier(input, "costRate")) {
+            double rate = settings.getOrDefault("cost.FOOD", .35)
+                    * (1 - (input.stats().get("management") - 40) * .002);
+            rate = Math.max(0.05, Math.min(0.95, modify(rate, input, "costRate")));
+            ingredients = Math.round(revenue * rate);
+        }
+        if (hasModifier(input, "rent")) {
+            rent = Math.round(Math.max(0, modify(rent, input, "rent")));
+        }
         long labor = Math.round(decision.staff() * settings.getOrDefault("labor", 6000000d));
         long total = Math.addExact(Math.addExact(rent, ingredients), Math.addExact(labor, decision.marketingBudget()));
         long profit = revenue - total;
@@ -79,5 +125,25 @@ public class QuarterCalculator {
                 changes, new AreaNews(input.closings(), input.openings(), "서울시 상권분석서비스 " + input.quarter()),
                 null, List.of(), input.marketSales() == null
                         ? List.of("이 상권의 매출은 자치구 점포당 평균으로 추정한 값입니다") : List.of());
+    }
+
+    private boolean hasModifier(Input input, String target) {
+        return input.modifiers().stream().anyMatch(modifier -> modifier.target().equals(target));
+    }
+
+    /** ADD를 모두 더한 뒤 MULTIPLY를 순서대로 적용한다. 대상 보정이 없으면 연산하지 않는다. */
+    private double modify(double base, Input input, String target) {
+        double result = base;
+        for (Modifier modifier : input.modifiers()) {
+            if (modifier.target().equals(target) && modifier.mode().equals("ADD")) {
+                result += modifier.value();
+            }
+        }
+        for (Modifier modifier : input.modifiers()) {
+            if (modifier.target().equals(target) && modifier.mode().equals("MULTIPLY")) {
+                result *= modifier.value();
+            }
+        }
+        return result;
     }
 }

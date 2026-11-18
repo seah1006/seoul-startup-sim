@@ -80,6 +80,7 @@ class GameIntegrationTest {
 
     @BeforeEach
     void fixture() {
+        jdbc.execute("TRUNCATE turning_points, turning_point_options, reaction_templates, moment_templates CASCADE");
         jdbc.execute("""
                 TRUNCATE users, trade_areas, data_versions CASCADE
                 """);
