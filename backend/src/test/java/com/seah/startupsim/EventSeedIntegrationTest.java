@@ -1,6 +1,7 @@
 package com.seah.startupsim;
 
 import com.seah.startupsim.game.EventDefinitionValidator;
+import com.seah.startupsim.game.EventDefinitionRepository;
 import com.seah.startupsim.game.GameModifierRepository;
 import com.seah.startupsim.game.QuarterCalculator.Modifier;
 import java.util.List;
@@ -51,8 +52,41 @@ class EventSeedIntegrationTest {
             assertEquals(0, result.getInt(5));
             assertEquals(0, result.getInt(6));
             validateDefinitions(connection);
+            validateDefinitionReader(connection);
             validateModifierWindow(connection);
         }
+    }
+
+    private void validateDefinitionReader(Connection connection) {
+        var jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+        var repository = new EventDefinitionRepository(jdbc, new ObjectMapper(), new EventDefinitionValidator());
+        assertEquals(12, repository.turningPoints().size());
+        assertEquals(36, repository.reactions().size());
+        assertEquals(12, repository.moments().size());
+        var point = repository.turningPoints().getFirst();
+        assertEquals(point.data().get("options").size(), repository.optionIds(point.id()).size());
+        jdbc.update("UPDATE reaction_templates SET enabled = false WHERE code = (SELECT min(code) FROM reaction_templates)");
+        assertEquals(35, repository.reactions().size());
+        jdbc.update("UPDATE reaction_templates SET enabled = true");
+        jdbc.update("""
+                UPDATE turning_points SET condition_expr = '{"unknown":1}'
+                WHERE code = (SELECT min(code) FROM turning_points)
+                """);
+        jdbc.update("""
+                UPDATE reaction_templates SET body = '허용되지 않은 {unknown} 치환'
+                WHERE code = (SELECT min(code) FROM reaction_templates)
+                """);
+        jdbc.update("""
+                UPDATE moment_templates SET on_success = '[{"type":"CASH","amount":1,"memo":"금지"}]'
+                WHERE code = (SELECT min(code) FROM moment_templates)
+                """);
+        repository.validateAll();
+        assertEquals(11, repository.turningPoints().size());
+        assertEquals(35, repository.reactions().size());
+        assertEquals(11, repository.moments().size());
+        assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM turning_points WHERE enabled", Integer.class));
+        assertEquals(36, jdbc.queryForObject("SELECT count(*) FROM reaction_templates WHERE enabled", Integer.class));
+        assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM moment_templates WHERE enabled", Integer.class));
     }
 
     private void validateModifierWindow(Connection connection) {
