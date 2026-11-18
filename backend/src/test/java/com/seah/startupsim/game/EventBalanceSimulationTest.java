@@ -162,6 +162,7 @@ class EventBalanceSimulationTest {
         sample(areas, markets);
         Definitions before = new Definitions(points, reactions, moments, settings);
         Definitions after = tuned(before);
+        Definitions withGap = tuned(after, Path.of("src/main/resources/db/migration/V13__event_global_gap.sql"));
         List<Outcome> beforeOutcomes = run(before, areas, markets, categories);
         List<Outcome> afterOutcomes = run(after, areas, markets, categories);
 
@@ -174,7 +175,9 @@ class EventBalanceSimulationTest {
                 .append("전환점 선택지는 게임별 고정 시드로 균등 선택. 순간·동네 반응·가상 경쟁점·전환점 효과(현금·능력치·보정·")
                 .append("플래그·매장 수·경쟁점)를 모두 메모리 상태에 반영. 실제 경쟁점 수는 상권 점포 수로 기대한 반경 내 수와 같다고 ")
                 .append("가정(밀집 보정 1에서 시작). 마지막 분기(종료 분기)에는 엔진과 같이 전환점이 뜨지 않는다.\n\n");
+        List<Outcome> gapOutcomes = run(withGap, areas, markets, categories);
         compare(report, beforeOutcomes, afterOutcomes);
+        compareGap(report, afterOutcomes, gapOutcomes);
         distribution(report, beforeOutcomes, afterOutcomes);
         perPoint(report, before, beforeOutcomes, afterOutcomes, after);
         perOption(report, "조정 전", beforeOutcomes);
@@ -227,10 +230,14 @@ class EventBalanceSimulationTest {
 
     /** V12의 전환점 UPDATE(숫자 열·조건식)와 이벤트 설정 UPDATE를 메모리 정의에 그대로 적용한다. */
     private Definitions tuned(Definitions before) throws Exception {
-        if (!Files.exists(V12)) {
+        return tuned(before, V12);
+    }
+
+    private Definitions tuned(Definitions before, Path migration) throws Exception {
+        if (!Files.exists(migration)) {
             return before;
         }
-        String sql = Files.readString(V12);
+        String sql = Files.readString(migration);
         Map<String, ObjectNode> changed = new LinkedHashMap<>();
         for (var point : before.points()) {
             changed.put(point.code(), (ObjectNode) point.data().deepCopy());
@@ -363,7 +370,7 @@ class EventBalanceSimulationTest {
             }
             if (ending == null && !definitions.points().isEmpty()
                     && turn >= settings.getOrDefault("event.fire.minTurn", 1d)) {
-                Fire fire = turningPoint(state, context, variables, definitions.points(), chooser);
+                Fire fire = turningPoint(state, context, variables, definitions.points(), chooser, settings.getOrDefault("event.fire.globalGap", 0d));
                 if (fire != null) {
                     fires.add(fire);
                 }
@@ -548,9 +555,9 @@ class EventBalanceSimulationTest {
      * {@link TurningPointService#choose}의 성공 판정과 효과 적용. 선택지는 게임별 시드로 균등하게 고른다.
      */
     private Fire turningPoint(State state, GameContext context, Map<String, Object> variables,
-            List<EventDefinitionRepository.Definition> points, SplittableRandom chooser) {
+            List<EventDefinitionRepository.Definition> points, SplittableRandom chooser, double globalGap) {
         Map<String, Integer> stats = Map.copyOf(state.stats);
-        Map<String, Boolean> judged = engine.judge(context, variables, stats, points);
+        Map<String, Boolean> judged = engine.judge(context, variables, stats, points, globalGap);
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();
         int highest = -1;
         for (var point : points) {
@@ -663,6 +670,17 @@ class EventBalanceSimulationTest {
             }
         }
         return total == 0 ? 0 : (successes - expected) * 100 / total;
+    }
+
+    private static void compareGap(StringBuilder report, List<Outcome> before, List<Outcome> after) {
+        List<Outcome> left = before.stream().filter(o -> o.turns() == TURNS).toList();
+        List<Outcome> right = after.stream().filter(o -> o.turns() == TURNS).toList();
+        report.append("## 전역 간격 비교\n\n|지표|조정 후 (V12)|전역 간격 1|\n|---|---:|---:|\n");
+        row(report, "게임당 전환점 평균 (전체)", mean(before, o -> o.fires().size()), mean(after, o -> o.fires().size()), "%.2f");
+        row(report, "게임당 전환점 평균 (12분기 완주 게임)", mean(left, o -> o.fires().size()), mean(right, o -> o.fires().size()), "%.2f");
+        row(report, "완주 게임 중 전환점 3~5회 비율 (%)", share(left, 3, 5), share(right, 3, 5), "%.2f");
+        row(report, "연속 분기 발생 비율 (%)", consecutive(before), consecutive(after), "%.2f");
+        report.append('\n');
     }
 
     private static void compare(StringBuilder report, List<Outcome> before, List<Outcome> after) {
