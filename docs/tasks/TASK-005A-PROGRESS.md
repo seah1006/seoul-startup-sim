@@ -27,3 +27,10 @@
 - 커밋: `a1e0be2` 시작, `d29f0e6` 댓글, `b973530` 좋아요, `c509582` HTTP 통합 테스트.
 - 다음: 3단계 신고·관리자에서는 댓글 상태 변경도 글을 먼저 잠그고, 상태 변경과 공개 카운터 재계산을 동일 트랜잭션에서 수행. 4단계 레이트 리밋·시드 및 완료 검증은 미착수.
 - 최종 검증: `gradlew.bat --no-daemon check --offline` 성공(2m 13s; 57 tests, 0 failures, 0 errors, 0 skipped). frontend/game 및 V11 변경 없음, push 없음.
+
+## 3단계: 신고·관리자
+- 게시글·댓글 신고: 인증/형식/공개성/자기 신고/중복 순서, 등록 201. PostgreSQL `ux_post_reports_target_reporter`만 409로 변환하며 오류에 트리거 원문을 노출하지 않는다.
+- 관리자 HTML: 목록·상세·필터, 신고 일괄 처리/기각, 게시글·댓글 숨김/복구/삭제, 게시글 고정. 글→댓글→신고(id 순) 잠금, 상태 전이·카운터 재계산 원자적 처리, HTML 400/409, 성공 303·플래시.
+- Testcontainers: `gradlew.bat --no-daemon test --offline --tests '*BoardInteractionIntegrationTest'` 재검증 5 tests, `--tests '*BoardModerationIntegrationTest'` 2 tests. 모두 실패·오류·스킵 0. 관리자 CSRF와 텍스트 이스케이프 포함.
+- 커밋: `38d5f5d` 신고/관리자, `d7f7fdb` 통합 테스트. 2단계 테스트는 기커밋(`c509582`, 줄바꿈 `6e6e4de`)으로 중복 커밋하지 않음.
+- 다음: 4단계 레이트 리밋·시드, 전체 검증·전용 DB EXPLAIN·curl 시연.
