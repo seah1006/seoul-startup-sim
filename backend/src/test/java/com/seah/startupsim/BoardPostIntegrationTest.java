@@ -157,6 +157,7 @@ class BoardPostIntegrationTest {
         error(mvc.perform(post(POSTS).contentType(JSON).content("{")), 401, "UNAUTHORIZED");
         error(mvc.perform(post(POSTS).header(TOKEN, "invalid").contentType(JSON).content("{")), 401, "UNAUTHORIZED");
         for (String payload : new String[] {"{", "{}", CREATE.replace("TIP", "MISSING"),
+                CREATE.replace("\"TIP\"", "0"), CREATE.replace("\" 제목 \"", "123"),
                 CREATE.replace(" 제목 ", "   "), CREATE.replace(" 제목 ", "x".repeat(101)),
                 CREATE.replace(" 본문 ", "x".repeat(10001))}) {
             error(create(payload), 400, "VALIDATION_FAILED");
@@ -211,6 +212,8 @@ class BoardPostIntegrationTest {
         error(remove(active, owner, null), 400, "VALIDATION_FAILED");
         error(remove(active, owner, "-1"), 400, "VALIDATION_FAILED");
         error(update(active, owner, UPDATE.replace(",\"version\":0", "")), 400, "VALIDATION_FAILED");
+        error(update(active, owner, UPDATE.replace("\"version\":0", "\"version\":0.9")), 400, "VALIDATION_FAILED");
+        error(update(active, owner, UPDATE.replace("\"version\":0", "\"version\":\"0\"")), 400, "VALIDATION_FAILED");
         error(update(active, owner, UPDATE.replace(",\"version\":0", ",\"version\":0,\"gameId\":null")), 400, "VALIDATION_FAILED");
         error(update(active, owner, UPDATE.replace("TIP", "RECORD")), 400, "VALIDATION_FAILED");
         update(active, owner, UPDATE).andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1))
