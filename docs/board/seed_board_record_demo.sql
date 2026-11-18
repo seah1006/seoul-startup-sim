@@ -8,7 +8,7 @@ WITH owner AS (
     SELECT id FROM users WHERE login_id = :'owner_login' AND deleted_at IS NULL
 ), game AS (
     INSERT INTO games (user_id, seed, start_quarter, last_quarter, current_turn, status, ending_type, cash, initial_capital, settings)
-    SELECT id, 77, '20201', '20244', 8, 'ENDED', 'LONG_RUNNING', 83000000, 50000000, '{}' FROM owner
+    SELECT id, 77, '20201', '20244', 8, 'ENDED', 'LONG_RUNNING', 83000000, 50000000, '{"initialCapital": 50000000}'::jsonb FROM owner
     RETURNING id, user_id
 )
 INSERT INTO game_records (game_id, user_id, nickname, ending_type, survived_quarters, total_profit, best_quarter_profit,
