@@ -3,7 +3,9 @@ import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { boardApi } from '../api/board';
 import { boardCategories, boardSearchTypes, boardSorts } from '../api/types';
-import type { PageResponse, PostCategory, PostListItem, PostSearchQuery } from '../api/types';
+import type { MyPostListItem, PageResponse, PostCategory, PostListItem, PostSearchQuery } from '../api/types';
+
+import { BoardFeedback } from './BoardFeedback';
 
 const labels: Record<PostCategory, string> = { FREE: '자유', TIP: '공략', QNA: '질문', RECORD: '엔딩 인증' };
 const sorts = { latest: '최신순', popular: '인기순', views: '조회순', comments: '댓글순' };
@@ -42,22 +44,25 @@ function writeQuery(query: PostSearchQuery) {
   return params;
 }
 
-type ListState = { queryKey: string; data: PageResponse<PostListItem> } | { queryKey: string; error: string };
+type ListState = { queryKey: string; data: PageResponse<PostListItem | MyPostListItem> } | { queryKey: string; error: unknown };
 
-export default function BoardList() {
+export default function BoardList({ mine = false }: { mine?: boolean }) {
+  const [revision, setRevision] = useState(0);
   const [params, setParams] = useSearchParams();
   const query = readQuery(params);
-  const queryKey = writeQuery(query).toString();
+  const serialized = writeQuery(query).toString();
+  const queryKey = JSON.stringify([mine, revision, serialized]);
   const formKey = writeQuery({ ...query, page: undefined, sort: undefined }).toString();
   const [state, setState] = useState<ListState>();
   useEffect(() => {
     const controller = new AbortController();
-    boardApi.posts(readQuery(new URLSearchParams(queryKey)), controller.signal).then(
+    const query = readQuery(new URLSearchParams(serialized));
+    (mine ? boardApi.myPosts(query) : boardApi.posts(query, controller.signal)).then(
       data => { if (!controller.signal.aborted) setState({ queryKey, data }); },
-      error => { if (!controller.signal.aborted) setState({ queryKey, error: error instanceof Error ? error.message : '게시글을 불러오지 못했습니다.' }); },
+      error => { if (!controller.signal.aborted) setState({ queryKey, error }); },
     );
     return () => controller.abort();
-  }, [queryKey]);
+  }, [mine, queryKey, serialized]);
   const current = state?.queryKey === queryKey ? state : undefined;
   const data = current && 'data' in current ? current.data : undefined;
   const change = (patch: PostSearchQuery) => setParams(writeQuery({ ...query, page: 0, ...patch }));
@@ -73,7 +78,11 @@ export default function BoardList() {
   const page = query.page ?? 0;
   return <section className="board" aria-labelledby="board-title">
     <p className="eyebrow">SEOUL STARTUP COMMUNITY</p>
-    <h1 id="board-title">사장님 커뮤니티</h1>
+    <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
+    <nav className="choices" aria-label="게시판 메뉴">
+      <Link className="button" to="/board/write">글 쓰기</Link>
+      {mine ? <Link className="button" to="/board">전체 게시판</Link> : <Link className="button" to="/board/me">내 글</Link>}
+    </nav>
     <nav className="choices board-tabs" aria-label="게시판 카테고리">
       {tabs.map(category => <Link key={category ?? 'all'} className={`button${query.category === category ? ' selected' : ''}`}
         aria-current={query.category === category ? 'page' : undefined}
@@ -96,20 +105,24 @@ export default function BoardList() {
       </form>
     </div>
     {!current && <p role="status">게시글을 불러오는 중입니다.</p>}
-    {current && 'error' in current && <p className="error" role="alert">{current.error}</p>}
+    {current && 'error' in current && <BoardFeedback error={current.error} onGuest={mine ? () => setRevision(n => n + 1) : undefined}/>}
     {data && <>
       <p className="board-count">게시글 {data.totalElements.toLocaleString('ko-KR')}건</p>
       {!data.content.length ? (data.totalElements > 0 ? <div className="card">
         <p>이 페이지에는 글이 없습니다.</p><button type="button" onClick={() => change({ page: 0 })}>첫 페이지로</button>
       </div> : <p className="card">조건에 맞는 게시글이 없습니다.</p>) :
         <ul className="card board-posts" aria-label="게시글 목록">
-          {data.content.map(p => <li key={p.postId}>
-            <div><span className="badge">{labels[p.category]}</span> {p.isPinned && <span className="badge board-pinned">고정</span>}</div>
-            <Link className="board-post-title" to={`/board/posts/${p.postId}`}>{p.title}</Link>
-            {p.record && <p className="board-record">{p.record.serviceName} · {p.record.areaName}</p>}
-            <div className="board-meta"><span>{p.authorNickname}</span><time dateTime={p.createdAt}>{dateFormat.format(new Date(p.createdAt))}</time>
-              <span>조회 {p.viewCount}</span><span>좋아요 {p.likeCount}</span><span>댓글 {p.commentCount}</span></div>
-          </li>)}
+          {data.content.map(p => {
+            const hidden = 'status' in p && p.status === 'HIDDEN';
+            return <li key={p.postId}>
+              <div><span className="badge">{labels[p.category]}</span> {p.isPinned && <span className="badge board-pinned">고정</span>}</div>
+              {hidden ? <p className="board-post-title">{p.title} <span className="badge">숨김</span></p>
+                : <Link className="board-post-title" to={`/board/posts/${p.postId}`}>{p.title}</Link>}
+              {!hidden && p.record && <p className="board-record">{p.record.serviceName} · {p.record.areaName}</p>}
+              {!hidden && <div className="board-meta"><span>{p.authorNickname}</span><time dateTime={p.createdAt}>{dateFormat.format(new Date(p.createdAt))}</time>
+                <span>조회 {p.viewCount}</span><span>좋아요 {p.likeCount}</span><span>댓글 {p.commentCount}</span></div>}
+            </li>;
+          })}
         </ul>}
       {(page > 0 || data.totalPages > 1) && <nav className="board-pagination" aria-label="게시글 페이지">
         <button type="button" onClick={() => change({ page: Math.max(0, Math.min(page - 1, data.totalPages - 1)) })} disabled={page === 0}>이전</button>

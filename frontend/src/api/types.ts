@@ -37,6 +37,9 @@ export interface RecordSnapshot {
   areaCode: string; areaName: string; survivedQuarters: number; totalProfit: number;
   shopName: string; ownerName: string; shareUrl: string;
 }
+export interface GameSummary extends Omit<RecordSnapshot, 'serviceCode' | 'areaCode'> {
+  bestQuarterProfit: number; shopCount: number;
+}
 export interface PostListItem {
   postId: number; category: PostCategory; title: string; authorNickname: string; createdAt: string; updatedAt: string;
   viewCount: number; likeCount: number; commentCount: number; isPinned: boolean; record: RecordSnapshot | null;

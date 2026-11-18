@@ -95,3 +95,22 @@ it('선택 인증 401에서 토큰 없이 한 번만 재시도하고, 필수 인
   await expect(boardApi.like(2, true)).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED', message: '만료된 토큰' });
   expect(request).toHaveBeenCalledTimes(3);
 });
+
+it('실제 모드 요청 경로: 홈 인기글, 내 글 인증, 종료 요약 및 RECORD 작성 본문 (fetch 대역)', async () => {
+  const request = vi.fn(async (url: string) => url.endsWith('/summary')
+    ? Response.json({ gameId: 104, endingType: 'LONG_RUNNING' })
+    : Response.json({ postId: 31, content: [] }));
+  vi.stubGlobal('fetch', request);
+  const { api, boardApi, guestStorageKey } = await client(false);
+  const token = 'fixture-token';
+  localStorage.setItem(guestStorageKey, token);
+  await boardApi.posts({ sort: 'popular', size: 3 });
+  await boardApi.myPosts({ category: 'RECORD', page: 0, size: 20 });
+  await expect(api.summary(104)).resolves.toMatchObject({ gameId: 104 });
+  const body = { category: 'RECORD', gameId: 104, title: '제목', content: '본문' } as const;
+  await boardApi.createPost(body);
+  expect(request).toHaveBeenNthCalledWith(1, '/api/board/posts?sort=popular&size=3', expect.objectContaining({ headers: {} }));
+  expect(request).toHaveBeenNthCalledWith(2, '/api/board/me/posts?category=RECORD&page=0&size=20', expect.objectContaining({ headers: { 'X-Guest-Token': token } }));
+  expect(request).toHaveBeenNthCalledWith(3, '/api/games/104/summary', expect.objectContaining({ method: 'GET', headers: expect.objectContaining({ 'X-Guest-Token': token }) }));
+  expect(request).toHaveBeenNthCalledWith(4, '/api/board/posts', expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }));
+});

@@ -1,15 +1,12 @@
+import { mockEndingRecord, seedBoardRecords } from './index';
 import { boardCategories, boardSearchTypes, boardSorts } from '../types';
-import type { BoardErrorCode, CommentItem, CreateCommentRequest, CreateReportRequest, UpdateCommentRequest, PageResponse, PostDetail, PostListItem, RecordSnapshot, UpdatePostRequest } from '../types';
+import type { BoardErrorCode, CommentItem, CreateCommentRequest, CreatePostRequest, CreateReportRequest, UpdateCommentRequest, PageResponse, PostDetail, PostListItem, RecordSnapshot, UpdatePostRequest } from '../types';
 
-type MockPost = { item: PostListItem; content: string; version: number; mine: boolean; deleted?: boolean };
+type MockPost = { item: PostListItem; content: string; version: number; mine: boolean; deleted?: boolean; hidden?: boolean };
 const key = 'sss-mock-board-v1';
 const counter = { popular: 'likeCount', views: 'viewCount', comments: 'commentCount' } as const;
 const stories = ['첫 창업 회고', '단골을 만든 운영 기록', '고정비를 줄인 방법', '다음 분기 전략', '골목 상권 도전기', '첫 흑자 분기를 돌아보며'];
-const records: RecordSnapshot[] = [
-  { gameId: 101, endingType: 'LONG_RUNNING', serviceCode: 'CS100010', serviceName: '커피-음료', areaCode: '3110123', areaName: '망원역', survivedQuarters: 14, totalProfit: 182000000, shopName: '가상 구름모래 찻집', ownerName: '가상 사장 하루', shareUrl: '/share/101' },
-  { gameId: 102, endingType: 'SOLD', serviceCode: 'CS100008', serviceName: '분식전문점', areaCode: '3110123', areaName: '망원역', survivedQuarters: 8, totalProfit: 45000000, shopName: '가상 초승달 분식', ownerName: '가상 사장 나래', shareUrl: '/share/102' },
-  { gameId: 103, endingType: 'CLOSED', serviceCode: 'CS100010', serviceName: '커피-음료', areaCode: '3110837', areaName: '성수역', survivedQuarters: 4, totalProfit: -17000000, shopName: '가상 파란행성 다방', ownerName: '가상 사장 바다', shareUrl: '/share/103' },
-];
+const records = seedBoardRecords;
 
 function seed() {
   return Array.from({ length: 29 }, (_, i): MockPost => {
@@ -23,10 +20,17 @@ function seed() {
     }, content: i === 0 ? '게임 속 가상 창업 경험을 공유해 주세요.' : '첫 분기에는 고정비를 줄였습니다.\n다음에는 운영 시간을 바꿔 볼 계획입니다.', version: 0, mine: i === 1 || i === 4 };
   });
 }
+function hiddenPost(): MockPost {
+  const record = mockEndingRecord(105);
+  const now = '2026-11-18T01:00:00Z';
+  return { item: { postId: 30, category: 'RECORD', title: '숨김 처리된 연습 인증글', authorNickname: '연습 사장님',
+    createdAt: now, updatedAt: now, viewCount: 0, likeCount: 0, commentCount: 0, isPinned: false,
+    record: record && record !== 'PLAYING' ? record : null }, content: '', version: 1, mine: true, hidden: true };
+}
 
 type MockComment = { postId: number; item: CommentItem; mine: boolean; deleted?: boolean };
 type MockDb = { posts: MockPost[]; likes: number[]; views: string[]; reports: string[];
-  comments: MockComment[]; limits: Partial<Record<'comment' | 'report', { minute: number; count: number }>> };
+  comments: MockComment[]; limits: Partial<Record<'post' | 'comment' | 'report', { minute: number; count: number }>> };
 function seedComments(): MockComment[] {
   const rows = [
     [1, null, '첫 분기의 운영 시간은 어떻게 정하셨나요?', false, false],
@@ -46,6 +50,7 @@ function load(): MockDb {
   let saved: Partial<MockDb> = {};
   try { const raw = localStorage.getItem(key); if (raw) saved = JSON.parse(raw); } catch { /* 초기 목 데이터 사용 */ }
   const db = { posts: seed(), likes: [], views: [], reports: [], comments: seedComments(), limits: {}, ...saved };
+  if (!db.posts.some(p => p.item.postId === 30)) db.posts.push(hiddenPost());
   for (const post of db.posts) syncCount(db, post);
   return db;
 }
@@ -82,8 +87,8 @@ function list(posts: MockPost[], params: URLSearchParams, mine: boolean) {
     || !enumValue(boardSearchTypes, searchType) || (category !== null && !enumValue(boardCategories, category))
     || q.length > 100 || (service !== undefined && !text(service, 32)) || (area !== undefined && !text(area, 32))
     || ((service || area) && category !== null && category !== 'RECORD')) return invalid();
-  const rows = posts.filter(({ item: p, content, deleted, mine: owner }) => {
-    if (deleted || (mine && !owner) || (category && p.category !== category)) return false;
+  const rows = posts.filter(({ item: p, content, deleted, hidden, mine: owner }) => {
+    if (deleted || (mine ? !owner : hidden) || (category && p.category !== category)) return false;
     if (service && service !== p.record?.serviceCode) return false;
     if (area && area !== p.record?.areaCode) return false;
     const targets = { title: [p.title], content: [content], titleContent: [p.title, content], author: [p.authorNickname] };
@@ -91,7 +96,7 @@ function list(posts: MockPost[], params: URLSearchParams, mine: boolean) {
   }).sort(({ item: a }, { item: b }) => Number(b.isPinned) - Number(a.isPinned)
     || (sort === 'latest' ? 0 : b[counter[sort]] - a[counter[sort]])
     || b.createdAt.localeCompare(a.createdAt) || b.postId - a.postId);
-  return json({ content: rows.slice(page * size, (page + 1) * size).map(p => mine ? { ...p.item, status: 'ACTIVE', version: p.version } : p.item),
+  return json({ content: rows.slice(page * size, (page + 1) * size).map(p => mine ? { ...p.item, status: p.hidden ? 'HIDDEN' : 'ACTIVE', version: p.version } : p.item),
     page, size, totalElements: rows.length, totalPages: Math.ceil(rows.length / size) } satisfies PageResponse<PostListItem>,
   200, mine ? privateHeaders : undefined);
 }
@@ -101,7 +106,7 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
   const db = load();
   const save = () => localStorage.setItem(key, JSON.stringify(db));
   const authenticated = token === 'mock-guest';
-  function limited(kind: 'comment' | 'report', max: number) {
+  function limited(kind: 'post' | 'comment' | 'report', max: number) {
     const minute = Math.floor(Date.now() / 60_000);
     const previous = db.limits[kind];
     const count = previous?.minute === minute ? previous.count : 0;
@@ -119,8 +124,31 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
   const detail = (p: MockPost): PostDetail => ({ ...p.item, content: p.content, version: p.version,
     isMine: authenticated && p.mine, likedByMe: authenticated && db.likes.includes(p.item.postId) });
   if (method === 'GET' && (pathname === '/board/posts' || mine)) return list(db.posts, searchParams, mine);
+  if (method === 'POST' && pathname === '/board/posts') {
+    const b = body as CreatePostRequest | undefined;
+    if (!b || !enumValue(boardCategories, b.category) || !text(b.title, 100) || !text(b.content, 10000)
+      || (b.category === 'RECORD' ? !integer(b.gameId, 1) : 'gameId' in b)) return invalid();
+    let record: RecordSnapshot | null = null;
+    if (b.category === 'RECORD') {
+      const snapshot = mockEndingRecord(b.gameId);
+      if (!snapshot) return missing();
+      if (snapshot === 'PLAYING') return error(409, 'RECORD_GAME_NOT_ENDED', '종료된 게임만 인증할 수 있습니다.');
+      if (db.posts.some(p => !p.deleted && p.item.record?.gameId === b.gameId)) {
+        return error(409, 'RECORD_ALREADY_POSTED', '이미 인증글이 있습니다. 숨김 여부는 내 글에서 확인해 주세요.');
+      }
+      record = snapshot;
+    }
+    if (limited('post', 3)) return rateError();
+    const postId = Math.max(...db.posts.map(p => p.item.postId), 0) + 1;
+    const now = new Date().toISOString();
+    const created: MockPost = { item: { postId, category: b.category, title: b.title.trim(), authorNickname: '연습 사장님',
+      createdAt: now, updatedAt: now, viewCount: 0, likeCount: 0, commentCount: 0, isPinned: false, record },
+      content: b.content.trim(), version: 0, mine: true };
+    db.posts.push(created); save();
+    return json(detail(created), 201, { Location: `/api/board/posts/${postId}` });
+  }
   if (method === 'GET' && recordMatch) {
-    const p = db.posts.find(p => !p.deleted && p.item.record?.gameId === Number(recordMatch[1]))?.item;
+    const p = db.posts.find(p => !p.deleted && !p.hidden && p.item.record?.gameId === Number(recordMatch[1]))?.item;
     return p ? json({ postId: p.postId, title: p.title, commentCount: p.commentCount, postUrl: `/board/posts/${p.postId}` }, 200, privateHeaders)
       : new Response(null, { status: 204, headers: privateHeaders });
   }
@@ -130,8 +158,8 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
       || !['SPAM', 'ABUSE', 'ADULT', 'ETC'].includes(b.reason)
       || (b.detail !== undefined && (typeof b.detail !== 'string' || b.detail.trim().length > 500))
       || (b.reason === 'ETC' && !text(b.detail, 500))) return invalid();
-    const target = b.targetType === 'POST' ? db.posts.find(p => !p.deleted && p.item.postId === b.targetId)
-      : db.comments.find(c => !c.deleted && c.item.commentId === b.targetId && db.posts.some(p => !p.deleted && p.item.postId === c.postId));
+    const target = b.targetType === 'POST' ? db.posts.find(p => !p.deleted && !p.hidden && p.item.postId === b.targetId)
+      : db.comments.find(c => !c.deleted && c.item.commentId === b.targetId && db.posts.some(p => !p.deleted && !p.hidden && p.item.postId === c.postId));
     if (!target) return missing();
     if (target.mine) return forbidden();
     const id = `${b.targetType}:${b.targetId}`;
@@ -144,7 +172,7 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
   if (!match) return missing();
   const postId = Number(match[1]), sub = match[2];
   if (!integer(postId, 1)) return invalid();
-  const p = db.posts.find(p => !p.deleted && p.item.postId === postId);
+  const p = db.posts.find(p => !p.deleted && !p.hidden && p.item.postId === postId);
   if (!sub && (method === 'PUT' || method === 'DELETE')) {
     const b = body as (UpdatePostRequest & { gameId?: number }) | undefined;
     const version = method === 'PUT' ? b?.version : readInt(searchParams, 'version', NaN);

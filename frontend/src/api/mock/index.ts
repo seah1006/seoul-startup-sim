@@ -1,12 +1,30 @@
-import type { Area, AreaCollection, Background, Candidate, Decision, GameState, Industry, OwnerInput, QuarterResult, Report, ShopInput, Stat, Stores } from '../types';
+import type { Area, AreaCollection, Background, Candidate, Decision, GameState, GameSummary, Industry, OwnerInput, QuarterResult, RecordSnapshot, Report, ShopInput, Stat, Stores } from '../types';
 export const industries:Industry[] = ['한식음식점','중식음식점','일식음식점','양식음식점','제과점','패스트푸드점','치킨전문점','분식전문점','호프-간이주점','커피-음료'].map((name,i)=>({serviceCode:`CS1000${String(i+1).padStart(2,'0')}`,name,category:'FOOD',playable:true}));
 export const areas:Area[] = [{areaCode:'demo-1',name:'망원동 연습 상권',districtName:'마포구',areaTypeName:'연습용',centroid:{lng:126.905,lat:37.556}},{areaCode:'demo-2',name:'성수동 연습 상권',districtName:'성동구',areaTypeName:'연습용',centroid:{lng:127.055,lat:37.544}}];
 export const polygons:AreaCollection = {type:'FeatureCollection',truncated:false,features:areas.map(a=>({type:'Feature',properties:a,geometry:{type:'Polygon',coordinates:[[[a.centroid.lng-.003,a.centroid.lat-.002],[a.centroid.lng+.003,a.centroid.lat-.002],[a.centroid.lng+.003,a.centroid.lat+.002],[a.centroid.lng-.003,a.centroid.lat+.002],[a.centroid.lng-.003,a.centroid.lat-.002]]]}}))};
 export function candidates(background:Background,seed:number):Candidate[] { const bases = {OFFICE_WORKER:[35,40,50,48,37,30],CULINARY:[65,35,35,30,45,30],PART_TIMER:[35,55,35,30,55,30],LOCAL:[35,40,35,35,35,60]}; return [0,1,2].map(i=>{const values=[...bases[background]]; const change=((seed+i*7)%15)-7;values[i]+=change;values[(i+3)%6]-=change;return {candidateId:`c${i+1}`,stats:Object.fromEntries(['cooking','service','management','marketing','stamina','network'].map((s,j)=>[s,values[j]])) as Candidate['stats'],total:240};}); }
 export const sampleResult:QuarterResult={turn:0,quarter:'20231',headline:{label:'이번 분기 순이익',amount:12400000},revenue:58200000,visitors:4130,avgTicket:14100,costs:{rent:9000000,ingredients:20370000,labor:12000000,marketing:4430000,total:45800000},profit:12400000,cashAfter:62400000,areaRank:{rank:4,of:12},statChanges:[{stat:'cooking',before:49,after:52}],areaNews:{openings:2,closings:1,source:'서울시 상권분석서비스 20231 (목 예시, 실제 조회 아님)'},moment:null,reactions:[],dataNotes:['목 데이터로 실행 중입니다. 실제 상권의 매출이나 순위를 의미하지 않습니다.','길단위인구는 단위 미확인으로 분기 지표만 표시합니다.']};
+const records: RecordSnapshot[] = [
+  { gameId: 101, endingType: 'LONG_RUNNING', serviceCode: 'CS100010', serviceName: '커피-음료', areaCode: '3110123', areaName: '망원역', survivedQuarters: 14, totalProfit: 182000000, shopName: '가상 구름모래 찻집', ownerName: '가상 사장 하루', shareUrl: '/share/101' },
+  { gameId: 102, endingType: 'SOLD', serviceCode: 'CS100008', serviceName: '분식전문점', areaCode: '3110123', areaName: '망원역', survivedQuarters: 8, totalProfit: 45000000, shopName: '가상 초승달 분식', ownerName: '가상 사장 나래', shareUrl: '/share/102' },
+  { gameId: 103, endingType: 'CLOSED', serviceCode: 'CS100010', serviceName: '커피-음료', areaCode: '3110837', areaName: '성수역', survivedQuarters: 4, totalProfit: -17000000, shopName: '가상 파란행성 다방', ownerName: '가상 사장 바다', shareUrl: '/share/103' },
+];
+const demoRecords = [...records, { ...records[0], gameId: 104, shopName: '가상 별빛우체국 찻집', shareUrl: '/share/104' },
+  { ...records[0], gameId: 105, shopName: '가상 달빛정원 찻집', shareUrl: '/share/105' }];
+export { records as seedBoardRecords };
 const storageKey='sss-mock-games-v1';
 function load():Record<string,{game:GameState;turns:QuarterResult[];decision?:Decision;keys:Record<string,unknown>}> {try{return JSON.parse(localStorage.getItem(storageKey)||'{}');}catch{return {};}}
 function save(db:ReturnType<typeof load>){localStorage.setItem(storageKey,JSON.stringify(db));}
+export function mockEndingRecord(id: number): RecordSnapshot | 'PLAYING' | undefined {
+ const row=load()[id];
+ if (!row) return demoRecords.find(record => record.gameId === id);
+ const { game, turns }=row;
+ if (game.status !== 'ENDED') return 'PLAYING';
+ if (!game.shop || !game.endingType) return undefined;
+ const { shopName, areaCode, areaName, serviceCode, serviceName }=game.shop;
+ return { gameId:id, endingType:game.endingType, ownerName:game.owner.name, shopName, areaCode, areaName,
+  serviceCode, serviceName, survivedQuarters:turns.length, totalProfit:turns.reduce((sum, turn)=>sum+turn.profit,0), shareUrl:`/share/${id}` };
+}
 export async function mockRequest<T>(url:string,method:string,body?:unknown,key?:string):Promise<T>{
  const db=load(); const path=url.split('?')[0]; const query=new URLSearchParams(url.split('?')[1]);let result:unknown;
  if(path==='/guest')result={guestToken:'mock-guest',userId:1,nickname:'연습 사장님'};
@@ -15,7 +33,14 @@ export async function mockRequest<T>(url:string,method:string,body?:unknown,key?
  else if(path==='/areas')result=polygons;
  else if(path==='/areas/search')result=areas.filter(a=>a.name.includes(query.get('q')||''));
  else if(path.startsWith('/areas/')){const a=areas.find(a=>a.areaCode===path.split('/')[2])||areas[0];if(path.endsWith('/report'))result={areaCode:a.areaCode,name:a.name,quarter:query.get('quarter')||'20231',floatingPopulation:433442,industries:industries.map(i=>({...i,storeCount:42,franchiseCount:9,openingRatePct:3,closingRatePct:2,quarterSales:1820000000,salesEstimated:true}))} satisfies Report;else if(path.endsWith('/stores')){const lng=Number(query.get('lng'));const lat=Number(query.get('lat'));result={count:3,stores:[0,1,2].map(i=>({storeId:`mock-${i}`,name:`가상 경쟁점 ${i+1}`,lng:lng+(i-1)*.0007,lat:lat+.0005,distanceM:80+i*45}))} satisfies Stores;}else result=a;}
- else if(path==='/games'&&method==='POST'){const b=body as OwnerInput;const gameId=Math.max(0,...Object.keys(db).map(Number))+1;const game:GameState={gameId,version:0,status:'PLAYING',endingType:null,currentTurn:0,currentQuarter:b.startQuarter||'20231',startQuarter:b.startQuarter||'20231',lastQuarter:'20262',cash:50000000,owner:{name:b.ownerName,background:b.background,stats:candidates(b.background,b.candidateSeed).find(c=>c.candidateId===b.candidateId)!.stats,focusStats:b.focusStats},shop:null,pendingDecision:true};db[gameId]={game,turns:[],keys:{}};result=game;}
+ else if(path==='/games'&&method==='POST'){const b=body as OwnerInput;let gameId=Math.max(0,...Object.keys(db).map(Number))+1;while(demoRecords.some(r=>r.gameId===gameId))gameId++;const game:GameState={gameId,version:0,status:'PLAYING',endingType:null,currentTurn:0,currentQuarter:b.startQuarter||'20231',startQuarter:b.startQuarter||'20231',lastQuarter:'20262',cash:50000000,owner:{name:b.ownerName,background:b.background,stats:candidates(b.background,b.candidateSeed).find(c=>c.candidateId===b.candidateId)!.stats,focusStats:b.focusStats},shop:null,pendingDecision:true};db[gameId]={game,turns:[],keys:{}};result=game;}
+ else if (/^\/games\/\d+\/summary$/.test(path)) {
+  const id=Number(path.split('/')[2]); const record=mockEndingRecord(id); const turns=db[id]?.turns ?? [];
+  if (!record || record==='PLAYING') throw new Error('종료된 게임의 요약을 찾을 수 없습니다.');
+  const { gameId, endingType, ownerName, shopName, areaName, serviceName, survivedQuarters, totalProfit, shareUrl }=record;
+  return { gameId, endingType, ownerName, shopName, areaName, serviceName, survivedQuarters, totalProfit, shareUrl,
+    bestQuarterProfit:turns.length ? Math.max(...turns.map(t=>t.profit)) : 0, shopCount:1 } satisfies GameSummary as T;
+ }
  else {const id=path.split('/')[2];const row=db[id];if(!row)throw new Error('게임을 찾을 수 없습니다. 새 창업을 시작해 주세요.');
  if(path.endsWith('/shop')){const b=body as ShopInput;row.game.shop={...b,areaName:areas.find(a=>a.areaCode===b.areaCode)?.name||'선택 상권',serviceName:industries.find(i=>i.serviceCode===b.serviceCode)?.name||'외식',rivalCount:3};row.game.version++;result=row.game;}
  else if(path.endsWith('/decision')){row.decision=body as Decision;row.game.pendingDecision=false;result={turn:row.game.currentTurn,saved:true};}

@@ -1,24 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { boardApi } from '../api/board';
-import type { PostDetail, RecordSnapshot } from '../api/types';
+import type { PostDetail } from '../api/types';
 import { BoardFeedback, ReportDialog } from './BoardFeedback';
 import type { ReportTarget } from './BoardFeedback';
 import { BoardComments } from './BoardComments';
-import { money } from './ResultCard';
+import { BoardRecordCard } from './BoardRecordCard';
 
 const category = { FREE: '자유', TIP: '공략', QNA: '질문', RECORD: '엔딩 인증' };
-const ending = { CLOSED: '폐업', SOLD: '매각', LONG_RUNNING: '장기 운영' };
 const dateFormat = new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Seoul' });
-
-function RecordCard({ record }: { record: RecordSnapshot }) {
-  return <section className="board-record-card" aria-label="엔딩 인증 카드">
-    <p className="eyebrow">엔딩 인증</p><h2>{record.shopName}</h2><p>{record.ownerName} · {ending[record.endingType]}</p>
-    <dl><dt>업종</dt><dd>{record.serviceName}</dd><dt>상권</dt><dd>{record.areaName}</dd>
-      <dt>생존 분기</dt><dd>{record.survivedQuarters}분기</dd><dt>누적 순이익</dt><dd>{money(record.totalProfit)}</dd></dl>
-    <a href={record.shareUrl}>공유 카드 보기</a>
-  </section>;
-}
 
 function PostView({ postId }: { postId: number }) {
   const navigate = useNavigate();
@@ -70,7 +60,7 @@ function PostView({ postId }: { postId: number }) {
         <p className="eyebrow">{category[post.category]}{post.isPinned ? ' · 고정' : ''}</p>
         <h1>{post.title}</h1><p>{post.authorNickname} · <time dateTime={post.createdAt}>{dateFormat.format(new Date(post.createdAt))}</time> · 조회 {post.viewCount}</p>
         <p className="board-plain-text" data-testid="post-content">{post.content}</p>
-        {post.record && <RecordCard record={post.record}/>}
+        {post.record && <BoardRecordCard record={post.record}/>}
         <div className="choices">
           <button type="button" aria-pressed={post.likedByMe} disabled={busy || loading} onClick={() => void like(post)}>좋아요 {post.likeCount}</button>
           {post.isMine ? <><Link to={`/board/posts/${postId}/edit`}>수정</Link>
