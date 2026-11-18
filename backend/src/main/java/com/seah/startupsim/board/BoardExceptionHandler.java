@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(assignableTypes = {BoardPostController.class, BoardCommentController.class})
+@RestControllerAdvice(assignableTypes = {BoardPostController.class, BoardCommentController.class, BoardReportController.class})
 public class BoardExceptionHandler {
     @ExceptionHandler(BoardException.class)
     ResponseEntity<ApiError> handle(BoardException e) {

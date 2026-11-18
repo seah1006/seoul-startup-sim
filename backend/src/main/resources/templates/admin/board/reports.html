@@ -1,0 +1,6 @@
+<!DOCTYPE html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{admin/fragments :: head('신고 목록')}"></head><body><header th:replace="~{admin/fragments :: nav}"></header><main><nav><a th:href="@{/admin/board/posts}">게시글</a> <a th:href="@{/admin/board/reports}">신고</a></nav><h1>신고 목록</h1><p role="alert" th:if="${error}" th:text="${error}"></p>
+<form method="get" th:action="@{/admin/board/reports}"><label>상태 <select name="status"><option th:each="s : ${statuses}" th:text="${s}" th:value="${s}" th:selected="${s == selectedStatus}"></option></select></label><button>검색</button></form>
+<table><thead><tr><th>번호</th><th>대상 종류</th><th>대상 번호</th><th>사유</th><th>상태</th></tr></thead><tbody>
+<tr th:each="r : ${reports}"><td><a th:href="@{/admin/board/reports/{id}(id=${r.id})}" th:text="${r.id}"></a></td><td th:text="${r.type}"></td><td th:text="${r.targetId}"></td><td th:text="${r.reason}"></td><td th:text="${r.status}"></td></tr>
+</tbody></table>
+</main></body></html>
