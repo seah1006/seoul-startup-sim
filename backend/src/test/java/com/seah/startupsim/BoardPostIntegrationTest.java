@@ -163,7 +163,7 @@ class BoardPostIntegrationTest {
             error(create(payload), 400, "VALIDATION_FAILED");
         }
         error(create(CREATE.replace("TIP", "RECORD")), 400, "VALIDATION_FAILED")
-                .andExpect(jsonPath("$.message").value("엔딩 인증글은 아직 작성할 수 없습니다."));
+                .andExpect(jsonPath("$.message").value("인증글에는 gameId가 필요합니다."));
         var created = create(CREATE).andExpect(status().isCreated()).andExpect(jsonPath("$.title").value("제목"))
                 .andExpect(jsonPath("$.content").value("본문")).andExpect(jsonPath("$.viewCount").value(0))
                 .andExpect(jsonPath("$.version").value(0)).andExpect(jsonPath("$.isMine").value(true))
