@@ -3,6 +3,11 @@ package com.seah.startupsim.game;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,9 +20,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** 엔딩이 나는 모든 경로가 같은 트랜잭션에서 game_records를 정확히 1행 남기는지 검증한다. */
 @Testcontainers
@@ -39,6 +53,8 @@ class EndingIntegrationTest {
     @Autowired GameService games;
     @Autowired GameRepository repository;
     @Autowired AdvanceService advance;
+    @Autowired EndingService sell;
+    @Autowired WebApplicationContext context;
     long user;
     String token;
 
@@ -128,6 +144,132 @@ class EndingIntegrationTest {
         assertEquals("CLOSED", jdbc.queryForObject("SELECT ending_type FROM game_records WHERE game_id = ?", String.class, id));
     }
 
+    void playQuarters(long id, int count) {
+        for (int turn = 0; turn < count; turn++) {
+            next(id, "p" + turn);
+        }
+    }
+
+    long expectedSaleValue(long id) {
+        long sum = jdbc.queryForObject("""
+                SELECT sum(profit) FROM (SELECT profit FROM turn_results WHERE game_id = ? ORDER BY turn DESC LIMIT 4) recent
+                """, Long.class, id);
+        return Math.max(0, Math.round(sum / 4.0 * 4));
+    }
+
+    @Test
+    @DisplayName("매각은 최근 4분기 평균×설정 분기 수를 SALE 원장과 잔액에 더하고 같은 키 재요청은 1회만 정산한다")
+    void soldRecordAndIdempotency() {
+        long id = game();
+        playQuarters(id, 4);
+        var before = repository.state(id, user);
+        long value = expectedSaleValue(id);
+        assertTrue(value > 0, "픽스처는 흑자여야 매각 가치 검증이 의미 있다");
+        var sold = sell.sell(id, user, "sell-1", before.version());
+        assertEquals("ENDED", sold.status());
+        assertEquals("SOLD", sold.endingType());
+        assertEquals(before.cash() + value, sold.cash());
+        assertEquals(before.version() + 1, sold.version());
+        assertEquals(sold, sell.sell(id, user, "sell-1", before.version()));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM ledger_entries WHERE game_id = ? AND type = 'SALE'", Integer.class, id));
+        assertEquals(value, jdbc.queryForObject("SELECT amount FROM ledger_entries WHERE game_id = ? AND type = 'SALE'", Long.class, id));
+        assertEquals(sold.cash(), jdbc.queryForObject("""
+                SELECT initial_capital + (SELECT sum(amount) FROM ledger_entries WHERE game_id = ?) FROM games WHERE id = ?
+                """, Long.class, id, id));
+        assertEquals(1, records(id));
+        var row = jdbc.queryForMap("SELECT ending_type, sale_value, survived_quarters FROM game_records WHERE game_id = ?", id);
+        assertEquals(List.of("SOLD", value, 4), List.of(row.get("ending_type"), row.get("sale_value"), row.get("survived_quarters")));
+        assertEquals("GAME_ENDED", assertThrows(GameException.class, () -> sell.sell(id, user, "sell-2", sold.version())).code);
+        assertEquals("IDEMPOTENCY_KEY_REUSED", assertThrows(GameException.class,
+                () -> advance.advance(id, user, "sell-1", sold.version())).code);
+    }
+
+    @Test
+    @DisplayName("매각 거절: 4분기 미만 400, 버전 불일치 409, 전환점 대기 409, 평균 음수면 0원")
+    void sellRejectionsAndZeroValue() {
+        long id = game();
+        playQuarters(id, 3);
+        long version = repository.state(id, user).version();
+        var early = assertThrows(GameException.class, () -> sell.sell(id, user, "early", version));
+        assertEquals(400, early.status);
+        assertEquals("VALIDATION_FAILED", early.code);
+        next(id, "p3");
+        long ready = repository.state(id, user).version();
+        assertEquals("GAME_VERSION_CONFLICT", assertThrows(GameException.class, () -> sell.sell(id, user, "stale", ready - 1)).code);
+        jdbc.update("INSERT INTO turning_points (code, title, base_probability, min_turn) VALUES ('SELL_TEST', '테스트', 1, 0)");
+        jdbc.update("""
+                INSERT INTO game_turning_points (game_id, turn, turning_point_id, definition_rev, payload)
+                SELECT ?, 3, id, 1, '{}' FROM turning_points WHERE code = 'SELL_TEST'
+                """, id);
+        assertEquals("TURNING_POINT_PENDING", assertThrows(GameException.class, () -> sell.sell(id, user, "pending", ready)).code);
+        jdbc.update("DELETE FROM game_turning_points WHERE game_id = ?", id);
+        jdbc.update("UPDATE turn_results SET profit = -5000000 WHERE game_id = ?", id);
+        long cash = repository.state(id, user).cash();
+        var sold = sell.sell(id, user, "zero", ready);
+        assertEquals(cash, sold.cash());
+        assertEquals(0L, jdbc.queryForObject("SELECT sale_value FROM game_records WHERE game_id = ?", Long.class, id));
+        assertEquals(0L, jdbc.queryForObject("SELECT amount FROM ledger_entries WHERE game_id = ? AND type = 'SALE'", Long.class, id));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM idempotency_keys WHERE game_id = ? AND key IN ('early','stale','pending')", Integer.class, id));
+    }
+
+    @Test
+    @DisplayName("매각 가치는 원 단위 반올림이며 음수·0 평균은 0원")
+    void saleValueRounding() {
+        assertEquals(41, EndingService.saleValue(List.of(10L, 11L, 10L, 10L, 999L), 4));
+        assertEquals(2, EndingService.saleValue(List.of(3L, 0L, 0L, 0L), 2));
+        assertEquals(2, EndingService.saleValue(List.of(1L, 2L, 0L, 0L), 3));
+        assertEquals(0, EndingService.saleValue(List.of(-10L, 5L, 0L, 0L), 4));
+        assertEquals(0, EndingService.saleValue(List.of(0L, 0L, 0L, 0L), 4));
+    }
+
+    @Test
+    @DisplayName("같은 버전의 동시 매각은 하나만 성공하고 기록도 1행이다")
+    void concurrentSell() throws Exception {
+        long id = game();
+        playQuarters(id, 4);
+        long version = repository.state(id, user).version();
+        var gate = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            Callable<Integer> call = () -> {
+                gate.await();
+                try {
+                    sell.sell(id, user, UUID.randomUUID().toString(), version);
+                    return 200;
+                } catch (GameException exception) {
+                    return exception.status;
+                }
+            };
+            var first = pool.submit(call);
+            var second = pool.submit(call);
+            gate.countDown();
+            assertEquals(List.of(200, 409), Stream.of(first.get(), second.get()).sorted().toList());
+        }
+        assertEquals(1, records(id));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM ledger_entries WHERE game_id = ? AND type = 'SALE'", Integer.class, id));
+    }
+
+    @Test
+    @DisplayName("매각 HTTP: 게스트 토큰 허용, 키 누락 400, 남의 게임 403, 성공 200 GameState")
+    void sellHttpContract() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(context).apply(SecurityMockMvcConfigurers.springSecurity()).build();
+        long id = game();
+        playQuarters(id, 4);
+        long version = repository.state(id, user).version();
+        String path = "/api/games/" + id + "/sell";
+        String body = "{\"expectedVersion\":" + version + "}";
+        mvc.perform(post(path).header("X-Guest-Token", token).contentType("application/json").content(body))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+        mvc.perform(post(path).header("Idempotency-Key", "h").contentType("application/json").content(body))
+                .andExpect(status().isUnauthorized());
+        String other = auth.create().guestToken();
+        mvc.perform(post(path).header("X-Guest-Token", other).header("Idempotency-Key", "h")
+                .contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post(path).header("Authorization", "Bearer " + token).header("Idempotency-Key", "h")
+                .contentType("application/json").content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENDED"))
+                .andExpect(jsonPath("$.endingType").value("SOLD")).andExpect(jsonPath("$.version").value(version + 1))
+                .andExpect(jsonPath("$.pendingTurningPoint").value(false));
+    }
     @Test
     @DisplayName("랭킹 날짜는 KST 기준: 23:50은 그날, 00:10은 다음 날")
     void rankingDateUsesKst() {
