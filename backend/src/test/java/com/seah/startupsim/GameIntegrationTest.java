@@ -67,6 +67,23 @@ class GameIntegrationTest {
         }
         assertEquals(jdbc.queryForObject("SELECT cash FROM games WHERE id=?",Long.class,a),jdbc.queryForObject("SELECT initial_capital+(SELECT sum(amount) FROM ledger_entries WHERE game_id=?) FROM games WHERE id=?",Long.class,a,a));
     }
+    @Autowired tools.jackson.databind.ObjectMapper json;
+    @Test @DisplayName("고정 시드 4분기 JSON 회귀 스냅샷")
+    void snapshot() throws Exception {
+        long id=game();
+        var results=new java.util.ArrayList<Object>();
+        for(int turn=0;turn<4;turn++) {
+            decision(id,turn);
+            results.add(advance.advance(id,user,"snapshot-"+turn,turn+1).get("result"));
+        }
+        String actual=json.writeValueAsString(results);
+        var target=java.nio.file.Path.of("src/test/resources/game/four-quarters.json");
+        if(Boolean.getBoolean("game.capture")) {
+            java.nio.file.Files.createDirectories(target.getParent());
+            java.nio.file.Files.writeString(target,actual);
+        }
+        assertEquals(java.nio.file.Files.readString(target),actual);
+    }
     @Test @DisplayName("멱등 키 재시도와 DB 유일 제약이 이중 결산을 막는다")
     void idempotency() {
         long id=game();decision(id,0);
