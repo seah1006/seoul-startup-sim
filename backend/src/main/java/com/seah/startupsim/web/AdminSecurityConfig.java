@@ -33,8 +33,9 @@ public class AdminSecurityConfig {
     }
 
     @Bean
+    @org.springframework.core.annotation.Order(2)
     SecurityFilterChain security(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(auth -> auth
+        http.securityMatcher("/admin", "/admin/**", "/admin.css").authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/login", "/admin.css").permitAll()
                 .requestMatchers("/admin", "/admin/**").hasRole("ADMIN")
                 .anyRequest().permitAll())
@@ -60,6 +61,7 @@ public class AdminSecurityConfig {
         return http.build();
     }
 }
+
 
 
 

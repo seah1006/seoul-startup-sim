@@ -20,3 +20,6 @@ app:
       service-key: ${DATA_GO_KR_SERVICE_KEY:}
 server:
   port: ${SERVER_PORT:8081}
+
+# TODO TASK-004E 공통 IP 제한 필터 병합 시 아래 경로를 필터 설정 목록에 연결한다.
+# POST /api/guest, /api/auth/signup, /api/auth/login: IP당 10분 20회.
