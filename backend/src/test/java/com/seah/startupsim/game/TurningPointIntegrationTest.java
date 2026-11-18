@@ -49,6 +49,8 @@ class TurningPointIntegrationTest {
     @Autowired TurningPointService points;
     @Autowired GameModifierRepository modifiers;
     @Autowired org.springframework.web.context.WebApplicationContext context;
+    @Autowired com.seah.startupsim.web.AdminEventService adminEvents;
+    @Autowired tools.jackson.databind.ObjectMapper json;
     long user;
     long game;
     String token;
@@ -223,6 +225,24 @@ class TurningPointIntegrationTest {
         mvc.perform(post(path + "/choice").header("X-Guest-Token", token).header("Idempotency-Key", "other-key")
                 .contentType("application/json").content("{\"optionId\":" + option + "}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TURNING_POINT_ALREADY_RESOLVED"));
+    }
+
+    @Test
+    void adminEditKeepsPendingSnapshot() {
+        next("advance");
+        var before = points.view(game, user);
+        long id = jdbc.queryForObject("SELECT id FROM turning_points WHERE code = 'TEST_POINT'", Long.class);
+        var data = (tools.jackson.databind.node.ObjectNode) json.readTree(adminEvents.editable(EventDefinitionRepository.Kind.TURNING_POINT, id));
+        data.put("title", "관리자가 바꾼 제목");
+        ((tools.jackson.databind.node.ObjectNode) data.get("options").get(0)).set("onSuccess", json.readTree("[]"));
+        adminEvents.save(EventDefinitionRepository.Kind.TURNING_POINT, id, json.writeValueAsString(data));
+        adminEvents.toggle(EventDefinitionRepository.Kind.TURNING_POINT, id);
+        assertEquals(3, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
+        assertEquals(before, points.view(game, user));
+        long cash = repository.state(game, user).cash();
+        var chosen = points.choose(game, user, "after-edit", before.options().getFirst().optionId());
+        assertEquals(cash + 1000, chosen.game().cash());
+        assertEquals(1, jdbc.queryForObject("SELECT definition_rev FROM game_turning_points WHERE game_id = ?", Integer.class, game));
     }
 
     @Test

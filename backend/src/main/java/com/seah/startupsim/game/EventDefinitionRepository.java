@@ -52,6 +52,21 @@ public class EventDefinitionRepository {
         }
     }
 
+    /** 관리자 화면이 다루는 정의 종류. 테이블 이름은 고정 목록에서만 고른다. */
+    public enum Kind {
+        TURNING_POINT("turning_points", TURNING_POINTS),
+        REACTION("reaction_templates", REACTIONS),
+        MOMENT("moment_templates", MOMENTS);
+
+        private final String table;
+        private final String select;
+
+        Kind(String table, String select) {
+            this.table = table;
+            this.select = select;
+        }
+    }
+
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final EventDefinitionValidator validator;
@@ -91,6 +106,102 @@ public class EventDefinitionRepository {
                     ids.put(row.getInt("order_no"), row.getLong("id"));
                 }, turningPointId);
         return Map.copyOf(ids);
+    }
+
+    /** 관리자 목록용: 검증하지 않고 비활성·오류 정의까지 모두 읽는다. */
+    public List<Definition> raw(Kind kind) {
+        return jdbc.query(kind.select, (row, index) -> new Definition(row.getLong("id"), row.getInt("rev"),
+                json.readTree(row.getString("definition"))), false);
+    }
+
+    public Definition raw(Kind kind, long id) {
+        return raw(kind).stream().filter(definition -> definition.id() == id).findFirst()
+                .orElseThrow(() -> new GameException(404, "NOT_FOUND", "정의를 찾을 수 없습니다."));
+    }
+
+    /** 최근 30일 전환점별 발생 수. */
+    public Map<Long, Long> recentFires() {
+        Map<Long, Long> counts = new LinkedHashMap<>();
+        jdbc.query("""
+                SELECT turning_point_id, count(*) AS fires FROM game_turning_points
+                WHERE created_at > now() - interval '30 days' GROUP BY turning_point_id
+                """, row -> {
+                    counts.put(row.getLong("turning_point_id"), row.getLong("fires"));
+                });
+        return counts;
+    }
+
+    /** 활성 여부를 뒤집고 리비전을 올린다. 대기 중인 전환점 스냅샷은 그대로다. */
+    public void toggle(Kind kind, long id) {
+        int updated = jdbc.update("UPDATE " + kind.table + " SET enabled = NOT enabled, rev = rev + 1, updated_at = now() WHERE id = ?", id);
+        if (updated == 0) {
+            throw new GameException(404, "NOT_FOUND", "정의를 찾을 수 없습니다.");
+        }
+    }
+
+    /** 호출자가 검증을 끝낸 정의를 저장한다. code는 바꿀 수 없고 리비전은 1 오른다. */
+    public void update(Kind kind, long id, JsonNode data) {
+        Definition current = raw(kind, id);
+        if (!current.code().equals(data.get("code").asString())) {
+            throw new GameException(400, "INVALID_EXPRESSION", "code: 코드는 바꿀 수 없습니다.");
+        }
+        boolean enabled = data.has("enabled") ? data.get("enabled").booleanValue() : current.data().get("enabled").booleanValue();
+        switch (kind) {
+            case TURNING_POINT -> updateTurningPoint(id, data, enabled);
+            case REACTION -> jdbc.update("""
+                    UPDATE reaction_templates SET kind = ?, author = ?, rating = ?, weight = ?, condition_expr = ?::jsonb,
+                        body = ?, enabled = ?, rev = rev + 1, updated_at = now() WHERE id = ?
+                    """, data.get("kind").asString(), data.get("author").asString(),
+                    data.has("rating") && !data.get("rating").isNull() ? data.get("rating").intValue() : null,
+                    integer(data, "weight", 10), json.writeValueAsString(data.get("conditionExpr")),
+                    data.get("text").asString(), enabled, id);
+            case MOMENT -> jdbc.update("""
+                    UPDATE moment_templates SET title = ?, stat = ?, difficulty = ?, weight = ?, condition_expr = ?::jsonb,
+                        success_text = ?, fail_text = ?, on_success = ?::jsonb, on_fail = ?::jsonb, enabled = ?,
+                        rev = rev + 1, updated_at = now() WHERE id = ?
+                    """, data.get("title").asString(), data.get("stat").asString(), data.get("difficulty").intValue(),
+                    integer(data, "weight", 10), json.writeValueAsString(data.get("conditionExpr")),
+                    data.get("successText").asString(), data.get("failText").asString(),
+                    json.writeValueAsString(data.get("onSuccess")), json.writeValueAsString(data.get("onFail")), enabled, id);
+        }
+    }
+
+    private void updateTurningPoint(long id, JsonNode data, boolean enabled) {
+        jdbc.update("""
+                UPDATE turning_points SET title = ?, description = ?, condition_expr = ?::jsonb, base_probability = ?,
+                    stat_bonus = ?::jsonb, prob_min = ?, prob_max = ?, cooldown_quarters = ?, max_fires = ?,
+                    min_turn = ?, priority = ?, enabled = ?, rev = rev + 1, updated_at = now() WHERE id = ?
+                """, data.get("title").asString(), data.has("description") ? data.get("description").asString() : "",
+                json.writeValueAsString(data.get("conditionExpr")), data.get("baseProbability").doubleValue(),
+                data.has("statBonus") ? json.writeValueAsString(data.get("statBonus")) : "[]",
+                data.has("probMin") ? data.get("probMin").doubleValue() : 0,
+                data.has("probMax") ? data.get("probMax").doubleValue() : 1,
+                integer(data, "cooldownQuarters", 4), integer(data, "maxFires", 1), integer(data, "minTurn", 0),
+                integer(data, "priority", 50), enabled, id);
+        List<Integer> orders = new ArrayList<>();
+        for (JsonNode option : data.get("options")) {
+            orders.add(option.get("orderNo").intValue());
+            jdbc.update("""
+                    INSERT INTO turning_point_options
+                        (turning_point_id, order_no, label, success_formula, on_success, on_fail, success_text, fail_text)
+                    VALUES (?, ?, ?, ?::jsonb, ?::jsonb, ?::jsonb, ?, ?)
+                    ON CONFLICT (turning_point_id, order_no) DO UPDATE SET label = excluded.label,
+                        success_formula = excluded.success_formula, on_success = excluded.on_success,
+                        on_fail = excluded.on_fail, success_text = excluded.success_text, fail_text = excluded.fail_text
+                    """, id, option.get("orderNo").intValue(), option.get("label").asString(),
+                    json.writeValueAsString(option.get("successFormula")), json.writeValueAsString(option.get("onSuccess")),
+                    json.writeValueAsString(option.get("onFail")), option.get("successText").asString(),
+                    option.get("failText").asString());
+        }
+        for (int order = 1; order <= 3; order++) {
+            if (!orders.contains(order)) {
+                jdbc.update("DELETE FROM turning_point_options WHERE turning_point_id = ? AND order_no = ?", id, order);
+            }
+        }
+    }
+
+    private static int integer(JsonNode data, String key, int fallback) {
+        return data.has(key) && !data.get(key).isNull() ? data.get(key).intValue() : fallback;
     }
 
     private List<Definition> load(String sql, boolean enabledOnly, String table, Consumer<JsonNode> validation) {
