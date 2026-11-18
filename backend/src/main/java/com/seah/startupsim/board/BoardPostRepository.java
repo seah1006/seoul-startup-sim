@@ -128,7 +128,9 @@ public class BoardPostRepository {
                 ON CONFLICT (post_id, user_id, viewed_on) DO NOTHING
                 """, postId, userId, viewedOn);
         if (inserted == 1) {
-            jdbc.update("UPDATE posts SET view_count = view_count + 1 WHERE id = ?", postId);
+            if (jdbc.update("UPDATE posts SET view_count = view_count + 1 WHERE id = ? AND status = 'ACTIVE'", postId) == 0) {
+                throw BoardException.notFound();
+            }
         }
     }
 

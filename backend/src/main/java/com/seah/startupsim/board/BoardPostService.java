@@ -36,8 +36,8 @@ public class BoardPostService {
     @Transactional
     public PostDetail authenticatedDetail(long postId, long userId) {
         requireId(postId);
-        // Lock before writing so a concurrent hide/delete cannot make this view count a private post.
-        if (!posts.lockActive(postId)) throw BoardException.notFound();
+        // Validate without a row lock; only a newly recorded view updates the post.
+        detail(postId, userId);
         BoardWrites.safe(() -> {
             posts.countView(postId, userId, LocalDate.now(SEOUL));
             return null;

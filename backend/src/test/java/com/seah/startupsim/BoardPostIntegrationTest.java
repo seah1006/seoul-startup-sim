@@ -258,6 +258,23 @@ class BoardPostIntegrationTest {
         }
     }
 
+    @Test
+    void repeatedViewsDoNotWaitForPostRowLock() throws Exception {
+        long id = fixture(owner, "FREE", "조회 경합", "본문");
+        mvc.perform(get(POSTS + "/" + id).header(TOKEN, owner.token())).andExpect(status().isOk());
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+                jdbc.queryForList("SELECT id FROM posts WHERE id = ? FOR NO KEY UPDATE", Long.class, id);
+                var first = executor.submit(() -> mvc.perform(get(POSTS + "/" + id).header(TOKEN, owner.token())));
+                var second = executor.submit(() -> mvc.perform(get(POSTS + "/" + id).header(TOKEN, owner.token())));
+                try {
+                    first.get(3, TimeUnit.SECONDS).andExpect(status().isOk());
+                    second.get(3, TimeUnit.SECONDS).andExpect(status().isOk());
+                } catch (Exception e) { throw new AssertionError("재조회는 글 행 잠금에 대기하지 않아야 한다", e); }
+            });
+        }
+        assertEquals(1L, jdbc.queryForObject("SELECT view_count FROM posts WHERE id = ?", Long.class, id));
+    }
     private void search(String type, String q, long... expected) throws Exception {
         var result = mvc.perform(get(POSTS).param("searchType", type).param("q", q))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content", hasSize(expected.length)));
