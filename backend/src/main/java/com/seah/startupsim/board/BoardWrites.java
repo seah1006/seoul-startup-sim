@@ -21,7 +21,7 @@ final class BoardWrites {
             if (e instanceof DataIntegrityViolationException && e.getMostSpecificCause() instanceof PSQLException pg
                     && "23505".equals(pg.getSQLState()) && pg.getServerErrorMessage() != null
                     && "ux_post_reports_target_reporter".equals(pg.getServerErrorMessage().getConstraint())) {
-                throw new BoardException(HttpStatus.CONFLICT, "ALREADY_REPORTED", "이미 신고한 대상입니다.");
+                throw BoardException.alreadyReported();
             }
             // Do not log or expose DB/trigger text.
             String sqlState = e.getMostSpecificCause() instanceof SQLException sql ? sql.getSQLState() : "unknown";

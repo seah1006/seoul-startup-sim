@@ -35,6 +35,12 @@ class BoardModerationRepository {
         return comment;
     }
 
+    boolean hasReport(TargetType type, long id, long reporter) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM post_reports WHERE target_type = ? AND target_id = ? AND reporter_id = ?)
+                """, Boolean.class, type.name(), id, reporter));
+    }
+
     long report(TargetType type, long id, long reporter, String reason, String detail) {
         return jdbc.queryForObject("""
                 INSERT INTO post_reports (target_type, target_id, reporter_id, reason, detail)

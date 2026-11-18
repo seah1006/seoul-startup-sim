@@ -13,6 +13,11 @@ spring:
       hibernate.jdbc.batch_size: 1000
       hibernate.order_inserts: true
 app:
+  board:
+    rate-limit:
+      posts: 3
+      comments: 10
+      reports: 5
   external:
     seoul:
       api-key: ${SEOUL_OPEN_API_KEY:}

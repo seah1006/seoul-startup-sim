@@ -7,9 +7,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BoardReportService {
     private final BoardModerationRepository repository;
+    private final BoardRateLimiter limiter;
 
-    public BoardReportService(BoardModerationRepository repository) {
+    public BoardReportService(BoardModerationRepository repository, BoardRateLimiter limiter) {
         this.repository = repository;
+        this.limiter = limiter;
     }
 
     @Transactional
@@ -24,6 +26,8 @@ public class BoardReportService {
             if (target.authorId() == reporter) {
                 throw new BoardException(HttpStatus.FORBIDDEN, "FORBIDDEN", "자신의 글이나 댓글은 신고할 수 없습니다.");
             }
+            if (repository.hasReport(type, request.targetId(), reporter)) throw BoardException.alreadyReported();
+            limiter.acquire(BoardRateLimiter.Kind.REPORT, reporter);
             return new ReportCreated(repository.report(type, request.targetId(), reporter, request.reason(), detail), "PENDING");
         });
     }

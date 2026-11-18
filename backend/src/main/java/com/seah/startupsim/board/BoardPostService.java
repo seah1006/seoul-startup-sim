@@ -10,9 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class BoardPostService {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final BoardPostRepository posts;
+    private final BoardRateLimiter limiter;
 
-    public BoardPostService(BoardPostRepository posts) {
+    public BoardPostService(BoardPostRepository posts, BoardRateLimiter limiter) {
         this.posts = posts;
+        this.limiter = limiter;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -49,6 +51,7 @@ public class BoardPostService {
         if (request.category() == PostCategory.RECORD) {
             throw BoardException.invalid("엔딩 인증글은 아직 작성할 수 없습니다.");
         }
+        limiter.acquire(BoardRateLimiter.Kind.POST, userId);
         long id = BoardWrites.safe(() -> posts.create(userId, request));
         return detail(id, userId);
     }

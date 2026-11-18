@@ -102,6 +102,21 @@ class BoardModerationIntegrationTest {
         mvc.perform(report(other, "POST", id)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_REPORTED"));
     }
 
+    @Test void fourthPostIsLimitedOnlyForTheSameGuest() throws Exception {
+        var mvc = mvc(); var author = guest(); var other = guest();
+        String body = """
+                {"category":"FREE","title":"작성 한도","content":"본문"}
+                """;
+        for (int i = 0; i < 3; i++) {
+            mvc.perform(post("/api/board/posts").header("X-Guest-Token", author.token()).contentType("application/json")
+                    .content(body)).andExpect(status().isCreated());
+        }
+        mvc.perform(post("/api/board/posts").header("X-Guest-Token", author.token()).contentType("application/json")
+                .content(body)).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("RATE_LIMITED"));
+        mvc.perform(post("/api/board/posts").header("X-Guest-Token", other.token()).contentType("application/json")
+                .content(body)).andExpect(status().isCreated());
+    }
+
     @Test void adminFormsPinAndRecomputeCommentCounters() throws Exception {
         var mvc = mvc(); var owner = guest(); var other = guest();
         long id = article(owner);

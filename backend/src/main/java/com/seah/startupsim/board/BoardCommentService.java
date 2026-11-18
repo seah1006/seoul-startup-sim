@@ -9,10 +9,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class BoardCommentService {
     private final BoardPostRepository posts;
     private final BoardCommentRepository comments;
+    private final BoardRateLimiter limiter;
 
-    public BoardCommentService(BoardPostRepository posts, BoardCommentRepository comments) {
+    public BoardCommentService(BoardPostRepository posts, BoardCommentRepository comments, BoardRateLimiter limiter) {
         this.posts = posts;
         this.comments = comments;
+        this.limiter = limiter;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -40,6 +42,7 @@ public class BoardCommentService {
             }
         }
         return BoardWrites.safe(() -> {
+            limiter.acquire(BoardRateLimiter.Kind.COMMENT, userId);
             long commentId = comments.create(postId, userId, request);
             posts.incrementComments(postId);
             if (parentId != null) comments.incrementReplies(postId, parentId);

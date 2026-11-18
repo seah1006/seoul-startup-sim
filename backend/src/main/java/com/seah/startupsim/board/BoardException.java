@@ -35,6 +35,10 @@ public class BoardException extends RuntimeException {
         return new BoardException(HttpStatus.FORBIDDEN, "FORBIDDEN", "작성자만 변경할 수 있습니다.");
     }
 
+    static BoardException alreadyReported() {
+        return new BoardException(HttpStatus.CONFLICT, "ALREADY_REPORTED", "이미 신고한 대상입니다.");
+    }
+
     static BoardException versionConflict() {
         return new BoardException(HttpStatus.CONFLICT, "POST_VERSION_CONFLICT", "게시글이 변경되었습니다. 다시 조회해 주세요.");
     }
