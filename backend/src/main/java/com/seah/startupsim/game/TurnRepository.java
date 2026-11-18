@@ -51,17 +51,35 @@ public class TurnRepository {
     }
 
     public GameResponses.Advanced cached(long gameId, String key) {
-        var responses = jdbc.queryForList("""
-                SELECT response::text FROM idempotency_keys WHERE game_id = ? AND key = ?
-                """, String.class, gameId, key);
-        return responses.isEmpty() ? null : json.readValue(responses.getFirst(), GameResponses.Advanced.class);
+        return cached(gameId, key, "advance", GameResponses.Advanced.class);
+    }
+
+    /** 응답 역직렬화 전에 엔드포인트를 검사해 서로 다른 응답 계약이 섞이지 않게 한다. */
+    public <T> T cached(long gameId, String key, String endpoint, Class<T> responseType) {
+        var responses = jdbc.query("""
+                SELECT endpoint, response::text FROM idempotency_keys WHERE game_id = ? AND key = ?
+                """, (row, index) -> new CachedResponse(row.getString("endpoint"), row.getString("response")), gameId, key);
+        if (responses.isEmpty()) {
+            return null;
+        }
+        CachedResponse response = responses.getFirst();
+        if (!response.endpoint().equals(endpoint)) {
+            throw new GameException(409, "IDEMPOTENCY_KEY_REUSED", "다른 요청에 사용한 멱등 키입니다.");
+        }
+        return json.readValue(response.json(), responseType);
     }
 
     public GameResponses.Advanced cache(long gameId, String key, GameResponses.Advanced response) {
+        return cache(gameId, key, "advance", response, GameResponses.Advanced.class);
+    }
+
+    public <T> T cache(long gameId, String key, String endpoint, T response, Class<T> responseType) {
         String encoded = json.writeValueAsString(response);
         jdbc.update("""
-                INSERT INTO idempotency_keys (game_id, key, response) VALUES (?, ?, ?::jsonb)
-                """, gameId, key, encoded);
-        return json.readValue(encoded, GameResponses.Advanced.class);
+                INSERT INTO idempotency_keys (game_id, key, endpoint, response) VALUES (?, ?, ?, ?::jsonb)
+                """, gameId, key, endpoint, encoded);
+        return json.readValue(encoded, responseType);
     }
+
+    private record CachedResponse(String endpoint, String json) {}
 }

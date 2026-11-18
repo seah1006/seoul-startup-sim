@@ -2,6 +2,8 @@ package com.seah.startupsim;
 
 import com.seah.startupsim.game.EventDefinitionValidator;
 import com.seah.startupsim.game.EventDefinitionRepository;
+import com.seah.startupsim.game.GameException;
+import com.seah.startupsim.game.TurnRepository;
 import com.seah.startupsim.game.GameModifierRepository;
 import com.seah.startupsim.game.QuarterCalculator.Modifier;
 import java.util.List;
@@ -20,6 +22,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** 실제 PostgreSQL에서 V8 스키마와 생성된 콘텐츠의 제약·수를 확인한다. */
 @Testcontainers
@@ -111,7 +115,17 @@ class EventSeedIntegrationTest {
         assertEquals(List.of(new Modifier("revenue", "ADD", 1000), new Modifier("revenue", "MULTIPLY", 1.2)),
                 repository.active(1, 2));
         assertEquals(List.of(), repository.active(1, 3));
+        var turns = new TurnRepository(jdbc, new ObjectMapper());
+        assertNull(turns.cached(1, "missing"));
+        var choice = new CachedChoice(true);
+        assertEquals(choice, turns.cache(1, "choice", "turning-point-choice", choice, CachedChoice.class));
+        assertEquals(choice, turns.cached(1, "choice", "turning-point-choice", CachedChoice.class));
+        assertThrows(GameException.class, () -> turns.cached(1, "choice"));
+        assertThrows(GameException.class, () -> turns.cached(1, "choice", "sell", CachedChoice.class));
+        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM idempotency_keys WHERE game_id = 1 AND key = 'choice'", Integer.class));
     }
+
+    public record CachedChoice(boolean success) {}
 
     private void validateDefinitions(Connection connection) throws Exception {
         var validator = new EventDefinitionValidator();
