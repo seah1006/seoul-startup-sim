@@ -36,16 +36,19 @@ public class RankingService {
         LocalDate today = today();
         LocalDate target = date == null ? today : date;
         if (target.isAfter(today) || target.isBefore(today.minusDays(DAYS - 1))) {
-            throw new IllegalArgumentException("랭킹은 오늘 포함 최근 7일만 조회할 수 있습니다.");
+            throw new RankingRequestException(RankingRequestException.DATE_RANGE);
         }
         RankingKind resolvedKind = kind == null ? RankingKind.ALL : kind;
         String resolvedKey = resolvedKind == RankingKind.ALL || key == null ? "" : key.strip();
-        if (resolvedKind != RankingKind.ALL && (resolvedKey.isEmpty() || resolvedKey.length() > 32)) {
-            throw new IllegalArgumentException("업종·상권 랭킹은 key가 필요합니다.");
+        if (resolvedKind != RankingKind.ALL && resolvedKey.isEmpty()) {
+            throw new RankingRequestException(RankingRequestException.KEY_REQUIRED);
+        }
+        if (resolvedKey.length() > 32) {
+            throw new RankingRequestException(RankingRequestException.KEY_LENGTH);
         }
         int size = limit == null ? DEFAULT_LIMIT : limit;
         if (size < 1 || size > MAX_LIMIT) {
-            throw new IllegalArgumentException("limit은 1~100입니다.");
+            throw new RankingRequestException(RankingRequestException.LIMIT);
         }
         return new Ranking(target, kst(refreshedAt(target)), resolvedKind,
                 repository.entries(target, resolvedKind, resolvedKey, size));

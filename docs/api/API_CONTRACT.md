@@ -165,7 +165,7 @@
   ```
 
 ### 랭킹 (인증 불필요)
-- `GET /api/rankings?date=2026-11-07&kind=ALL` (kind: `ALL|INDUSTRY|AREA`, INDUSTRY/AREA는 `key`=serviceCode/areaCode)
+- `GET /api/rankings?date=2026-11-07&kind=ALL` (kind: `ALL|INDUSTRY|AREA`, INDUSTRY/AREA는 `key`=serviceCode/areaCode). 범위 위반은 400 `VALIDATION_FAILED`이며 `message`가 사유별 문구다(예: "최근 7일만 조회할 수 있어요.", "업종/상권 랭킹에는 key가 필요해요.")
   ```json
   { "date": "2026-11-07", "refreshedAt": "2026-11-07T10:30:00+09:00", "kind": "ALL",
     "entries": [ { "rank": 1, "gameId": 10, "nickname": "손님-4821", "ownerName": "김사장", "shopName": "망원커피",
