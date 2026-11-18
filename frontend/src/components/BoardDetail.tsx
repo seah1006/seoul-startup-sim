@@ -1,3 +1,4 @@
+import { MemberOnly } from './Auth';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { boardApi } from '../api/board';
@@ -117,35 +118,37 @@ function PostView({ postId }: { postId: number }) {
               {post.content}
             </p>
             {post.record && <BoardRecordCard record={post.record} />}
-            <div className="choices">
-              <button
-                type="button"
-                aria-pressed={post.likedByMe}
-                disabled={busy || loading}
-                onClick={() => void like(post)}
-              >
-                좋아요 {post.likeCount}
-              </button>
-              {post.isMine ? (
-                <>
-                  <Link to={`/board/posts/${postId}/edit`}>수정</Link>
-                  <button
-                    type="button"
-                    disabled={busy || loading}
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    게시글 삭제
-                  </button>
-                </>
-              ) : (
+            <MemberOnly>
+              <div className="choices">
                 <button
                   type="button"
-                  onClick={() => openReport({ targetType: 'POST', targetId: postId })}
+                  aria-pressed={post.likedByMe}
+                  disabled={busy || loading}
+                  onClick={() => void like(post)}
                 >
-                  게시글 신고
+                  좋아요 {post.likeCount}
                 </button>
-              )}
-            </div>
+                {post.isMine ? (
+                  <>
+                    <Link to={`/board/posts/${postId}/edit`}>수정</Link>
+                    <button
+                      type="button"
+                      disabled={busy || loading}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      게시글 삭제
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openReport({ targetType: 'POST', targetId: postId })}
+                  >
+                    게시글 신고
+                  </button>
+                )}
+              </div>
+            </MemberOnly>
             {confirmDelete && (
               <div className="choices">
                 <p>게시글을 삭제할까요?</p>

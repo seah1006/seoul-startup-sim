@@ -10,7 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 
@@ -21,20 +21,21 @@ public class AdminSecurityConfig {
 
     @Bean
     UserDetailsService adminUsers(@Value("${ADMIN_USERNAME:}") String username,
-            @Value("${ADMIN_PASSWORD:}") String password) {
+            @Value("${ADMIN_PASSWORD:}") String password, PasswordEncoder encoder) {
         InMemoryUserDetailsManager users = new InMemoryUserDetailsManager();
         if (username.isBlank() || password.isBlank()) {
             log.warn("관리자 환경 변수가 없어 관리자 기능을 비활성화합니다.");
         } else {
             users.createUser(User.withUsername(username)
-                    .password("{bcrypt}" + new BCryptPasswordEncoder().encode(password)).roles("ADMIN").build());
+                    .password(encoder.encode(password)).roles("ADMIN").build());
         }
         return users;
     }
 
     @Bean
+    @org.springframework.core.annotation.Order(2)
     SecurityFilterChain security(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(auth -> auth
+        http.securityMatcher("/admin", "/admin/**", "/admin.css").authorizeHttpRequests(auth -> auth
                 .requestMatchers("/admin/login", "/admin.css").permitAll()
                 .requestMatchers("/admin", "/admin/**").hasRole("ADMIN")
                 .anyRequest().permitAll())
@@ -60,6 +61,8 @@ public class AdminSecurityConfig {
         return http.build();
     }
 }
+
+
 
 
 

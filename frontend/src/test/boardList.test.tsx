@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import { expect, it } from 'vitest';
 import App from '../App';
 import { guestStorageKey } from '../api/client';
+import { api } from '../api/client';
+import { vi } from 'vitest';
 import BoardList from '../components/BoardList';
 
 function HistoryControls() {
@@ -17,6 +19,15 @@ function HistoryControls() {
 }
 
 it('RECORD 필터를 URL에 저장하고 탭 이동 및 뒤로 가기에서 복원한다', async () => {
+  vi.spyOn(api, 'search').mockResolvedValue([
+    {
+      areaCode: '3110123',
+      name: '망원역',
+      districtName: '마포구',
+      areaTypeName: '골목',
+      centroid: { lng: 126.9, lat: 37.5 },
+    },
+  ]);
   render(
     <MemoryRouter initialEntries={['/board?category=RECORD&serviceCode=CS100010&sort=popular']}>
       <BoardList />
@@ -25,11 +36,12 @@ it('RECORD 필터를 URL에 저장하고 탭 이동 및 뒤로 가기에서 복�
   );
   expect(screen.getByRole('link', { name: '엔딩 인증' })).toHaveAttribute('aria-current', 'page');
   expect(screen.getByLabelText('정렬')).toHaveValue('popular');
-  expect(screen.getByLabelText('업종 코드')).toHaveValue('CS100010');
+  await waitFor(() => expect(screen.getByLabelText('업종')).toHaveValue('CS100010'));
   expect(
     within(await screen.findByRole('list', { name: '게시글 목록' })).getAllByRole('listitem'),
   ).toHaveLength(2);
-  fireEvent.change(screen.getByLabelText('상권 코드'), { target: { value: '3110123' } });
+  fireEvent.change(screen.getByLabelText('상권 이름 검색'), { target: { value: '망원' } });
+  fireEvent.click(await screen.findByRole('button', { name: '망원역 · 마포구' }));
   fireEvent.change(screen.getByLabelText('검색 종류'), { target: { value: 'title' } });
   fireEvent.change(screen.getByLabelText('검색어'), { target: { value: '가상 구름모래' } });
   fireEvent.click(screen.getByRole('button', { name: '검색' }));
@@ -39,12 +51,13 @@ it('RECORD 필터를 URL에 저장하고 탭 이동 및 뒤로 가기에서 복�
   );
   expect(await screen.findByRole('link', { name: /가상 구름모래/ })).toBeVisible();
   fireEvent.click(screen.getByRole('link', { name: '자유' }));
-  expect(screen.queryByLabelText('업종 코드')).not.toBeInTheDocument();
-  expect(screen.queryByLabelText('상권 코드')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('업종')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('상권 이름 검색')).not.toBeInTheDocument();
   expect(screen.getByTestId('url')).not.toHaveTextContent(/areaCode|serviceCode/);
   expect(await screen.findByText('조건에 맞는 게시글이 없습니다.')).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '뒤로' }));
-  expect(screen.getByLabelText('상권 코드')).toHaveValue('3110123');
+  expect(document.querySelector('input[name=areaCode]')).toHaveValue('3110123');
+  vi.restoreAllMocks();
   expect(screen.getByLabelText('검색 종류')).toHaveValue('title');
   expect(screen.getByLabelText('검색어')).toHaveValue('가상 구름모래');
 });

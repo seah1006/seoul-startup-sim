@@ -3,11 +3,13 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
 import { boardApi } from '../api/board';
-import { api, ApiError, restartGuest } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { EndingBoardEntry, PopularBoardPosts } from '../components/BoardEntry';
 
+import { authenticate, ownFixture } from './authFixture';
 beforeEach(() => {
   localStorage.clear();
+  authenticate();
 });
 afterEach(() => {
   cleanup();
@@ -24,7 +26,7 @@ function fill(title: string, content: string) {
 
 test('일반 글 작성: RECORD 선택 없음, 공백 검증, 글자 수 및 등록 후 상세', async () => {
   open('/board/write');
-  expect(within(screen.getByLabelText('카테고리')).getAllByRole('option')).toHaveLength(3);
+  expect(within(await screen.findByLabelText('카테고리')).getAllByRole('option')).toHaveLength(3);
   expect(screen.queryByRole('option', { name: '엔딩 인증' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '글 등록' }));
   expect(screen.getByRole('alert')).toHaveTextContent('제목은 1~100자');
@@ -35,7 +37,6 @@ test('일반 글 작성: RECORD 선택 없음, 공백 검증, 글자 수 및 등
 });
 
 test('편집 충돌은 최신 버전을 재조회하고 사용자가 다시 저장해야 한다', async () => {
-  await restartGuest();
   const post = await boardApi.createPost({ category: 'FREE', title: '원래 제목', content: '본문' });
   open(`/board/posts/${post.postId}/edit`);
   await screen.findByDisplayValue('원래 제목');
@@ -74,6 +75,8 @@ test.each([['category=RECORD&gameId=104'], ['gameId=104']])(
 );
 
 test('내 글의 숨김 상태는 링크가 없고 공개 목록/연결 조회에 드러나지 않는다', async () => {
+  await boardApi.post(2);
+  ownFixture([30]);
   open('/board/me?category=RECORD');
   expect(await screen.findByText('숨김')).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: /숨김 처리된 연습 인증글/ })).not.toBeInTheDocument();
@@ -93,6 +96,7 @@ test('저장 중 이중 제출 차단, 서버 400 메시지와 429 안내', asyn
       }),
   );
   open('/board/write');
+  await screen.findByLabelText('카테고리');
   fill('글 제목', '글 내용');
   const submit = screen.getByRole('button', { name: '글 등록' });
   fireEvent.click(submit);
@@ -124,6 +128,8 @@ test('홈 인기글은 인기순 3건을 요청하고 상단 메뉴가 게시판
 });
 
 test('엔딩: 작성 가능, 공개 연결, 숨김 및 요약 미지원 분기', async () => {
+  await boardApi.post(2);
+  ownFixture([30]);
   const entry = (id: number) =>
     render(
       <MemoryRouter>
@@ -187,4 +193,33 @@ test('실제 목 게임 마지막 분기 결과에서 인증하기로 이어지�
   expect(await screen.findByRole('region', { name: '엔딩 인증 카드 미리보기' })).toHaveTextContent(
     '가상 은하정류장',
   );
+});
+
+test('게스트 작성 진입은 폼 대신 로그인·가입 동선을 제공하고 원래 주소를 보존한다', async () => {
+  localStorage.clear();
+  await api.guest();
+  open('/board/write?category=RECORD&gameId=104');
+  expect(await screen.findByRole('link', { name: '로그인하고 참여하기' })).toHaveAttribute(
+    'href',
+    '/login?next=%2Fboard%2Fwrite%3Fcategory%3DRECORD%26gameId%3D104',
+  );
+  expect(screen.queryByLabelText(/제목/)).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '가입하고 기록 이어가기' })).toHaveAttribute(
+    'href',
+    '/signup?next=%2Fboard%2Fwrite%3Fcategory%3DRECORD%26gameId%3D104',
+  );
+});
+test('게스트 엔딩은 인증 작성 대신 가입 후 같은 엔딩으로 돌아오는 링크를 제공한다', async () => {
+  localStorage.clear();
+  await api.guest();
+  render(
+    <MemoryRouter initialEntries={['/games/104']}>
+      <EndingBoardEntry gameId={104} />
+    </MemoryRouter>,
+  );
+  expect(await screen.findByRole('link', { name: '가입하고 기록 이어가기' })).toHaveAttribute(
+    'href',
+    '/signup?next=%2Fgames%2F104',
+  );
+  expect(screen.queryByRole('link', { name: '엔딩 인증하기' })).not.toBeInTheDocument();
 });

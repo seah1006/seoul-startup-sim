@@ -1,4 +1,4 @@
-import { api, ApiError, guestStorageKey, useMock, sendWithGuestRecovery } from './client';
+import { ApiError, guestStorageKey, useMock, sendWithGuestRecovery } from './client';
 import { mockBoardRequest } from './mock/board';
 import type {
   CommentItem,
@@ -26,12 +26,7 @@ async function boardRequest<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const token =
-    auth === 'required'
-      ? await api.guest()
-      : auth === 'optional'
-        ? localStorage.getItem(guestStorageKey)
-        : null;
+  const token = auth === 'none' ? null : localStorage.getItem(guestStorageKey);
   async function send(guestToken: string | null): Promise<Response> {
     if (useMock) return mockBoardRequest(path, method, guestToken, body);
     try {
@@ -40,7 +35,7 @@ async function boardRequest<T>(
         signal,
         headers: {
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          ...(guestToken ? { 'X-Guest-Token': guestToken } : {}),
+          ...(guestToken ? { Authorization: `Bearer ${guestToken}` } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       });

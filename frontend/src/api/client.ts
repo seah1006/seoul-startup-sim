@@ -18,6 +18,7 @@ import type {
   Stores,
 } from './types';
 import { mockRequest } from './mock';
+import { mockAuth } from './mock/auth';
 export const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
 export class ApiError extends Error {
   constructor(
@@ -42,12 +43,17 @@ async function guest(): Promise<string> {
             return r.json();
           });
       localStorage.setItem(guestStorageKey, data.guestToken);
+      window.dispatchEvent(new Event('authchange'));
       return data.guestToken;
     })().catch((e) => {
       guestPromise = undefined;
       throw e;
     });
-  return guestPromise;
+  try {
+    return await guestPromise;
+  } finally {
+    guestPromise = undefined;
+  }
 }
 export function restartGuest() {
   localStorage.removeItem(guestStorageKey);
@@ -66,7 +72,11 @@ export async function sendWithGuestRecovery(
     localStorage.removeItem(guestStorageKey);
     guestPromise = undefined;
   }
-  return send(optional ? null : await guest());
+  window.dispatchEvent(new Event('authchange'));
+  if (optional) return send(null);
+  if (/^\/(new|games)(?:\/|$)/.test(window.location.pathname)) return send(await guest());
+  window.dispatchEvent(new Event('authrequired'));
+  return response;
 }
 export async function request<T>(
   url: string,
@@ -74,23 +84,38 @@ export async function request<T>(
   body?: unknown,
   key?: string,
 ): Promise<T> {
-  const token = await guest();
-  if (useMock) return mockRequest<T>(url, method, body, key);
-  const response = await sendWithGuestRecovery(
-    (token) =>
-      fetch(`/api${url}`, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Guest-Token': token!,
-          ...(key ? { 'Idempotency-Key': key } : {}),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      }),
-    token,
-  );
+  const gameRequest = /^\/(games|owners)(?:\/|$)/.test(url);
+  const token = gameRequest ? await guest() : localStorage.getItem(guestStorageKey);
+  if (useMock) {
+    try {
+      return url.startsWith('/auth/')
+        ? (mockAuth(url, method, token, body) as T)
+        : await mockRequest<T>(url, method, body, key);
+    } catch (e) {
+      const error = e as ApiError;
+      throw new ApiError(error.status || 500, error.message, error.code);
+    }
+  }
+  const send = (token: string | null) =>
+    fetch(`/api${url}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(key ? { 'Idempotency-Key': key } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const response = url.startsWith('/auth/')
+    ? await send(token)
+    : await sendWithGuestRecovery(send, token);
   if (!response.ok) {
     const data = await response.json().catch(() => ({ message: '서버 연결에 실패했습니다.' }));
+    if (response.status === 401 && data.code !== 'INVALID_CREDENTIALS') {
+      localStorage.removeItem(guestStorageKey);
+      window.dispatchEvent(new Event('authchange'));
+      window.dispatchEvent(new Event('authrequired'));
+    }
     throw new ApiError(response.status, data.message, data.code);
   }
   return response.status === 204 ? (null as T) : response.json();
