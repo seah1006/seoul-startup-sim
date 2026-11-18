@@ -73,7 +73,7 @@ public class EventEffectService {
     /** 화면용 요약이다. 내부 상태인 플래그는 노출하지 않는다. */
     public List<EffectView> describe(List<EventDsl.Effect> effects) {
         return effects.stream().filter(effect -> !(effect instanceof EventDsl.Flag)).map(effect -> switch (effect) {
-            case EventDsl.Cash cash -> new EffectView(cash.memo(), "%+,d원".formatted(cash.amount()));
+            case EventDsl.Cash cash -> new EffectView(cash.memo(), MoneyFormat.signedWon(cash.amount()));
             case EventDsl.Stat stat -> new EffectView(STAT_NAMES.get(stat.stat()), "%+d".formatted(stat.delta()));
             case EventDsl.ModifierEffect modifier -> new EffectView(modifier.label(), modifierValue(modifier));
             case EventDsl.Flag flag -> throw new IllegalStateException("플래그는 요약에서 제외됩니다.");
@@ -86,7 +86,7 @@ public class EventEffectService {
     /**
      * 선택 전 화면의 효과 요약 문장. 보정 라벨에는 이미 수치가 들어 있으므로 라벨만 쓰고,
      * 현금은 화면 금액 규칙({@link MoneyFormat})으로 "-300만 원"처럼 쓴다.
-     * 선택 결과의 {@link #describe} 값은 이벤트 골든이 고정하고 있어 기존 표기를 유지한다.
+     * 선택 결과의 {@link #describe} 값도 같은 금액 규칙을 쓴다.
      */
     public String summary(List<EventDsl.Effect> effects) {
         List<String> parts = effects.stream().filter(effect -> !(effect instanceof EventDsl.Flag))
@@ -109,7 +109,7 @@ public class EventEffectService {
         }
         return switch (modifier.target()) {
             case "costRate" -> "%+d%%p".formatted(Math.round(modifier.value() * 100));
-            case "rent", "revenue" -> "%+,d원".formatted(Math.round(modifier.value()));
+            case "rent", "revenue" -> MoneyFormat.signedWon(Math.round(modifier.value()));
             default -> "%+,d명".formatted(Math.round(modifier.value()));
         };
     }

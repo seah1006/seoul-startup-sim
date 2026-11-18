@@ -65,14 +65,14 @@ public class EventEngine implements TurnEventHook {
         if (!context.ended() && !points.isEmpty()
                 && context.turn() >= game.settings().getOrDefault("event.fire.minTurn", 1d)
                 && !games.pendingTurningPoint(context.gameId())) {
-            fire(context, variables, points, result);
+            fire(context, variables, points, result, game.settings().getOrDefault("event.fire.globalGap", 0d));
         }
     }
 
     private void fire(GameContext context, Map<String, Object> variables,
-            List<EventDefinitionRepository.Definition> points, TurnResultBuilder result) {
+            List<EventDefinitionRepository.Definition> points, TurnResultBuilder result, double globalGap) {
         Map<String, Integer> stats = games.stats(context.gameId());
-        Map<String, Boolean> judged = judge(context, variables, stats, points);
+        Map<String, Boolean> judged = judge(context, variables, stats, points, globalGap);
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();
         int highest = -1;
         for (var point : points) {
@@ -107,13 +107,22 @@ public class EventEngine implements TurnEventHook {
      */
     Map<String, Boolean> judge(GameContext context, Map<String, Object> variables, Map<String, Integer> stats,
             List<EventDefinitionRepository.Definition> points) {
+        return judge(context, variables, stats, points, 0);
+    }
+
+    Map<String, Boolean> judge(GameContext context, Map<String, Object> variables, Map<String, Integer> stats,
+            List<EventDefinitionRepository.Definition> points, double globalGap) {
+        int sinceAny = variables.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith("history.quartersSince."))
+                .mapToInt(entry -> ((Number) entry.getValue()).intValue()).min().orElse(Integer.MAX_VALUE);
+        boolean gapPassed = globalGap <= 0 || sinceAny > globalGap;
         Map<String, Boolean> judged = new LinkedHashMap<>();
         for (var point : points) {
             JsonNode data = point.data();
             EventContextFactory.defaults(data.get("conditionExpr"), variables);
             int times = ((Number) variables.getOrDefault("history.timesFired." + point.code(), 0)).intValue();
             int since = ((Number) variables.getOrDefault("history.quartersSince." + point.code(), 999)).intValue();
-            boolean eligible = context.turn() >= data.get("minTurn").intValue()
+            boolean eligible = gapPassed && context.turn() >= data.get("minTurn").intValue()
                     && times < data.get("maxFires").intValue()
                     && since >= data.get("cooldownQuarters").intValue()
                     && validator.condition(data.get("conditionExpr"), EventDefinitionValidator.Scope.TURNING_POINT)
