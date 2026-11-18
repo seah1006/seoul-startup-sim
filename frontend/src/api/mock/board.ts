@@ -1,36 +1,104 @@
 import { mockEndingRecord, seedBoardRecords } from './index';
 import { boardCategories, boardSearchTypes, boardSorts } from '../types';
-import type { BoardErrorCode, CommentItem, CreateCommentRequest, CreatePostRequest, CreateReportRequest, UpdateCommentRequest, PageResponse, PostDetail, PostListItem, RecordSnapshot, UpdatePostRequest } from '../types';
+import type {
+  BoardErrorCode,
+  CommentItem,
+  CreateCommentRequest,
+  CreatePostRequest,
+  CreateReportRequest,
+  UpdateCommentRequest,
+  PageResponse,
+  PostDetail,
+  PostListItem,
+  RecordSnapshot,
+  UpdatePostRequest,
+} from '../types';
 
-type MockPost = { item: PostListItem; content: string; version: number; mine: boolean; deleted?: boolean; hidden?: boolean };
+type MockPost = {
+  item: PostListItem;
+  content: string;
+  version: number;
+  mine: boolean;
+  deleted?: boolean;
+  hidden?: boolean;
+};
 const key = 'sss-mock-board-v1';
 const counter = { popular: 'likeCount', views: 'viewCount', comments: 'commentCount' } as const;
-const stories = ['첫 창업 회고', '단골을 만든 운영 기록', '고정비를 줄인 방법', '다음 분기 전략', '골목 상권 도전기', '첫 흑자 분기를 돌아보며'];
+const stories = [
+  '첫 창업 회고',
+  '단골을 만든 운영 기록',
+  '고정비를 줄인 방법',
+  '다음 분기 전략',
+  '골목 상권 도전기',
+  '첫 흑자 분기를 돌아보며',
+];
 const records = seedBoardRecords;
 
 function seed() {
   return Array.from({ length: 29 }, (_, i): MockPost => {
     const record = records[i - 1] ?? null;
     const date = new Date(Date.UTC(2026, 10, 18, 3, -i * 20)).toISOString();
-    return { item: {
-      postId: i + 1, category: record ? 'RECORD' : boardCategories[i % 3],
-      title: i === 0 ? '사장님 커뮤니티 이용 안내' : record ? `${record.shopName} · ${stories[i - 1]}` : `${stories[i % stories.length]} (${i + 1})`,
-      authorNickname: i === 0 ? '운영팀' : `연습 사장님 ${i % 5 + 1}`, createdAt: date, updatedAt: date,
-      viewCount: i * 7 % 83, likeCount: i % 11, commentCount: 0, isPinned: i === 0, record,
-    }, content: i === 0 ? '게임 속 가상 창업 경험을 공유해 주세요.' : '첫 분기에는 고정비를 줄였습니다.\n다음에는 운영 시간을 바꿔 볼 계획입니다.', version: 0, mine: i === 1 || i === 4 };
+    return {
+      item: {
+        postId: i + 1,
+        category: record ? 'RECORD' : boardCategories[i % 3],
+        title:
+          i === 0
+            ? '사장님 커뮤니티 이용 안내'
+            : record
+              ? `${record.shopName} · ${stories[i - 1]}`
+              : `${stories[i % stories.length]} (${i + 1})`,
+        authorNickname: i === 0 ? '운영팀' : `연습 사장님 ${(i % 5) + 1}`,
+        createdAt: date,
+        updatedAt: date,
+        viewCount: (i * 7) % 83,
+        likeCount: i % 11,
+        commentCount: 0,
+        isPinned: i === 0,
+        record,
+      },
+      content:
+        i === 0
+          ? '게임 속 가상 창업 경험을 공유해 주세요.'
+          : '첫 분기에는 고정비를 줄였습니다.\n다음에는 운영 시간을 바꿔 볼 계획입니다.',
+      version: 0,
+      mine: i === 1 || i === 4,
+    };
   });
 }
 function hiddenPost(): MockPost {
   const record = mockEndingRecord(105);
   const now = '2026-11-18T01:00:00Z';
-  return { item: { postId: 30, category: 'RECORD', title: '숨김 처리된 연습 인증글', authorNickname: '연습 사장님',
-    createdAt: now, updatedAt: now, viewCount: 0, likeCount: 0, commentCount: 0, isPinned: false,
-    record: record && record !== 'PLAYING' ? record : null }, content: '', version: 1, mine: true, hidden: true };
+  return {
+    item: {
+      postId: 30,
+      category: 'RECORD',
+      title: '숨김 처리된 연습 인증글',
+      authorNickname: '연습 사장님',
+      createdAt: now,
+      updatedAt: now,
+      viewCount: 0,
+      likeCount: 0,
+      commentCount: 0,
+      isPinned: false,
+      record: record && record !== 'PLAYING' ? record : null,
+    },
+    content: '',
+    version: 1,
+    mine: true,
+    hidden: true,
+  };
 }
 
 type MockComment = { postId: number; item: CommentItem; mine: boolean; deleted?: boolean };
-type MockDb = { posts: MockPost[]; likes: number[]; views: string[]; reports: string[];
-  comments: MockComment[]; limits: Partial<Record<'post' | 'comment' | 'report', { minute: number; count: number }>> };
+type MockDb = {
+  posts: MockPost[];
+  likes: number[];
+  views: string[];
+  reports: string[];
+  comments: MockComment[];
+  limits: Partial<Record<'post' | 'comment' | 'report', { minute: number; count: number }>>;
+};
 function seedComments(): MockComment[] {
   const rows = [
     [1, null, '첫 분기의 운영 시간은 어떻게 정하셨나요?', false, false],
@@ -41,67 +109,154 @@ function seedComments(): MockComment[] {
   ] as const;
   return rows.map(([commentId, parentId, content, mine, deleted]) => {
     const date = new Date(Date.UTC(2026, 10, 18, 3, commentId)).toISOString();
-    return { postId: 2, mine, deleted, item: { commentId, parentId, content,
-      authorNickname: mine ? '나' : '연습 사장님', createdAt: date, updatedAt: date, version: 0,
-      replyCount: 0, isMine: false, isPlaceholder: false } };
+    return {
+      postId: 2,
+      mine,
+      deleted,
+      item: {
+        commentId,
+        parentId,
+        content,
+        authorNickname: mine ? '나' : '연습 사장님',
+        createdAt: date,
+        updatedAt: date,
+        version: 0,
+        replyCount: 0,
+        isMine: false,
+        isPlaceholder: false,
+      },
+    };
   });
 }
 function load(): MockDb {
   let saved: Partial<MockDb> = {};
-  try { const raw = localStorage.getItem(key); if (raw) saved = JSON.parse(raw); } catch { /* 초기 목 데이터 사용 */ }
-  const db = { posts: seed(), likes: [], views: [], reports: [], comments: seedComments(), limits: {}, ...saved };
-  if (!db.posts.some(p => p.item.postId === 30)) db.posts.push(hiddenPost());
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) saved = JSON.parse(raw);
+  } catch {
+    /* 초기 목 데이터 사용 */
+  }
+  const db = {
+    posts: seed(),
+    likes: [],
+    views: [],
+    reports: [],
+    comments: seedComments(),
+    limits: {},
+    ...saved,
+  };
+  if (!db.posts.some((p) => p.item.postId === 30)) db.posts.push(hiddenPost());
   for (const post of db.posts) syncCount(db, post);
   return db;
 }
 function syncCount(db: MockDb, post: MockPost) {
-  post.item.commentCount = db.comments.filter(c => c.postId === post.item.postId && !c.deleted).length;
+  post.item.commentCount = db.comments.filter(
+    (c) => c.postId === post.item.postId && !c.deleted,
+  ).length;
 }
 function mockComment(item: MockComment, db: MockDb, authenticated: boolean): CommentItem {
-  const replyCount = item.item.parentId === null
-    ? db.comments.filter(c => c.item.parentId === item.item.commentId && !c.deleted).length : 0;
-  return item.deleted ? { ...item.item, replyCount, isPlaceholder: true, isMine: false,
-    authorNickname: null, updatedAt: null, version: null, content: '표시할 수 없는 댓글입니다.' }
+  const replyCount =
+    item.item.parentId === null
+      ? db.comments.filter((c) => c.item.parentId === item.item.commentId && !c.deleted).length
+      : 0;
+  return item.deleted
+    ? {
+        ...item.item,
+        replyCount,
+        isPlaceholder: true,
+        isMine: false,
+        authorNickname: null,
+        updatedAt: null,
+        version: null,
+        content: '표시할 수 없는 댓글입니다.',
+      }
     : { ...item.item, replyCount, isMine: authenticated && item.mine };
 }
-const json = (body: unknown, status = 200, headers?: HeadersInit) => Response.json(body, { status, headers });
+const json = (body: unknown, status = 200, headers?: HeadersInit) =>
+  Response.json(body, { status, headers });
 const privateHeaders = { 'Cache-Control': 'no-store' };
-const error = (status: number, code: BoardErrorCode, message: string) => json({ code, message, timestamp: new Date().toISOString() }, status);
+const error = (status: number, code: BoardErrorCode, message: string) =>
+  json({ code, message, timestamp: new Date().toISOString() }, status);
 const invalid = () => error(400, 'VALIDATION_FAILED', '입력값을 확인해 주세요.');
 const missing = () => error(404, 'NOT_FOUND', '대상을 찾을 수 없습니다.');
 const forbidden = () => error(403, 'FORBIDDEN', '권한이 없습니다.');
-const text = (value: unknown, limit: number) => typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= limit;
-const integer = (n: unknown, min: number): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= min;
-const enumValue = <T extends string>(values: readonly T[], value: unknown): value is T => values.includes(value as T);
+const text = (value: unknown, limit: number) =>
+  typeof value === 'string' && value.trim().length >= 1 && value.trim().length <= limit;
+const integer = (n: unknown, min: number): n is number =>
+  typeof n === 'number' && Number.isSafeInteger(n) && n >= min;
+const enumValue = <T extends string>(values: readonly T[], value: unknown): value is T =>
+  values.includes(value as T);
 const readInt = (q: URLSearchParams, name: string, fallback: number) => {
   const value = q.get(name);
   return value === null ? fallback : /^\d+$/.test(value) ? Number(value) : NaN;
 };
 
 function list(posts: MockPost[], params: URLSearchParams, mine: boolean) {
-  const page = readInt(params, 'page', 0), size = readInt(params, 'size', 20);
-  const sort = params.get('sort') ?? 'latest', category = params.get('category');
-  const searchType = params.get('searchType') ?? 'titleContent', q = params.get('q')?.trim().toLowerCase() ?? '';
-  const service = params.get('serviceCode')?.trim(), area = params.get('areaCode')?.trim();
-  if (!integer(page, 0) || !integer(size, 1) || size > 50 || !enumValue(boardSorts, sort)
-    || !enumValue(boardSearchTypes, searchType) || (category !== null && !enumValue(boardCategories, category))
-    || q.length > 100 || (service !== undefined && !text(service, 32)) || (area !== undefined && !text(area, 32))
-    || ((service || area) && category !== null && category !== 'RECORD')) return invalid();
-  const rows = posts.filter(({ item: p, content, deleted, hidden, mine: owner }) => {
-    if (deleted || (mine ? !owner : hidden) || (category && p.category !== category)) return false;
-    if (service && service !== p.record?.serviceCode) return false;
-    if (area && area !== p.record?.areaCode) return false;
-    const targets = { title: [p.title], content: [content], titleContent: [p.title, content], author: [p.authorNickname] };
-    return !q || targets[searchType].some(s => s.toLowerCase().includes(q));
-  }).sort(({ item: a }, { item: b }) => Number(b.isPinned) - Number(a.isPinned)
-    || (sort === 'latest' ? 0 : b[counter[sort]] - a[counter[sort]])
-    || b.createdAt.localeCompare(a.createdAt) || b.postId - a.postId);
-  return json({ content: rows.slice(page * size, (page + 1) * size).map(p => mine ? { ...p.item, status: p.hidden ? 'HIDDEN' : 'ACTIVE', version: p.version } : p.item),
-    page, size, totalElements: rows.length, totalPages: Math.ceil(rows.length / size) } satisfies PageResponse<PostListItem>,
-  200, mine ? privateHeaders : undefined);
+  const page = readInt(params, 'page', 0),
+    size = readInt(params, 'size', 20);
+  const sort = params.get('sort') ?? 'latest',
+    category = params.get('category');
+  const searchType = params.get('searchType') ?? 'titleContent',
+    q = params.get('q')?.trim().toLowerCase() ?? '';
+  const service = params.get('serviceCode')?.trim(),
+    area = params.get('areaCode')?.trim();
+  if (
+    !integer(page, 0) ||
+    !integer(size, 1) ||
+    size > 50 ||
+    !enumValue(boardSorts, sort) ||
+    !enumValue(boardSearchTypes, searchType) ||
+    (category !== null && !enumValue(boardCategories, category)) ||
+    q.length > 100 ||
+    (service !== undefined && !text(service, 32)) ||
+    (area !== undefined && !text(area, 32)) ||
+    ((service || area) && category !== null && category !== 'RECORD')
+  )
+    return invalid();
+  const rows = posts
+    .filter(({ item: p, content, deleted, hidden, mine: owner }) => {
+      if (deleted || (mine ? !owner : hidden) || (category && p.category !== category))
+        return false;
+      if (service && service !== p.record?.serviceCode) return false;
+      if (area && area !== p.record?.areaCode) return false;
+      const targets = {
+        title: [p.title],
+        content: [content],
+        titleContent: [p.title, content],
+        author: [p.authorNickname],
+      };
+      return !q || targets[searchType].some((s) => s.toLowerCase().includes(q));
+    })
+    .sort(
+      ({ item: a }, { item: b }) =>
+        Number(b.isPinned) - Number(a.isPinned) ||
+        (sort === 'latest' ? 0 : b[counter[sort]] - a[counter[sort]]) ||
+        b.createdAt.localeCompare(a.createdAt) ||
+        b.postId - a.postId,
+    );
+  return json(
+    {
+      content: rows
+        .slice(page * size, (page + 1) * size)
+        .map((p) =>
+          mine ? { ...p.item, status: p.hidden ? 'HIDDEN' : 'ACTIVE', version: p.version } : p.item,
+        ),
+      page,
+      size,
+      totalElements: rows.length,
+      totalPages: Math.ceil(rows.length / size),
+    } satisfies PageResponse<PostListItem>,
+    200,
+    mine ? privateHeaders : undefined,
+  );
 }
 
-export function mockBoardRequest(url: string, method: string, token: string | null, body?: unknown): Response {
+export function mockBoardRequest(
+  url: string,
+  method: string,
+  token: string | null,
+  body?: unknown,
+): Response {
   const { pathname, searchParams } = new URL(url, 'http://mock.local');
   const db = load();
   const save = () => localStorage.setItem(key, JSON.stringify(db));
@@ -114,111 +269,232 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
     db.limits[kind] = { minute, count: count + 1 };
     return false;
   }
-  const rateError = () => error(429, 'RATE_LIMITED', '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.');
+  const rateError = () =>
+    error(429, 'RATE_LIMITED', '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.');
   const mine = pathname === '/board/me/posts';
   const recordMatch = pathname.match(/^\/board\/records\/(\d+)$/);
   const publicRead = method === 'GET' && (pathname === '/board/posts' || recordMatch);
   if (!publicRead && !authenticated && (method !== 'GET' || mine || token !== null)) {
     return error(401, 'UNAUTHORIZED', '유효한 게스트 토큰이 필요합니다.');
   }
-  const detail = (p: MockPost): PostDetail => ({ ...p.item, content: p.content, version: p.version,
-    isMine: authenticated && p.mine, likedByMe: authenticated && db.likes.includes(p.item.postId) });
-  if (method === 'GET' && (pathname === '/board/posts' || mine)) return list(db.posts, searchParams, mine);
+  const detail = (p: MockPost): PostDetail => ({
+    ...p.item,
+    content: p.content,
+    version: p.version,
+    isMine: authenticated && p.mine,
+    likedByMe: authenticated && db.likes.includes(p.item.postId),
+  });
+  if (method === 'GET' && (pathname === '/board/posts' || mine))
+    return list(db.posts, searchParams, mine);
   if (method === 'POST' && pathname === '/board/posts') {
     const b = body as CreatePostRequest | undefined;
-    if (!b || !enumValue(boardCategories, b.category) || !text(b.title, 100) || !text(b.content, 10000)
-      || (b.category === 'RECORD' ? !integer(b.gameId, 1) : 'gameId' in b)) return invalid();
+    if (
+      !b ||
+      !enumValue(boardCategories, b.category) ||
+      !text(b.title, 100) ||
+      !text(b.content, 10000) ||
+      (b.category === 'RECORD' ? !integer(b.gameId, 1) : 'gameId' in b)
+    )
+      return invalid();
     let record: RecordSnapshot | null = null;
     if (b.category === 'RECORD') {
       const snapshot = mockEndingRecord(b.gameId);
       if (!snapshot) return missing();
-      if (snapshot === 'PLAYING') return error(409, 'RECORD_GAME_NOT_ENDED', '종료된 게임만 인증할 수 있습니다.');
-      if (db.posts.some(p => !p.deleted && p.item.record?.gameId === b.gameId)) {
-        return error(409, 'RECORD_ALREADY_POSTED', '이미 인증글이 있습니다. 숨김 여부는 내 글에서 확인해 주세요.');
+      if (snapshot === 'PLAYING')
+        return error(409, 'RECORD_GAME_NOT_ENDED', '종료된 게임만 인증할 수 있습니다.');
+      if (db.posts.some((p) => !p.deleted && p.item.record?.gameId === b.gameId)) {
+        return error(
+          409,
+          'RECORD_ALREADY_POSTED',
+          '이미 인증글이 있습니다. 숨김 여부는 내 글에서 확인해 주세요.',
+        );
       }
       record = snapshot;
     }
     if (limited('post', 3)) return rateError();
-    const postId = Math.max(...db.posts.map(p => p.item.postId), 0) + 1;
+    const postId = Math.max(...db.posts.map((p) => p.item.postId), 0) + 1;
     const now = new Date().toISOString();
-    const created: MockPost = { item: { postId, category: b.category, title: b.title.trim(), authorNickname: '연습 사장님',
-      createdAt: now, updatedAt: now, viewCount: 0, likeCount: 0, commentCount: 0, isPinned: false, record },
-      content: b.content.trim(), version: 0, mine: true };
-    db.posts.push(created); save();
+    const created: MockPost = {
+      item: {
+        postId,
+        category: b.category,
+        title: b.title.trim(),
+        authorNickname: '연습 사장님',
+        createdAt: now,
+        updatedAt: now,
+        viewCount: 0,
+        likeCount: 0,
+        commentCount: 0,
+        isPinned: false,
+        record,
+      },
+      content: b.content.trim(),
+      version: 0,
+      mine: true,
+    };
+    db.posts.push(created);
+    save();
     return json(detail(created), 201, { Location: `/api/board/posts/${postId}` });
   }
   if (method === 'GET' && recordMatch) {
-    const p = db.posts.find(p => !p.deleted && !p.hidden && p.item.record?.gameId === Number(recordMatch[1]))?.item;
-    return p ? json({ postId: p.postId, title: p.title, commentCount: p.commentCount, postUrl: `/board/posts/${p.postId}` }, 200, privateHeaders)
+    const p = db.posts.find(
+      (p) => !p.deleted && !p.hidden && p.item.record?.gameId === Number(recordMatch[1]),
+    )?.item;
+    return p
+      ? json(
+          {
+            postId: p.postId,
+            title: p.title,
+            commentCount: p.commentCount,
+            postUrl: `/board/posts/${p.postId}`,
+          },
+          200,
+          privateHeaders,
+        )
       : new Response(null, { status: 204, headers: privateHeaders });
   }
   if (method === 'POST' && pathname === '/board/reports') {
     const b = body as CreateReportRequest | undefined;
-    if (!b || !['POST', 'COMMENT'].includes(b.targetType) || !integer(b.targetId, 1)
-      || !['SPAM', 'ABUSE', 'ADULT', 'ETC'].includes(b.reason)
-      || (b.detail !== undefined && (typeof b.detail !== 'string' || b.detail.trim().length > 500))
-      || (b.reason === 'ETC' && !text(b.detail, 500))) return invalid();
-    const target = b.targetType === 'POST' ? db.posts.find(p => !p.deleted && !p.hidden && p.item.postId === b.targetId)
-      : db.comments.find(c => !c.deleted && c.item.commentId === b.targetId && db.posts.some(p => !p.deleted && !p.hidden && p.item.postId === c.postId));
+    if (
+      !b ||
+      !['POST', 'COMMENT'].includes(b.targetType) ||
+      !integer(b.targetId, 1) ||
+      !['SPAM', 'ABUSE', 'ADULT', 'ETC'].includes(b.reason) ||
+      (b.detail !== undefined && (typeof b.detail !== 'string' || b.detail.trim().length > 500)) ||
+      (b.reason === 'ETC' && !text(b.detail, 500))
+    )
+      return invalid();
+    const target =
+      b.targetType === 'POST'
+        ? db.posts.find((p) => !p.deleted && !p.hidden && p.item.postId === b.targetId)
+        : db.comments.find(
+            (c) =>
+              !c.deleted &&
+              c.item.commentId === b.targetId &&
+              db.posts.some((p) => !p.deleted && !p.hidden && p.item.postId === c.postId),
+          );
     if (!target) return missing();
     if (target.mine) return forbidden();
     const id = `${b.targetType}:${b.targetId}`;
     if (db.reports.includes(id)) return error(409, 'ALREADY_REPORTED', '이미 신고한 대상입니다.');
     if (limited('report', 5)) return rateError();
-    db.reports.push(id); save();
+    db.reports.push(id);
+    save();
     return json({ reportId: db.reports.length, status: 'PENDING' }, 201);
   }
   const match = pathname.match(/^\/board\/posts\/(\d+)(\/.*)?$/);
   if (!match) return missing();
-  const postId = Number(match[1]), sub = match[2];
+  const postId = Number(match[1]),
+    sub = match[2];
   if (!integer(postId, 1)) return invalid();
-  const p = db.posts.find(p => !p.deleted && !p.hidden && p.item.postId === postId);
+  const p = db.posts.find((p) => !p.deleted && !p.hidden && p.item.postId === postId);
   if (!sub && (method === 'PUT' || method === 'DELETE')) {
     const b = body as (UpdatePostRequest & { gameId?: number }) | undefined;
     const version = method === 'PUT' ? b?.version : readInt(searchParams, 'version', NaN);
     if (!integer(version, 0)) return invalid();
-    if (method === 'PUT' && (!b || !enumValue(boardCategories, b.category) || !text(b.title, 100) || !text(b.content, 10000) || 'gameId' in b)) return invalid();
+    if (
+      method === 'PUT' &&
+      (!b ||
+        !enumValue(boardCategories, b.category) ||
+        !text(b.title, 100) ||
+        !text(b.content, 10000) ||
+        'gameId' in b)
+    )
+      return invalid();
     if (!p) return missing();
     if (!p.mine) return forbidden();
     if (b && (p.item.category === 'RECORD') !== (b.category === 'RECORD')) return invalid();
-    if (p.version !== version) return error(409, 'POST_VERSION_CONFLICT', '게시글이 변경되었습니다. 최신 게시글을 확인해 주세요.');
-    if (method === 'DELETE') { p.deleted = true; save(); return new Response(null, { status: 204 }); }
-    p.content = b!.content.trim(); p.version++;
-    Object.assign(p.item, { category: b!.category, title: b!.title.trim(), updatedAt: new Date().toISOString() });
-    save(); return json(detail(p));
+    if (p.version !== version)
+      return error(
+        409,
+        'POST_VERSION_CONFLICT',
+        '게시글이 변경되었습니다. 최신 게시글을 확인해 주세요.',
+      );
+    if (method === 'DELETE') {
+      p.deleted = true;
+      save();
+      return new Response(null, { status: 204 });
+    }
+    p.content = b!.content.trim();
+    p.version++;
+    Object.assign(p.item, {
+      category: b!.category,
+      title: b!.title.trim(),
+      updatedAt: new Date().toISOString(),
+    });
+    save();
+    return json(detail(p));
   }
   const commentMatch = sub?.match(/^\/comments(?:\/(\d+)(\/replies)?)?$/);
   if (commentMatch) {
     const id = commentMatch[1] === undefined ? null : Number(commentMatch[1]);
     const replies = !!commentMatch[2];
     if (id !== null && !integer(id, 1)) return invalid();
-    const target = db.comments.find(c => c.postId === postId && c.item.commentId === id);
+    const target = db.comments.find((c) => c.postId === postId && c.item.commentId === id);
     if (method === 'GET' && (id === null || replies)) {
-      const page = readInt(searchParams, 'page', 0), size = readInt(searchParams, 'size', 20);
+      const page = readInt(searchParams, 'page', 0),
+        size = readInt(searchParams, 'size', 20);
       if (!integer(page, 0) || !integer(size, 1) || size > 50) return invalid();
-      if (!p || (replies && (!target || target.item.parentId !== null || (target.deleted && !mockComment(target, db, false).replyCount)))) return missing();
-      const rows = db.comments.filter(c => c.postId === postId && c.item.parentId === id)
-        .map(c => mockComment(c, db, authenticated)).filter(c => !c.isPlaceholder || c.replyCount > 0)
+      if (
+        !p ||
+        (replies &&
+          (!target ||
+            target.item.parentId !== null ||
+            (target.deleted && !mockComment(target, db, false).replyCount)))
+      )
+        return missing();
+      const rows = db.comments
+        .filter((c) => c.postId === postId && c.item.parentId === id)
+        .map((c) => mockComment(c, db, authenticated))
+        .filter((c) => !c.isPlaceholder || c.replyCount > 0)
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.commentId - b.commentId);
-      return json({ content: rows.slice(page * size, (page + 1) * size), page, size,
-        totalElements: rows.length, totalPages: Math.ceil(rows.length / size) } satisfies PageResponse<CommentItem>, 200, privateHeaders);
+      return json(
+        {
+          content: rows.slice(page * size, (page + 1) * size),
+          page,
+          size,
+          totalElements: rows.length,
+          totalPages: Math.ceil(rows.length / size),
+        } satisfies PageResponse<CommentItem>,
+        200,
+        privateHeaders,
+      );
     }
     if (method === 'POST' && id === null) {
       const b = body as CreateCommentRequest | undefined;
-      if (!b || !text(b.content, 1000) || (b.parentId != null && !integer(b.parentId, 1))) return invalid();
+      if (!b || !text(b.content, 1000) || (b.parentId != null && !integer(b.parentId, 1)))
+        return invalid();
       if (!p) return missing();
       if (b.parentId != null) {
-        const parent = db.comments.find(c => c.postId === postId && c.item.commentId === b.parentId && !c.deleted);
+        const parent = db.comments.find(
+          (c) => c.postId === postId && c.item.commentId === b.parentId && !c.deleted,
+        );
         if (!parent) return missing();
-        if (parent.item.parentId !== null) return error(400, 'COMMENT_DEPTH_EXCEEDED', '대댓글에는 답글을 작성할 수 없습니다.');
+        if (parent.item.parentId !== null)
+          return error(400, 'COMMENT_DEPTH_EXCEEDED', '대댓글에는 답글을 작성할 수 없습니다.');
       }
       if (limited('comment', 10)) return rateError();
-      const commentId = Math.max(0, ...db.comments.map(c => c.item.commentId)) + 1;
+      const commentId = Math.max(0, ...db.comments.map((c) => c.item.commentId)) + 1;
       const date = new Date().toISOString();
-      const comment: MockComment = { postId, mine: true, item: { commentId, parentId: b.parentId ?? null,
-        content: b.content.trim(), authorNickname: '나', createdAt: date, updatedAt: date,
-        version: 0, replyCount: 0, isMine: true, isPlaceholder: false } };
-      db.comments.push(comment); syncCount(db, p); save();
+      const comment: MockComment = {
+        postId,
+        mine: true,
+        item: {
+          commentId,
+          parentId: b.parentId ?? null,
+          content: b.content.trim(),
+          authorNickname: '나',
+          createdAt: date,
+          updatedAt: date,
+          version: 0,
+          replyCount: 0,
+          isMine: true,
+          isPlaceholder: false,
+        },
+      };
+      db.comments.push(comment);
+      syncCount(db, p);
+      save();
       return json(comment.item, 201);
     }
     if (id !== null && !replies && (method === 'PUT' || method === 'DELETE')) {
@@ -227,13 +503,25 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
       if (!integer(version, 0) || (method === 'PUT' && !text(b?.content, 1000))) return invalid();
       if (!p || !target || target.deleted) return missing();
       if (!target.mine) return forbidden();
-      if (target.item.version !== version) return error(409, 'COMMENT_VERSION_CONFLICT', '댓글이 변경되었습니다. 최신 댓글을 확인해 주세요.');
+      if (target.item.version !== version)
+        return error(
+          409,
+          'COMMENT_VERSION_CONFLICT',
+          '댓글이 변경되었습니다. 최신 댓글을 확인해 주세요.',
+        );
       if (method === 'DELETE') {
-        target.deleted = true; syncCount(db, p); save();
+        target.deleted = true;
+        syncCount(db, p);
+        save();
         return new Response(null, { status: 204 });
       }
-      Object.assign(target.item, { content: b!.content.trim(), version: version + 1, updatedAt: new Date().toISOString() });
-      save(); return json(mockComment(target, db, authenticated));
+      Object.assign(target.item, {
+        content: b!.content.trim(),
+        version: version + 1,
+        updatedAt: new Date().toISOString(),
+      });
+      save();
+      return json(mockComment(target, db, authenticated));
     }
     return missing();
   }
@@ -241,14 +529,25 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
   if (!sub && method === 'GET') {
     const day = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const view = `${postId}:${day}`;
-    if (authenticated && !db.views.includes(view)) { p.item.viewCount++; db.views.push(view); save(); }
+    if (authenticated && !db.views.includes(view)) {
+      p.item.viewCount++;
+      db.views.push(view);
+      save();
+    }
     return json(detail(p), 200, privateHeaders);
   }
   if (sub === '/like' && (method === 'PUT' || method === 'DELETE')) {
     const index = db.likes.indexOf(postId);
-    if (method === 'PUT' && index === -1) { db.likes.push(postId); p.item.likeCount++; }
-    if (method === 'DELETE' && index !== -1) { db.likes.splice(index, 1); p.item.likeCount--; }
-    save(); return new Response(null, { status: 204 });
+    if (method === 'PUT' && index === -1) {
+      db.likes.push(postId);
+      p.item.likeCount++;
+    }
+    if (method === 'DELETE' && index !== -1) {
+      db.likes.splice(index, 1);
+      p.item.likeCount--;
+    }
+    save();
+    return new Response(null, { status: 204 });
   }
   return missing();
 }
