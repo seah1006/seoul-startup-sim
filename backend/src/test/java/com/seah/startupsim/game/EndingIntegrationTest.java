@@ -55,6 +55,7 @@ class EndingIntegrationTest {
     @Autowired AdvanceService advance;
     @Autowired EndingService sell;
     @Autowired WebApplicationContext context;
+    @Autowired tools.jackson.databind.ObjectMapper json;
     long user;
     String token;
 
@@ -269,6 +270,39 @@ class EndingIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("ENDED"))
                 .andExpect(jsonPath("$.endingType").value("SOLD")).andExpect(jsonPath("$.version").value(version + 1))
                 .andExpect(jsonPath("$.pendingTurningPoint").value(false));
+    }
+    @Test
+    @DisplayName("요약: 소유자만, 종료 전 409 GAME_NOT_ENDED, 종료 후 game_records 원본과 계약 필드")
+    void summaryContract() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(context).apply(SecurityMockMvcConfigurers.springSecurity()).build();
+        long id = game();
+        String path = "/api/games/" + id + "/summary";
+        mvc.perform(get(path).header("X-Guest-Token", token))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("GAME_NOT_ENDED"));
+        playQuarters(id, 4);
+        sell.sell(id, user, "summary-sell", repository.state(id, user).version());
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("X-Guest-Token", auth.create().guestToken())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/games/999999/summary").header("X-Guest-Token", token)).andExpect(status().isNotFound());
+        // 요약은 게임·가게 현재 값이 아니라 엔딩 기록을 읽는다.
+        jdbc.update("UPDATE shops SET name = '엔딩 뒤 변경' WHERE game_id = ?", id);
+        var row = jdbc.queryForMap("SELECT * FROM game_records WHERE game_id = ?", id);
+        String body = mvc.perform(get(path).header("Authorization", "Bearer " + token)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.gameId").value(id))
+                .andExpect(jsonPath("$.endingType").value("SOLD"))
+                .andExpect(jsonPath("$.ownerName").value("김사장"))
+                .andExpect(jsonPath("$.shopName").value("가상 가게"))
+                .andExpect(jsonPath("$.areaName").value("테스트 상권"))
+                .andExpect(jsonPath("$.serviceName").value(row.get("service_name")))
+                .andExpect(jsonPath("$.survivedQuarters").value(4))
+                .andExpect(jsonPath("$.totalProfit").value(row.get("total_profit")))
+                .andExpect(jsonPath("$.bestQuarterProfit").value(row.get("best_quarter_profit")))
+                .andExpect(jsonPath("$.shopCount").value(1))
+                .andExpect(jsonPath("$.shareUrl").value("/share/" + id))
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(List.of("gameId", "endingType", "ownerName", "shopName", "areaName", "serviceName", "survivedQuarters",
+                "totalProfit", "bestQuarterProfit", "shopCount", "shareUrl"),
+                List.copyOf(json.readTree(body).propertyNames()));
     }
     @Test
     @DisplayName("랭킹 날짜는 KST 기준: 23:50은 그날, 00:10은 다음 날")

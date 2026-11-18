@@ -3,6 +3,7 @@ package com.seah.startupsim.game;
 import com.seah.startupsim.game.GameResponses.State;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,5 +30,11 @@ public class EndingController {
             @RequestHeader(value = "Idempotency-Key", required = false) String key,
             @Valid @RequestBody Sell request) {
         return service.sell(id, auth.resolve(token), key, request.expectedVersion());
+    }
+
+    @GetMapping("/summary")
+    public GameRecordRepository.Summary summary(@PathVariable long id,
+            @RequestHeader(value = "X-Guest-Token", required = false) String token) {
+        return service.summary(id, auth.resolve(token));
     }
 }
