@@ -137,11 +137,13 @@ it('목에서 대댓글 페이징, 소속/깊이 확인, 댓글 신고, 429를 �
   }
 });
 
-it('선택 인증 401에서 토큰 없이 한 번만 재시도하고, 필수 인증 401은 보존한다', async () => {
-  const request = vi.fn(async (_: string, options: RequestInit) =>
-    (options.headers as Record<string, string>)['X-Guest-Token']
-      ? Response.json({ code: 'UNAUTHORIZED', message: '만료된 토큰' }, { status: 401 })
-      : Response.json({ likedByMe: false }),
+it('선택 인증 401은 토큰을 지우고 익명 재시도, 필수 인증은 한 번 재발급한다', async () => {
+  const request = vi.fn(async (url: string, options: RequestInit) =>
+    url === '/api/guest'
+      ? Response.json({ guestToken: 'renewed' })
+      : (options.headers as Record<string, string>)['X-Guest-Token']
+        ? Response.json({ code: 'UNAUTHORIZED', message: '만료된 토큰' }, { status: 401 })
+        : Response.json({ likedByMe: false }),
   );
   vi.stubGlobal('fetch', request);
   const { boardApi, guestStorageKey } = await client(false);
@@ -152,13 +154,13 @@ it('선택 인증 401에서 토큰 없이 한 번만 재시도하고, 필수 인
     '/api/board/posts/2',
     expect.objectContaining({ headers: {} }),
   );
-  expect(localStorage.getItem(guestStorageKey)).toBe('expired');
+  expect(localStorage.getItem(guestStorageKey)).toBeNull();
   await expect(boardApi.like(2, true)).rejects.toMatchObject({
     status: 401,
     code: 'UNAUTHORIZED',
     message: '만료된 토큰',
   });
-  expect(request).toHaveBeenCalledTimes(3);
+  expect(request).toHaveBeenCalledTimes(6);
 });
 
 it('실제 모드 요청 경로: 홈 인기글, 내 글 인증, 종료 요약 및 RECORD 작성 본문 (fetch 대역)', async () => {
@@ -199,4 +201,22 @@ it('실제 모드 요청 경로: 홈 인기글, 내 글 인증, 종료 요약 �
     '/api/board/posts',
     expect.objectContaining({ method: 'POST', body: JSON.stringify(body) }),
   );
+});
+
+it.each([false, true])('게임 401은 한 번 재발급하며 재실패에서도 멈춘다: %s', async (failAgain) => {
+  const send = vi.fn(async (url: string, options: RequestInit) =>
+    url === '/api/guest'
+      ? Response.json({ guestToken: 'new-token' })
+      : (options.headers as Record<string, string>)['X-Guest-Token'] === 'expired' || failAgain
+        ? Response.json({ code: 'UNAUTHORIZED', message: '만료' }, { status: 401 })
+        : Response.json({ gameId: 1 }),
+  );
+  vi.stubGlobal('fetch', send);
+  const { api, guestStorageKey } = await client(false);
+  localStorage.setItem(guestStorageKey, 'expired');
+  if (failAgain)
+    await expect(api.game(1)).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
+  else await expect(api.game(1)).resolves.toMatchObject({ gameId: 1 });
+  expect(send).toHaveBeenCalledTimes(3);
+  expect(localStorage.getItem(guestStorageKey)).toBe('new-token');
 });

@@ -136,15 +136,23 @@ it('본인 글 삭제 후 목록으로 이동하고 삭제된 글이 사라진�
   expect(within(list).queryByRole('link', { name: /가상 구름모래/ })).not.toBeInTheDocument();
 });
 
-it('만료 토큰의 공개 조회는 유지하고 쓰기 401이면 게스트 시작을 안내한다', async () => {
+it('만료 토큰은 공개 조회를 유지하고 쓰기 전에 새 게스트로 복구한다', async () => {
   localStorage.setItem(guestStorageKey, 'expired');
   open();
   fireEvent.click(await screen.findByRole('button', { name: '좋아요 1' }));
+  expect(await screen.findByRole('button', { name: '좋아요 2' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await waitFor(() => expect(localStorage.getItem(guestStorageKey)).toBe('mock-guest'));
+});
+it('재발급 후에도 쓰기 401이면 게스트 시작 안내를 유지한다', async () => {
+  vi.spyOn(boardApi, 'like').mockRejectedValueOnce(new ApiError(401, '인증 실패', 'UNAUTHORIZED'));
+  open();
+  fireEvent.click(await screen.findByRole('button', { name: '좋아요 1' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('게스트로 시작해 주세요.');
-  expect(localStorage.getItem(guestStorageKey)).toBe('expired');
   fireEvent.click(screen.getByRole('button', { name: '게스트로 시작' }));
   await waitFor(() => expect(localStorage.getItem(guestStorageKey)).toBe('mock-guest'));
-  expect(await screen.findByRole('link', { name: '수정' })).toBeVisible();
 });
 
 it('루트와 대댓글 페이지를 각각 조회한다', async () => {

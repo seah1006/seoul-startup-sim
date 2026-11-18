@@ -54,6 +54,20 @@ export function restartGuest() {
   guestPromise = undefined;
   return guest();
 }
+// Retry only once. A refreshed guest is a new identity, not a recovery of old ownership.
+export async function sendWithGuestRecovery(
+  send: (token: string | null) => Promise<Response>,
+  token: string | null,
+  optional = false,
+): Promise<Response> {
+  const response = await send(token);
+  if (response.status !== 401 || !token) return response;
+  if (localStorage.getItem(guestStorageKey) === token) {
+    localStorage.removeItem(guestStorageKey);
+    guestPromise = undefined;
+  }
+  return send(optional ? null : await guest());
+}
 export async function request<T>(
   url: string,
   method = 'GET',
@@ -62,18 +76,22 @@ export async function request<T>(
 ): Promise<T> {
   const token = await guest();
   if (useMock) return mockRequest<T>(url, method, body, key);
-  const response = await fetch(`/api${url}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Guest-Token': token,
-      ...(key ? { 'Idempotency-Key': key } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const response = await sendWithGuestRecovery(
+    (token) =>
+      fetch(`/api${url}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Guest-Token': token!,
+          ...(key ? { 'Idempotency-Key': key } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }),
+    token,
+  );
   if (!response.ok) {
     const data = await response.json().catch(() => ({ message: '서버 연결에 실패했습니다.' }));
-    throw new ApiError(response.status, data.message);
+    throw new ApiError(response.status, data.message, data.code);
   }
   return response.status === 204 ? (null as T) : response.json();
 }

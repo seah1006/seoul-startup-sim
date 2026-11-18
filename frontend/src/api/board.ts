@@ -1,4 +1,4 @@
-import { api, ApiError, guestStorageKey, useMock } from './client';
+import { api, ApiError, guestStorageKey, useMock, sendWithGuestRecovery } from './client';
 import { mockBoardRequest } from './mock/board';
 import type {
   CommentItem,
@@ -49,8 +49,10 @@ async function boardRequest<T>(
       throw new ApiError(0, '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
     }
   }
-  let response = await send(token);
-  if (auth === 'optional' && token && response.status === 401) response = await send(null);
+  const response =
+    auth === 'none'
+      ? await send(null)
+      : await sendWithGuestRecovery(send, token, auth === 'optional');
   if (response.status === 204) return undefined as T;
   if (!response.ok) {
     const error = await response.json().catch(() => null);

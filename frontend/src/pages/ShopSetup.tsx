@@ -129,7 +129,7 @@ export default function ShopSetup({
           {report && (
             <>
               <p>
-                길단위인구 <b>{report.floatingPopulation.toLocaleString()}</b>
+                길단위인구 <b>{report.floatingPopulation?.toLocaleString() ?? '자료 없음'}</b>
               </p>
               <small>분기 지표 · 단위 미확인</small>
             </>
@@ -150,7 +150,9 @@ export default function ShopSetup({
                 점포 {metric.storeCount}곳 · 프랜차이즈 {metric.franchiseCount}곳
               </p>
               <p>
-                개업률 {metric.openingRatePct}% · 폐업률 {metric.closingRatePct}%
+                개업률 {metric.openingRatePct === null ? '자료 없음' : `${metric.openingRatePct}%`}{' '}
+                · 폐업률{' '}
+                {metric.closingRatePct === null ? '자료 없음' : `${metric.closingRatePct}%`}
               </p>
               <p>
                 분기 매출 {metric.quarterSales === null ? '자료 없음' : money(metric.quarterSales)}{' '}

@@ -95,12 +95,12 @@ export interface Report {
   areaCode: string;
   name: string;
   quarter: string;
-  floatingPopulation: number;
+  floatingPopulation: number | null;
   industries: (Industry & {
     storeCount: number;
     franchiseCount: number;
-    openingRatePct: number;
-    closingRatePct: number;
+    openingRatePct: number | null;
+    closingRatePct: number | null;
     quarterSales: number | null;
     salesEstimated: boolean;
   })[];
