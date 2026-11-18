@@ -39,3 +39,7 @@
 - 실제 모드 어댑터: `VITE_USE_MOCK=false`에서 `fetch` 대역으로 인기글 URL·내 글/요약 인증·RECORD 작성 본문을 검증했다. **실제 백엔드 E2E 미검증**: `127.0.0.1:8085`의 인기글 GET은 연결 거부였다. 005A가 실행된 뒤 `VITE_USE_MOCK=false`, `VITE_API_TARGET=http://localhost:8085`로 일반 작성/수정, 충돌, 내 글 숨김, 공개/상세의 권한을 확인한다.
 - **TASK-005B 인계:** 실제 RECORD 작성·공개 연결 조회·소유자 summary 및 `/share` Thymeleaf/OG 상호 링크는 백엔드 담당이다. 005B 통합 후 작성 → 엔딩의 `인증글 보기` → 공유 페이지 양방향 링크, 숨김/삭제 후 링크 갱신을 실제 게스트 세션으로 검증한다. 목은 공유 페이지 자체를 구현하지 않는다. 기존 홈 랭킹 placeholder와 랭킹 → 인증글 연결은 005C 범위 밖이다.
 - 브라우저 캡처는 미수행. 재현: `/board?category=RECORD`, `/board/posts/2`(답글 펼치기), `/board/write`(빈 상태에서 등록), 게스트 세션을 공유하는 두 탭에서 `/board/posts/5/edit`를 각각 먼저 열고 한쪽 저장 후 다른 쪽 저장(409).
+## 메인 검증
+- 005C 최종 코드 커밋 `b950eb6`에서 `npm run lint`, `npm test -- --run`(37개), `npm run build`를 다시 실행해 통과했다.
+- `VITE_USE_MOCK=false`, `VITE_API_TARGET=http://127.0.0.1:8085`로 띄운 Vite 프록시를 경유해 005A 서버와 격리 DB에서 목록/검색/상세 200, 게스트/게시글 생성 201, 수정 200·버전 충돌 409, 좋아요 204, 시드 RECORD 3건을 확인했다.
+- 위 확인은 HTTP 프록시 스모크 테스트이며 브라우저 전체 시나리오나 실제 엔딩 기반 RECORD 작성/공유(005B) 검증을 대신하지 않는다.
