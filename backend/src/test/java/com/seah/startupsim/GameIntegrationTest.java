@@ -418,4 +418,23 @@ class GameIntegrationTest {
                     """, original);
         }
     }
+    @Autowired com.seah.startupsim.ingest.DataVersionPurgeService purge;
+    @Test
+    @DisplayName("정리는 미사용 참조 행만 지우고 활성·고정·적재 중·현재 메타는 보존한다")
+    void purgePreservesProtectedVersions() {
+        long id = game();
+        jdbc.update("UPDATE data_versions SET status='READY' WHERE id=100");
+        jdbc.update("INSERT INTO data_versions(id,source,status) VALUES (200,'current-meta','READY'),(300,'old-sales','READY'),(400,'active-sales','ACTIVE'),(500,'loading-sales','LOADING')");
+        jdbc.update("UPDATE trade_areas SET version_id=200");
+        jdbc.update("UPDATE stores SET version_id=200");
+        jdbc.update("INSERT INTO area_sales_q(quarter,area_code,service_code,sales_amount,version_id) VALUES ('20233','A','CS100010',999,300)");
+        assertEquals(List.of(300L),purge.preview().stream().map(com.seah.startupsim.ingest.DataVersionPurgeService.Candidate::id).toList());
+        assertEquals(1,purge.purge());
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM area_sales_q WHERE version_id=300",Integer.class));
+        assertEquals(4,jdbc.queryForObject("SELECT count(*) FROM data_versions",Integer.class));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbc.update("DELETE FROM data_versions WHERE id=100"));
+        decision(id,0);
+        advance.advance(id,user,"after-purge",1);
+        assertEquals(0,purge.purge());
+    }
 }
