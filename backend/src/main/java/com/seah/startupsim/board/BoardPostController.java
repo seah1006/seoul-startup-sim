@@ -26,14 +26,17 @@ import static com.seah.startupsim.board.BoardGuestAuth.USER_ID;
 public class BoardPostController {
     private static final String POSTS = "/posts";
     private static final String POST = POSTS + "/{postId}";
+    private static final String LIKE = POST + "/like";
     private static final String MINE = "/me/posts";
-
     private final BoardGuestAuth auth;
     private final BoardPostService posts;
 
-    public BoardPostController(BoardGuestAuth auth, BoardPostService posts) {
+    private final BoardLikeService likes;
+
+    public BoardPostController(BoardGuestAuth auth, BoardPostService posts, BoardLikeService likes) {
         this.auth = auth;
         this.posts = posts;
+        this.likes = likes;
     }
 
     /** Model initializer runs before path/query/body binding, preserving 401 → 400. */
@@ -92,6 +95,18 @@ public class BoardPostController {
     public ResponseEntity<Void> delete(@PathVariable long postId, @RequestAttribute(USER_ID) long userId,
             @RequestParam long version) {
         posts.delete(postId, userId, version);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping(LIKE)
+    public ResponseEntity<Void> like(@PathVariable long postId, @RequestAttribute(USER_ID) long userId) {
+        likes.set(postId, userId, true);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping(LIKE)
+    public ResponseEntity<Void> unlike(@PathVariable long postId, @RequestAttribute(USER_ID) long userId) {
+        likes.set(postId, userId, false);
         return ResponseEntity.noContent().build();
     }
 }
