@@ -68,6 +68,53 @@ class QuarterCalculatorTest {
         assertEquals(126720, calculator.calculate(withDecision(GameTypes.Price.NORMAL, 16, 10)).visitors());
     }
 
+    QuarterCalculator.Input withService(Map<String, Double> settings, String serviceCode) {
+        var base = input(1000000000L, 10);
+        return new QuarterCalculator.Input(base.seed(), base.turn(), base.quarter(), base.cash(),
+                base.marketSales(), base.districtPerStore(), base.stores(), base.rivals(), base.areaM2(),
+                base.openings(), base.closings(), base.stats(), base.focus(), base.decision(),
+                settings, base.districtCode(), serviceCode);
+    }
+
+    long expectedIngredients(QuarterCalculator.Input input, long revenue, double rate) {
+        return Math.round(revenue * rate * (1 - (input.stats().get("management") - 40) * .002));
+    }
+
+    @Test
+    @DisplayName("업종별 원가율 키가 있으면 분류 원가율 대신 그 값을 쓴다")
+    void serviceCostRate() {
+        var settings = Map.of("cost.FOOD", .35, "cost.CS100010", .45);
+        var input = withService(settings, "CS100010");
+        var result = calculator.calculate(input);
+        assertEquals(expectedIngredients(input, result.revenue(), .45), result.costs().ingredients());
+        var other = withService(settings, "CS100001");
+        var otherResult = calculator.calculate(other);
+        assertEquals(expectedIngredients(other, otherResult.revenue(), .35), otherResult.costs().ingredients());
+    }
+
+    @Test
+    @DisplayName("업종별 키가 없으면 업종 코드가 있어도 기존 분류 원가율 결과와 같다")
+    void classCostRateFallback() {
+        var settings = Map.of("cost.FOOD", .3);
+        var legacy = input(1000000000L, 10);
+        var legacyWithSettings = new QuarterCalculator.Input(legacy.seed(), legacy.turn(), legacy.quarter(),
+                legacy.cash(), legacy.marketSales(), legacy.districtPerStore(), legacy.stores(), legacy.rivals(),
+                legacy.areaM2(), legacy.openings(), legacy.closings(), legacy.stats(), legacy.focus(),
+                legacy.decision(), settings, legacy.districtCode());
+        assertEquals(calculator.calculate(legacyWithSettings), calculator.calculate(withService(settings, "CS100010")));
+        assertEquals(calculator.calculate(legacy), calculator.calculate(withService(Map.of(), "CS100010")));
+    }
+
+    @Test
+    @DisplayName("원가율 보정은 업종별 원가율을 기준으로 적용한다")
+    void serviceCostRateWithModifier() {
+        var input = withService(Map.of("cost.CS100010", .4), "CS100010")
+                .withModifiers(List.of(new QuarterCalculator.Modifier("costRate", "MULTIPLY", 1.5)));
+        var result = calculator.calculate(input);
+        double rate = .4 * (1 - (input.stats().get("management") - 40) * .002) * 1.5;
+        assertEquals(Math.round(result.revenue() * rate), result.costs().ingredients());
+    }
+
     @Test
     @DisplayName("자치구 평균 추정과 같은 규모의 실제 매출은 산술 결과가 같다")
     void estimatedSalesPath() {

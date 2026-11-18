@@ -36,7 +36,15 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 tasks.named('test') {
-    useJUnitPlatform { excludeTags 'benchmark' }
+    useJUnitPlatform { excludeTags 'benchmark', 'simulation' }
+}
+tasks.register('simulate', Test) {
+    description = '메인 DB SELECT 전용 12분기 밸런스 시뮬레이션'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'simulation' }
+    systemProperty 'simulation.url', System.getProperty('simulation.url', 'jdbc:postgresql://localhost:5433/seoul_startup_sim')
+    testLogging { showStandardStreams = true }
 }
 tasks.register('benchmark', Test) {
     description = '로컬 compose DB에서 상가 대량 적재 측정 (기존 stores 삭제)'

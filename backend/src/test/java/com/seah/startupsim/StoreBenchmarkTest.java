@@ -18,6 +18,7 @@ import java.util.List;
 @Tag("benchmark")
 @SpringBootTest(properties = "app.ingest.sbiz-csv=${sbiz.csv}")
 class StoreBenchmarkTest {
+    @Autowired com.seah.startupsim.catalog.store.StreamingCopyStoreBulkLoader streaming;
     @Autowired CopyStoreBulkLoader copy;
     @Autowired JdbcStoreBulkLoader batch;
     @Autowired JpaStoreBulkLoader jpa;
@@ -25,10 +26,24 @@ class StoreBenchmarkTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired IngestService ingest;
     @Test
+    void streaming() {
+        Path file = Path.of(System.getProperty("sbiz.csv"));
+        for (int size : new int[]{10000,100000,552422}) {
+            for (int run = 0; run < 4; run++) {
+                jdbc.execute("TRUNCATE stores,store_snapshot_diffs");
+                long started = System.nanoTime();
+                streaming.load(file,size,"202609",null);
+                double elapsed = (System.nanoTime()-started)/1e9;
+                System.out.printf("BENCH,%s,StreamingCopyStoreBulkLoader,%d,%d,%.3f,%.1f%n",Instant.now(),size,run,elapsed,size/elapsed);
+            }
+        }
+    }
+
+    @Test
     void measure() {
         Path file = Path.of(System.getProperty("sbiz.csv"));
         for (int size : new int[]{10000,100000,552422}) {
-            for (StoreBulkLoader loader : List.of(copy,batch,jpa)) {
+            for (StoreBulkLoader loader : (size == 552422 ? List.of(copy,batch) : List.of(copy,batch,jpa))) {
                 for (int run=0;run<4;run++) {
                     jdbc.execute("TRUNCATE stores,store_snapshot_diffs");
                     long start=System.nanoTime();

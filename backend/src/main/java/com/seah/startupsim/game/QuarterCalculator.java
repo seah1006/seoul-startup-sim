@@ -18,23 +18,32 @@ public class QuarterCalculator {
     public record Input(long seed, int turn, String quarter, long cash, Long marketSales,
             long districtPerStore, int stores, int rivals, double areaM2, long openings, long closings,
             Map<String, Integer> stats, List<String> focus, Decision decision, Map<String, Double> settings,
-            String districtCode, List<Modifier> modifiers) {
+            String districtCode, String serviceCode, List<Modifier> modifiers) {
         public Input {
             modifiers = List.copyOf(modifiers);
+        }
+
+        /** 업종 코드 없이 호출하면 업종별 원가율 없이 분류 원가율(cost.FOOD)만 쓴다. */
+        public Input(long seed, int turn, String quarter, long cash, Long marketSales,
+                long districtPerStore, int stores, int rivals, double areaM2, long openings, long closings,
+                Map<String, Integer> stats, List<String> focus, Decision decision, Map<String, Double> settings,
+                String districtCode) {
+            this(seed, turn, quarter, cash, marketSales, districtPerStore, stores, rivals, areaM2,
+                    openings, closings, stats, focus, decision, settings, districtCode, null);
         }
 
         /** 기존 시장 스냅샷 호출은 빈 보정으로 유지해 데이터 버전 고정 코드와 분리한다. */
         public Input(long seed, int turn, String quarter, long cash, Long marketSales,
                 long districtPerStore, int stores, int rivals, double areaM2, long openings, long closings,
                 Map<String, Integer> stats, List<String> focus, Decision decision, Map<String, Double> settings,
-                String districtCode) {
+                String districtCode, String serviceCode) {
             this(seed, turn, quarter, cash, marketSales, districtPerStore, stores, rivals, areaM2,
-                    openings, closings, stats, focus, decision, settings, districtCode, List.of());
+                    openings, closings, stats, focus, decision, settings, districtCode, serviceCode, List.of());
         }
 
         public Input withModifiers(List<Modifier> active) {
             return new Input(seed, turn, quarter, cash, marketSales, districtPerStore, stores, rivals, areaM2,
-                    openings, closings, stats, focus, decision, settings, districtCode, active);
+                    openings, closings, stats, focus, decision, settings, districtCode, serviceCode, active);
         }
     }
 
@@ -88,10 +97,11 @@ public class QuarterCalculator {
         }
         long rent = settings.getOrDefault("rent." + input.districtCode(),
                 settings.getOrDefault("rent.default", 9000000d)).longValue();
-        long ingredients = Math.round(revenue * settings.getOrDefault("cost.FOOD", .35)
+        double costRate = costRate(settings, input.serviceCode());
+        long ingredients = Math.round(revenue * costRate
                 * (1 - (input.stats().get("management") - 40) * .002));
         if (hasModifier(input, "costRate")) {
-            double rate = settings.getOrDefault("cost.FOOD", .35)
+            double rate = costRate
                     * (1 - (input.stats().get("management") - 40) * .002);
             rate = Math.max(0.05, Math.min(0.95, modify(rate, input, "costRate")));
             ingredients = Math.round(revenue * rate);
@@ -125,6 +135,15 @@ public class QuarterCalculator {
                 changes, new AreaNews(input.closings(), input.openings(), "서울시 상권분석서비스 " + input.quarter()),
                 null, List.of(), input.marketSales() == null
                         ? List.of("이 상권의 매출은 자치구 점포당 평균으로 추정한 값입니다") : List.of());
+    }
+
+    /**
+     * 업종별 원가율 {@code cost.<serviceCode>}가 있으면 그 값을, 없으면 외식 분류 원가율 {@code cost.FOOD}를 쓴다.
+     * 업종 키가 없으면 기존과 같은 값이므로 산술 경로와 결과가 바뀌지 않는다.
+     */
+    private static double costRate(Map<String, Double> settings, String serviceCode) {
+        Double serviceRate = serviceCode == null ? null : settings.get("cost." + serviceCode);
+        return serviceRate != null ? serviceRate : settings.getOrDefault("cost.FOOD", .35);
     }
 
     private boolean hasModifier(Input input, String target) {

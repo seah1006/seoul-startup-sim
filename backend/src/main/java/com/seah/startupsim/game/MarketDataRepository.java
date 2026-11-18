@@ -60,7 +60,7 @@ public class MarketDataRepository {
         var input = new QuarterCalculator.Input(game.seed(), game.currentTurn(), quarter, game.cash(),
                 market, average == null ? 0 : average, count.stores(), (int) shop.rivalCount(), shop.areaM2(),
                 count.openings(), count.closings(), owner.stats(), owner.focusStats(), decision,
-                game.settings(), shop.districtCode());
+                game.settings(), shop.districtCode(), shop.serviceCode());
         return new QuarterSnapshot(input, dataNotes);
     }
 }

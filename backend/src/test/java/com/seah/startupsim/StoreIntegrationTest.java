@@ -41,6 +41,7 @@ class StoreIntegrationTest {
     @Autowired StoreCsvParser parser;
     @Autowired JdbcTemplate jdbc;
     @Autowired StoreSnapshotService snapshots;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @TempDir Path temp;
     static String csv(int start, int end, boolean changed) {
         StringBuilder s = new StringBuilder("상가업소번호,상호명,지점명,상권업종대분류코드,상권업종중분류코드,상권업종소분류코드,상권업종소분류명,표준산업분류코드,시군구코드,행정동코드,도로명주소,경도,위도\n");
@@ -69,6 +70,34 @@ class StoreIntegrationTest {
             }
         }
     }
+    @Test
+    @DisplayName("스냅샷 교체가 미커밋 상태여도 별도 연결의 점포 조회를 막지 않는다")
+    void concurrentReadsDuringReplace() throws Exception {
+        jdbc.execute("TRUNCATE stores,store_snapshot_diffs");
+        Path oldFile = Files.writeString(temp.resolve("old.csv"),csv(1,3,false));
+        Path newFile = Files.writeString(temp.resolve("new.csv"),csv(2,4,true));
+        snapshots.replace(oldFile,"old",null);
+        new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
+            snapshots.replace(newFile,"new",null);
+            try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                var query = executor.submit(() -> jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Integer>) connection -> {
+                    try (var statement = connection.createStatement()) {
+                        statement.execute("SET statement_timeout = '1500ms'");
+                        try (var rs = statement.executeQuery("SELECT count(*) FROM stores WHERE ST_DWithin(geom::geography,ST_SetSRID(ST_MakePoint(126.905,37.556),4326)::geography,300)")) {
+                            rs.next();
+                            return rs.getInt(1);
+                        } finally {
+                            statement.execute("RESET statement_timeout");
+                        }
+                    }
+                }));
+                assertEquals(3,query.get(2,java.util.concurrent.TimeUnit.SECONDS));
+            } catch (Exception e) {
+                throw new IllegalStateException("교체 중 조회 차단",e);
+            }
+        });
+    }
+
     @Test
     @DisplayName("두 스냅샷의 신규 폐업 변경을 집합 연산으로 계산한다")
     void differences() throws Exception {
