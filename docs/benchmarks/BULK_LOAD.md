@@ -59,3 +59,5 @@ cd backend
 운영 수집기는 속도 우위 확정이 아니라 조회 잠금 제거를 위해 streaming으로 전환했다. 이전 TRUNCATE의 ACCESS EXCLUSIVE 잠금은 적재 전체 약 50.8초 동안 유지될 수 있었으나, 변경 후에는 TRUNCATE 없이 COPY 완료 후 upsert + 사라진 점포 DELETE를 수행한다. DML 트랜잭션이 길어도 MVCC SELECT를 막는 ACCESS EXCLUSIVE 잠금은 취득하지 않는다. 실제 전체 스냅샷 잠금 시간 실측은 미완료이며, 별도 연결의 반경 조회를 1.5초 statement_timeout으로 검사하는 통합 테스트를 추가했다.
 
 재실행: `gradlew.bat benchmark --tests '*.streaming' '-Dsbiz.csv=C:\Users\my\dev\seoul-startup-sim\data\raw\sbiz\seoul.csv' --offline --max-workers=2`. 같은 worktree에서 clean 작업과 병행하지 않는다.
+
+검증 결과: `clean check --offline --max-workers=2` 성공(1분 50초). 최종 스냅샷 변경 후 `test --tests '*StoreIntegrationTest' --offline --max-workers=2` 추가 실행 성공(3개, 실패 0). 미커밋 교체 중 별도 연결 반경 조회 테스트는 0.717초에 완료했으며 신규/폐업/변경 비교 테스트도 통과했다.
