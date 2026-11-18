@@ -38,8 +38,8 @@ dd{margin:4px 0 0;font-size:20px;font-weight:bold;word-break:break-all}
     <div><dt>사장님</dt><dd th:text="${page.ownerName}"></dd></div>
     <div><dt>플레이어</dt><dd th:text="${page.nickname}"></dd></div>
     <div><dt>생존</dt><dd th:text="|${page.survivedQuarters}분기|"></dd></div>
-    <div><dt>누적 순이익</dt><dd th:text="${page.totalProfit}"></dd></div>
-    <div><dt>최고 분기 순이익</dt><dd th:text="${page.bestQuarterProfit}"></dd></div>
+    <div><dt>누적 순이익</dt><dd th:text="${@money.won(page.totalProfit)}"></dd></div>
+    <div><dt>최고 분기 순이익</dt><dd th:text="${@money.won(page.bestQuarterProfit)}"></dd></div>
     <div><dt>매장 수</dt><dd th:text="|${page.shopCount}곳|"></dd></div>
   </dl>
   <section class="record" th:if="${recordLink != null}">

@@ -1,6 +1,7 @@
 package com.seah.startupsim.web;
 
 import com.seah.startupsim.board.BoardRecordService;
+import com.seah.startupsim.common.MoneyFormat;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -17,7 +18,7 @@ public class ShareController {
             "LONG_RUNNING", "장수 가게");
 
     public record SharePage(long gameId, String endingLabel, String shopName, String ownerName, String nickname,
-            String areaName, String serviceName, int survivedQuarters, String totalProfit, String bestQuarterProfit,
+            String areaName, String serviceName, int survivedQuarters, long totalProfit, long bestQuarterProfit,
             int shopCount, String title, String description) {}
 
     private final ShareRepository repository;
@@ -46,15 +47,11 @@ public class ShareController {
 
     static SharePage page(ShareRepository.Ending ending) {
         String label = ENDINGS.getOrDefault(ending.endingType(), ending.endingType());
-        String profit = won(ending.totalProfit());
+        // 금액 칸은 템플릿이 ${@money.won(...)}로, OG 설명은 같은 규칙으로 여기서 만든다.
         return new SharePage(ending.gameId(), label, ending.shopName(), ending.ownerName(), ending.nickname(),
-                ending.areaName(), ending.serviceName(), ending.survivedQuarters(), profit,
-                won(ending.bestQuarterProfit()), ending.shopCount(), ending.shopName() + " · " + label,
-                ending.survivedQuarters() + "분기 생존 · 누적 순이익 " + profit);
-    }
-
-    private static String won(long amount) {
-        return "%,d원".formatted(amount);
+                ending.areaName(), ending.serviceName(), ending.survivedQuarters(), ending.totalProfit(),
+                ending.bestQuarterProfit(), ending.shopCount(), ending.shopName() + " · " + label,
+                ending.survivedQuarters() + "분기 생존 · 누적 순이익 " + MoneyFormat.won(ending.totalProfit()));
     }
 }
 
