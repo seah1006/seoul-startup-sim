@@ -55,3 +55,10 @@
   ```
 - 8085 `curl.exe -i`: 목록 `HTTP/1.1 200`(18건, page size 10), 제목 `searchType=title&q=체크리스트` 검색 `HTTP/1.1 200`(1건), 공지 상세 `HTTP/1.1 200`, 글 작성 `HTTP/1.1 201`, 같은 버전 재수정 `HTTP/1.1 409 POST_VERSION_CONFLICT`, 좋아요 `HTTP/1.1 204`. 토큰 미기록.
 - `git grep --untracked -n 'game\.' -- backend/src/main/java/com/seah/startupsim/board`: BoardGuestAuth import 2줄뿐. 5433 미접속. V11 원본과 기존 마이그레이션/순서 설정 유지. push/merge 없음. RECORD 작성 및 연결 조회는 TASK-005B, 프록시 수정은 TASK-005C 범위로 여기서는 미구현.
+
+## 리뷰 반영
+- [3-2] 상세 재조회에서 글 사전 배타잠금 제거. `post_views` 신규 INSERT 성공 시에만 `UPDATE posts ... WHERE status='ACTIVE'`로 조회수 증가. 실패 시 트랜잭션 롤백하여 비공개 글의 조회 기록/카운터 모두 유지. 재조회 두 건의 행 잠금 비대기 및 관리자 숨김 경합 회귀 테스트 추가.
+- [3-3] 관리자 게시글·신고·댓글 목록 `LIMIT 21 OFFSET page*20`, 표시 20건 및 hasNext. 이전/다음 링크에서 필터 유지. 신고 상세의 댓글은 전체 댓글 목록 대신 ID 단건 조회로 변경.
+- [3-4] 관리자 게시글 상태 변경 시 고정 해제. 숨김→복구와 고정→삭제 회귀 테스트 추가.
+- [2-1 게시판 범위] 사용자별 슬라이딩 60초 제한 + IP별 보조 제한(기본 글 10/댓글 30/신고 15). IP 설정과 프록시 신뢰 opt-in은 API 계약 4장 참조. 모든 admission에서 만료 식별자 정리. 경계 버스트·사용자 교체 IP 우회·프록시 opt-in·만료 정리 단위 테스트 추가. `/api/guest` 및 game/common은 미수정.
+- 범위: board 소스/테스트, 관리자 board 템플릿 및 문서만 수정. 마이그레이션, 메인 DB, push 미실행. DB 통합 검증은 격리 Testcontainers만 사용.

@@ -193,7 +193,7 @@
 - **관리자 상태 전이**: ACTIVE → HIDDEN(숨김, 신고 처리), HIDDEN → ACTIVE(복구, `hidden_at` 초기화), ACTIVE·HIDDEN → DELETED(삭제, 복구 불가). 고정은 ACTIVE 글만. 신고 일괄 처리는 대상 행을 먼저 `FOR UPDATE`로 잠그고, 그다음 같은 대상의 PENDING 신고를 id 순으로 갱신한다(잠금 순서 고정).
 - **검색 입력**: `q`의 `\`, `%`, `_`를 이스케이프하고 `ILIKE ? ESCAPE '\'`로 바인딩한다. 정렬·검색 종류는 enum 화이트리스트만 SQL에 반영한다. 1~2자 검색은 trgm 인덱스를 못 쓰고 순차 탐색이 될 수 있다(허용).
 - **출력**: React는 본문을 텍스트로 렌더링한다. Thymeleaf(관리자, 공유 OG 메타, 플래시)는 `th:text`/`th:content`/`th:attr`처럼 이스케이프되는 속성만 쓰고 `th:utext`는 금지. `record.shareUrl`은 서버가 `/share/{gameId}` 형식으로만 만든다.
-- **남용 방지(최소)**: 게시판 쓰기는 사용자당 분당 글 3, 댓글 10, 신고 5회까지(메모리 고정 창). 넘으면 `429 RATE_LIMITED`. 게스트 발급 제한(`POST /api/guest`)은 game 패키지 소관이라 후속. 게스트 토큰은 쿠키에 저장하지 않고 헤더로만 보내며, 토큰·신고자 정보는 로그에 남기지 않는다.
+- **남용 방지(최소)**: 게시판 쓰기는 사용자당 최근 60초 글 3, 댓글 10, 신고 5회까지(단일 JVM 메모리 슬라이딩 윈도우). 클라이언트 IP 보조 한도는 최근 60초 글 10, 댓글 30, 신고 15회이며 `app.board.rate-limit.ip-posts`/`ip-comments`/`ip-reports`로 조절한다. `app.board.rate-limit.trust-proxy=false`가 기본이며 true로 명시한 신뢰 프록시 환경에서만 X-Forwarded-For 첫 IP를 사용한다. 이때 프록시는 외부에서 온 헤더를 반드시 제거·덮어써야 한다. 만료된 식별자 기록은 요청 시 정리한다. 넘으면 `429 RATE_LIMITED`. 게스트 발급 제한(`POST /api/guest`)은 game 패키지 소관이라 후속. 게스트 토큰은 쿠키에 저장하지 않고 헤더로만 보내며, 토큰·신고자 정보는 로그에 남기지 않는다.
 ### 게시글 목록 (인증 불필요)
 - `GET /api/board/posts?page=0&size=20&sort=popular&category=RECORD&q=첫+창업&searchType=titleContent&serviceCode=CS100010&areaCode=3110123` → `200 PageResponse<PostListItem>`
   - `category`: `FREE|TIP|QNA|RECORD`(생략하면 전체). `serviceCode`, `areaCode`: 각각 공백 제거 후 1~32자, 정확히 일치; 하나라도 쓰면 RECORD만 대상. 이때 명시한 `category`가 RECORD가 아니면 400. 등록된 스냅샷과 일치하는 코드가 없으면 빈 목록.
@@ -315,8 +315,9 @@ POST /admin/board/comments/{commentId}/hide         댓글 숨김
 POST /admin/board/comments/{commentId}/restore      숨김 댓글 복구
 POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ```
+- 게시글·신고·게시글 내 댓글 목록은 `page=0`부터 20건 단위이며, 이전/다음 링크를 제공한다. 게시글 검색/상태/카테고리와 신고 상태 필터를 페이지 이동 시 유지한다. 음수 page는 400이다.
 - 기존 `/admin/**` 보안 체인: 관리자 세션 및 `ROLE_ADMIN` 필요. 현재 운영 계정은 `AdminSecurityConfig`의 환경변수 기반 인메모리 관리자이며 `users.role` 및 게스트 토큰만으로 관리자 로그인이 되지 않는다. 미로그인은 `/admin/login` 리다이렉트, 역할/CSRF 실패는 현재 403. 모든 POST 폼은 CSRF 적용. `@Valid` + `BindingResult`로 입력 오류 시 400으로 폼을 다시 렌더링하고, 성공 시 `303` + 플래시 메시지로 상세/목록에 PRG. 관리자 조치는 대상 행 잠금 후 현재 상태와 허용 전이를 확인한다(폼에 버전 필드 없음). 이미 적용된 동일 조치의 반복은 상태/카운터를 중복 변경하지 않고, 상충하는 전이는 409 HTML 폼 오류.
-- 신고는 `PENDING` → `RESOLVED`(대상이 ACTIVE면 HIDDEN으로 변경) 또는 `DISMISSED`. 경로의 신고 ID로 대상을 찾고 같은 대상의 PENDING 신고를 한 번에 처리한다. 처리 상태 변경과 숨김은 같은 트랜잭션에서 수행한다. 처리자 식별자는 세션 principal의 username을 `post_reports.handled_by`에 텍스트로 남기며 공개 API에 노출하지 않는다. HIDDEN만 RESTORE 가능하고 DELETED는 복구하지 않는다. 고정은 공개 글 대상으로만 허용(숨김 중에는 노출 안 됨). 기존 `notices`의 시스템/패치 공지와 별도이며, 게시판 고정 글은 `posts.is_pinned`만 사용한다. 숨김·복구·삭제 같은 상태 변경 시 해당 글/댓글 `version`도 증가한다.
+- 신고는 `PENDING` → `RESOLVED`(대상이 ACTIVE면 HIDDEN으로 변경) 또는 `DISMISSED`. 경로의 신고 ID로 대상을 찾고 같은 대상의 PENDING 신고를 한 번에 처리한다. 처리 상태 변경과 숨김은 같은 트랜잭션에서 수행한다. 처리자 식별자는 세션 principal의 username을 `post_reports.handled_by`에 텍스트로 남기며 공개 API에 노출하지 않는다. HIDDEN만 RESTORE 가능하고 DELETED는 복구하지 않는다. 고정은 공개 글 대상으로만 허용하며 숨김·삭제 시 해제한다(복구해도 고정은 되살리지 않음). 기존 `notices`의 시스템/패치 공지와 별도이며, 게시판 고정 글은 `posts.is_pinned`만 사용한다. 숨김·복구·삭제 같은 상태 변경 시 해당 글/댓글 `version`도 증가한다.
 
 ### 공통 에러 코드 추가
 - 기존 그대로: `VALIDATION_FAILED`(400), `UNAUTHORIZED`(401), `FORBIDDEN`(403), `NOT_FOUND`(404), `INTERNAL_ERROR`(500). `POST_NOT_FOUND`·`COMMENT_NOT_FOUND` 같은 리소스별 404는 추가하지 않는다.
