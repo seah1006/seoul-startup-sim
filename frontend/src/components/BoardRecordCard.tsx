@@ -1,3 +1,4 @@
+import { useMock } from '../api/client';
 import type { GameSummary } from '../api/types';
 import { money } from './ResultCard';
 
@@ -30,7 +31,12 @@ export function BoardRecordCard({
         <dt>누적 순이익</dt>
         <dd>{money(record.totalProfit)}</dd>
       </dl>
-      {!preview && <a href={record.shareUrl}>공유 카드 보기</a>}
+      {!preview &&
+        (useMock ? (
+          <p>공유 페이지는 서버 연결 시 열려요</p>
+        ) : (
+          <a href={record.shareUrl}>공유 카드 보기</a>
+        ))}
     </section>
   );
 }

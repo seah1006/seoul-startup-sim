@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { boardApi } from '../api/board';
 import { ApiError, guestStorageKey } from '../api/client';
 import BoardDetail from '../components/BoardDetail';
 import BoardList from '../components/BoardList';
 
 afterEach(() => vi.restoreAllMocks());
-const authenticate = () => localStorage.setItem(guestStorageKey, 'mock-guest');
+import { authenticate, ownFixture } from './authFixture';
+beforeEach(() => {
+  authenticate();
+});
 function open(postId = 2) {
   return render(
     <MemoryRouter initialEntries={[`/board/posts/${postId}`]}>
@@ -28,10 +31,8 @@ it('태그 문자열과 줄바꿈을 원문 그대로 표시하고 인증 카드
   expect(body.textContent).toBe(content);
   expect(body.querySelector('script')).toBeNull();
   expect(body).toHaveClass('board-plain-text');
-  expect(screen.getByRole('link', { name: '공유 카드 보기' })).toHaveAttribute(
-    'href',
-    '/share/101',
-  );
+  expect(screen.getByText('공유 페이지는 서버 연결 시 열려요')).toBeVisible();
+  expect(screen.queryByRole('link', { name: '공유 카드 보기' })).not.toBeInTheDocument();
   expect(screen.getByText('14분기')).toBeVisible();
   expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument();
 });
@@ -73,7 +74,6 @@ it('자리표시자는 원문과 작성 동작을 숨기며 대댓글에는 답�
 });
 
 it('댓글 작성·수정·삭제 후 목록과 공개 댓글 수를 갱신한다', async () => {
-  authenticate();
   open();
   await screen.findByText('고정비 관리가 중요하다는 데 공감해요.');
   fireEvent.change(screen.getByLabelText('댓글 내용'), { target: { value: '새 댓글입니다.' } });
@@ -82,15 +82,15 @@ it('댓글 작성·수정·삭제 후 목록과 공개 댓글 수를 갱신한�
     'article',
   )!;
   expect(screen.getByRole('heading', { name: '댓글 5' })).toBeVisible();
-  fireEvent.click(within(row).getByRole('button', { name: '댓글 수정' }));
-  fireEvent.change(within(row).getByLabelText('수정할 댓글'), {
+  fireEvent.click(await within(row).findByRole('button', { name: '댓글 수정' }));
+  fireEvent.change(await within(row).findByLabelText('수정할 댓글'), {
     target: { value: '수정한 댓글입니다.' },
   });
-  fireEvent.click(within(row).getByRole('button', { name: '수정 저장' }));
+  fireEvent.click(await within(row).findByRole('button', { name: '수정 저장' }));
   const edited = (await screen.findByText('수정한 댓글입니다.', { selector: 'article p' })).closest(
     'article',
   )!;
-  fireEvent.click(within(edited).getByRole('button', { name: '댓글 삭제' }));
+  fireEvent.click(await within(edited).findByRole('button', { name: '댓글 삭제' }));
   fireEvent.click(within(edited).getByRole('button', { name: '댓글 삭제 확인' }));
   await screen.findByText('고정비 관리가 중요하다는 데 공감해요.');
   expect(screen.queryByText('수정한 댓글입니다.')).not.toBeInTheDocument();
@@ -98,14 +98,15 @@ it('댓글 작성·수정·삭제 후 목록과 공개 댓글 수를 갱신한�
 });
 
 it('댓글 수정 409에서 자동 재전송하지 않고 사용자가 최신 댓글을 다시 읽을 수 있다', async () => {
-  authenticate();
+  await boardApi.post(2);
+  ownFixture([], [2]);
   open();
   const row = (await screen.findByText('고정비 관리가 중요하다는 데 공감해요.')).closest(
     'article',
   )!;
   await boardApi.updateComment(2, 2, { content: '다른 창의 최신 댓글', version: 0 });
-  fireEvent.click(within(row).getByRole('button', { name: '댓글 수정' }));
-  fireEvent.click(within(row).getByRole('button', { name: '수정 저장' }));
+  fireEvent.click(await within(row).findByRole('button', { name: '댓글 수정' }));
+  fireEvent.click(await within(row).findByRole('button', { name: '수정 저장' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('댓글이 다른 곳에서 수정되었습니다.');
   fireEvent.click(screen.getByRole('button', { name: '최신 내용 불러오기' }));
   expect(await screen.findByText('다른 창의 최신 댓글')).toBeVisible();
@@ -124,7 +125,8 @@ it('댓글 작성 429에 재시도 안내를 보이고 입력을 유지한다', 
 });
 
 it('본인 글 삭제 후 목록으로 이동하고 삭제된 글이 사라진다', async () => {
-  authenticate();
+  await boardApi.post(2);
+  ownFixture([2]);
   open();
   expect(await screen.findByRole('link', { name: '수정' })).toHaveAttribute(
     'href',
@@ -136,25 +138,21 @@ it('본인 글 삭제 후 목록으로 이동하고 삭제된 글이 사라진�
   expect(within(list).queryByRole('link', { name: /가상 구름모래/ })).not.toBeInTheDocument();
 });
 
-it('만료 토큰은 공개 조회를 유지하고 쓰기 전에 새 게스트로 복구한다', async () => {
+it('만료 토큰은 공개 조회를 유지하고 쓰기 대신 로그인 안내를 표시한다', async () => {
   localStorage.setItem(guestStorageKey, 'expired');
   open();
-  fireEvent.click(await screen.findByRole('button', { name: '좋아요 1' }));
-  expect(await screen.findByRole('button', { name: '좋아요 2' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await waitFor(() => expect(localStorage.getItem(guestStorageKey)).toBe('mock-guest'));
+  expect(await screen.findByTestId('post-content')).toBeVisible();
+  expect(await screen.findAllByRole('link', { name: '로그인하고 참여하기' })).not.toHaveLength(0);
+  expect(screen.queryByRole('button', { name: /좋아요/ })).not.toBeInTheDocument();
+  await waitFor(() => expect(localStorage.getItem(guestStorageKey)).toBeNull());
 });
-it('재발급 후에도 쓰기 401이면 게스트 시작 안내를 유지한다', async () => {
+it('회원 쓰기 401이면 재발급 없이 로그인 안내를 표시한다', async () => {
   vi.spyOn(boardApi, 'like').mockRejectedValueOnce(new ApiError(401, '인증 실패', 'UNAUTHORIZED'));
   open();
   fireEvent.click(await screen.findByRole('button', { name: '좋아요 1' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('게스트로 시작해 주세요.');
-  fireEvent.click(screen.getByRole('button', { name: '게스트로 시작' }));
-  await waitFor(() => expect(localStorage.getItem(guestStorageKey)).toBe('mock-guest'));
+  expect(await screen.findAllByRole('link', { name: '로그인하고 참여하기' })).not.toHaveLength(0);
+  expect(screen.queryByRole('button', { name: '게스트로 시작' })).not.toBeInTheDocument();
 });
-
 it('루트와 대댓글 페이지를 각각 조회한다', async () => {
   const [roots, replies] = await Promise.all([boardApi.comments(2), boardApi.replies(2, 1)]);
   const closure = roots.content[0];
@@ -218,7 +216,7 @@ it('신고 모달의 기타 사유는 설명을 요구하고 댓글 대상으로
     const row = (await screen.findByText('첫 분기의 운영 시간은 어떻게 정하셨나요?')).closest(
       'article',
     )!;
-    fireEvent.click(within(row).getByRole('button', { name: '댓글 신고' }));
+    fireEvent.click(await within(row).findByRole('button', { name: '댓글 신고' }));
     const modal = screen.getByRole('dialog', { name: '댓글 신고' });
     fireEvent.change(within(modal).getByLabelText('신고 사유'), { target: { value: 'ETC' } });
     const submit = within(modal).getByRole('button', { name: '신고 접수' });
@@ -242,4 +240,24 @@ it('신고 모달의 기타 사유는 설명을 요구하고 댓글 대상으로
     if (close) Object.defineProperty(prototype, 'close', close);
     else Reflect.deleteProperty(prototype, 'close');
   }
+});
+
+it('게스트는 글과 댓글을 읽을 수 있지만 좋아요·신고·댓글 입력 대신 로그인 안내를 본다', async () => {
+  localStorage.setItem(guestStorageKey, 'mock-guest');
+  open();
+  expect(await screen.findByTestId('post-content')).toBeVisible();
+  expect(await screen.findByText('첫 분기의 운영 시간은 어떻게 정하셨나요?')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: /좋아요|신고|댓글 등록|답글 쓰기/ }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('댓글 내용')).not.toBeInTheDocument();
+  const links = screen.getAllByRole('link', { name: '로그인하고 참여하기' });
+  expect(links[0]).toHaveAttribute('href', '/login?next=%2Fboard%2Fposts%2F2');
+  expect(localStorage.getItem(guestStorageKey)).toBe('mock-guest');
+});
+it('다른 작성자의 목 글은 수정 대신 신고가 보이고 내 글에 포함되지 않는다', async () => {
+  open();
+  expect(await screen.findByRole('button', { name: '게시글 신고' })).toBeVisible();
+  expect(screen.queryByRole('link', { name: '수정' })).not.toBeInTheDocument();
+  expect((await boardApi.myPosts()).content.some((p) => p.postId === 2)).toBe(false);
 });

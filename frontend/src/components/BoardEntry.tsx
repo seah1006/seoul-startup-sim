@@ -1,3 +1,4 @@
+import { JoinPrompt, useUser } from './Auth';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { boardApi } from '../api/board';
@@ -46,6 +47,7 @@ export function PopularBoardPosts() {
 
 type EndingState = 'available' | 'hidden' | 'unavailable' | RecordPostLink;
 export function EndingBoardEntry({ gameId }: { gameId: number }) {
+  const user = useUser();
   const [state, setState] = useState<EndingState>();
   const [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -57,6 +59,7 @@ export function EndingBoardEntry({ gameId }: { gameId: number }) {
       // TASK-005B unlocks real writing by exposing the owner-only summary.
       const summary = await api.summary(gameId);
       if (summary.gameId !== gameId || !summary.endingType) return 'unavailable';
+      if (user?.role !== 'MEMBER') return 'available';
       for (let page = 0; active; page++) {
         const mine = await boardApi.myPosts({ category: 'RECORD', page, size: 50 });
         const linked = mine.content.find((post) => post.record?.gameId === gameId);
@@ -84,7 +87,8 @@ export function EndingBoardEntry({ gameId }: { gameId: number }) {
     return () => {
       active = false;
     };
-  }, [gameId, revision]);
+  }, [gameId, revision, user?.role]);
+  if (user?.role !== 'MEMBER') return <JoinPrompt next={`/games/${gameId}`} />;
   if (!state) return <p role="status">엔딩 인증글을 확인하는 중입니다.</p>;
   if (typeof state === 'object')
     return (

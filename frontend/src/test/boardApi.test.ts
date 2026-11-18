@@ -1,3 +1,4 @@
+import { authenticate, ownFixture } from './authFixture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 async function client(mock: boolean) {
@@ -37,17 +38,17 @@ describe.each([false, true])('게시판 어댑터 (목=%s)', (mock) => {
       expect(request).toHaveBeenNthCalledWith(
         3,
         '/api/board/posts/2',
-        expect.objectContaining({ headers: { 'X-Guest-Token': 'existing' } }),
+        expect.objectContaining({ headers: { Authorization: 'Bearer existing' } }),
       );
       expect(request).toHaveBeenNthCalledWith(
         4,
         '/api/board/posts/2/comments',
-        expect.objectContaining({ headers: { 'X-Guest-Token': 'existing' } }),
+        expect.objectContaining({ headers: { Authorization: 'Bearer existing' } }),
       );
     }
   });
 
-  it('204에서 본문을 파싱하지 않고 필수 인증은 게스트 발급을 사용한다', async () => {
+  it('204에서 본문을 파싱하지 않고 필수 인증은 기존 회원 토큰을 사용한다', async () => {
     const reply = new Response(null, { status: 204 });
     const parse = vi.spyOn(reply, 'json');
     const request = vi.fn(async (path: string) =>
@@ -57,12 +58,18 @@ describe.each([false, true])('게시판 어댑터 (목=%s)', (mock) => {
     const { boardApi, guestStorageKey } = await client(mock);
     await expect(boardApi.recordLink(9999)).resolves.toBeUndefined();
     expect(localStorage.getItem(guestStorageKey)).toBeNull();
+    const member = mock ? authenticate().token : 'existing-member';
+    localStorage.setItem(guestStorageKey, member);
+    if (mock) {
+      await boardApi.post(2);
+      ownFixture([2]);
+    }
     await expect(boardApi.like(2, true)).resolves.toBeUndefined();
     await expect(boardApi.like(2, false)).resolves.toBeUndefined();
     await expect(boardApi.deletePost(2, 0)).resolves.toBeUndefined();
-    expect(localStorage.getItem(guestStorageKey)).toBe(mock ? 'mock-guest' : 'new-guest');
+    expect(localStorage.getItem(guestStorageKey)).toBe(member);
     expect(parse).not.toHaveBeenCalled();
-    if (!mock) expect(request).toHaveBeenNthCalledWith(2, '/api/guest', { method: 'POST' });
+    if (!mock) expect(request.mock.calls.some(([url]) => url === '/api/guest')).toBe(false);
     if (mock) expect((await boardApi.posts()).content.some((p) => p.postId === 2)).toBe(false);
   });
 
@@ -81,7 +88,11 @@ describe.each([false, true])('게시판 어댑터 (목=%s)', (mock) => {
       ),
     );
     const { boardApi, ApiError, guestStorageKey } = await client(mock);
-    localStorage.setItem(guestStorageKey, mock ? 'mock-guest' : 'existing');
+    localStorage.setItem(guestStorageKey, mock ? authenticate().token : 'existing');
+    if (mock) {
+      await boardApi.post(2);
+      ownFixture([2]);
+    }
     const stale = boardApi.deletePost(2, 99);
     await expect(stale).rejects.toBeInstanceOf(ApiError);
     await expect(stale).rejects.toMatchObject({ status: 409, ...conflict });
@@ -93,10 +104,10 @@ describe.each([false, true])('게시판 어댑터 (목=%s)', (mock) => {
 
 const testCommentPost = 2;
 it('목에서 대댓글 페이징, 소속/깊이 확인, 댓글 신고, 429를 계약대로 응답한다', async () => {
-  const { boardApi, guestStorageKey } = await client(true);
+  const { boardApi } = await client(true);
   const now = vi.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
   try {
-    localStorage.setItem(guestStorageKey, 'mock-guest');
+    authenticate();
     const original = await boardApi.post(testCommentPost);
     await expect(
       boardApi.createComment(testCommentPost, { content: '3단계', parentId: 4 }),
@@ -119,6 +130,7 @@ it('목에서 대댓글 페이징, 소속/깊이 확인, 댓글 신고, 429를 �
       commentCount: original.commentCount + 10,
     });
     const report = { targetType: 'COMMENT', targetId: 1, reason: 'SPAM' } as const;
+    ownFixture([], [2]);
     await expect(boardApi.report({ ...report, targetId: 2 })).rejects.toMatchObject({
       status: 403,
       code: 'FORBIDDEN',
@@ -137,11 +149,11 @@ it('목에서 대댓글 페이징, 소속/깊이 확인, 댓글 신고, 429를 �
   }
 });
 
-it('선택 인증 401은 토큰을 지우고 익명 재시도, 필수 인증은 한 번 재발급한다', async () => {
+it('선택 인증 401은 익명 재시도하고 회원 쓰기 401은 재발급 없이 반환한다', async () => {
   const request = vi.fn(async (url: string, options: RequestInit) =>
     url === '/api/guest'
       ? Response.json({ guestToken: 'renewed' })
-      : (options.headers as Record<string, string>)['X-Guest-Token']
+      : (options.headers as Record<string, string>)['Authorization']
         ? Response.json({ code: 'UNAUTHORIZED', message: '만료된 토큰' }, { status: 401 })
         : Response.json({ likedByMe: false }),
   );
@@ -155,12 +167,14 @@ it('선택 인증 401은 토큰을 지우고 익명 재시도, 필수 인증은 
     expect.objectContaining({ headers: {} }),
   );
   expect(localStorage.getItem(guestStorageKey)).toBeNull();
+  localStorage.setItem(guestStorageKey, 'expired-member');
   await expect(boardApi.like(2, true)).rejects.toMatchObject({
     status: 401,
     code: 'UNAUTHORIZED',
     message: '만료된 토큰',
   });
-  expect(request).toHaveBeenCalledTimes(6);
+  expect(request).toHaveBeenCalledTimes(3);
+  expect(localStorage.getItem(guestStorageKey)).toBeNull();
 });
 
 it('실제 모드 요청 경로: 홈 인기글, 내 글 인증, 종료 요약 및 RECORD 작성 본문 (fetch 대역)', async () => {
@@ -186,14 +200,14 @@ it('실제 모드 요청 경로: 홈 인기글, 내 글 인증, 종료 요약 �
   expect(request).toHaveBeenNthCalledWith(
     2,
     '/api/board/me/posts?category=RECORD&page=0&size=20',
-    expect.objectContaining({ headers: { 'X-Guest-Token': token } }),
+    expect.objectContaining({ headers: { Authorization: `Bearer ${token}` } }),
   );
   expect(request).toHaveBeenNthCalledWith(
     3,
     '/api/games/104/summary',
     expect.objectContaining({
       method: 'GET',
-      headers: expect.objectContaining({ 'X-Guest-Token': token }),
+      headers: expect.objectContaining({ Authorization: `Bearer ${token}` }),
     }),
   );
   expect(request).toHaveBeenNthCalledWith(
@@ -207,16 +221,19 @@ it.each([false, true])('게임 401은 한 번 재발급하며 재실패에서도
   const send = vi.fn(async (url: string, options: RequestInit) =>
     url === '/api/guest'
       ? Response.json({ guestToken: 'new-token' })
-      : (options.headers as Record<string, string>)['X-Guest-Token'] === 'expired' || failAgain
+      : (options.headers as Record<string, string>)['Authorization'] === 'Bearer expired' ||
+          failAgain
         ? Response.json({ code: 'UNAUTHORIZED', message: '만료' }, { status: 401 })
         : Response.json({ gameId: 1 }),
   );
   vi.stubGlobal('fetch', send);
   const { api, guestStorageKey } = await client(false);
+  window.history.replaceState({}, '', '/games/1');
   localStorage.setItem(guestStorageKey, 'expired');
   if (failAgain)
     await expect(api.game(1)).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED' });
   else await expect(api.game(1)).resolves.toMatchObject({ gameId: 1 });
   expect(send).toHaveBeenCalledTimes(3);
-  expect(localStorage.getItem(guestStorageKey)).toBe('new-token');
+  expect(localStorage.getItem(guestStorageKey)).toBe(failAgain ? null : 'new-token');
+  window.history.replaceState({}, '', '/');
 });

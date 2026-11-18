@@ -1,3 +1,5 @@
+import { RecordFilters } from './RecordFilters';
+import { MemberOnly } from './Auth';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -109,9 +111,11 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
       <p className="eyebrow">SEOUL STARTUP COMMUNITY</p>
       <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
       <nav className="choices" aria-label="게시판 메뉴">
-        <Link className="button" to="/board/write">
-          글 쓰기
-        </Link>
+        <MemberOnly>
+          <Link className="button" to="/board/write">
+            글 쓰기
+          </Link>
+        </MemberOnly>
         {mine ? (
           <Link className="button" to="/board">
             전체 게시판
@@ -164,26 +168,7 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
             <input name="q" type="search" maxLength={100} defaultValue={query.q} />
           </label>
           {query.category === 'RECORD' && (
-            <>
-              <label>
-                업종 코드
-                <input
-                  name="serviceCode"
-                  maxLength={32}
-                  defaultValue={query.serviceCode}
-                  placeholder="예: CS100010"
-                />
-              </label>
-              <label>
-                상권 코드
-                <input
-                  name="areaCode"
-                  maxLength={32}
-                  defaultValue={query.areaCode}
-                  placeholder="예: 3110123"
-                />
-              </label>
-            </>
+            <RecordFilters serviceCode={query.serviceCode} areaCode={query.areaCode} />
           )}
           <button type="submit">검색</button>
         </form>

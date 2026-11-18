@@ -31,7 +31,7 @@ export default function History({ turns }: { turns: QuarterResult[] }) {
                     rx="3"
                   />
                   <text x={i * 70 + 32} y="225" textAnchor="middle" fontSize="12">
-                    {r.quarter}
+                    {quarterLabel(r.quarter)}
                   </text>
                 </g>
               );

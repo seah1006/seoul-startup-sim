@@ -236,7 +236,7 @@ export async function mockRequest<T>(
           throw Object.assign(new Error('최근 7일만 조회할 수 있어요.'), { status: 400 });
         const kind = query.get('kind') || 'ALL';
         const entries = Object.values(db)
-          .filter((r) => r.game.status === 'ENDED')
+          .filter((r) => r.game.status === 'ENDED' && (!date || date === today))
           .filter(
             (r) =>
               kind === 'ALL' ||
@@ -347,7 +347,11 @@ export async function mockRequest<T>(
       handle: function handleCatalogRoute7() {
         const id = Number(path.split('/')[2]);
         const record = demoRecords.find((r) => r.gameId === id);
-        if (!record) throw new Error('종료된 게임의 요약을 찾을 수 없습니다.');
+        if (!record)
+          throw Object.assign(new Error('인증할 게임을 찾을 수 없어요'), {
+            status: 404,
+            code: 'NOT_FOUND',
+          });
         return { ...record, bestQuarterProfit: 0, shopCount: 1 } as T;
       },
     },
