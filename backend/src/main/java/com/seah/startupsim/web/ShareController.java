@@ -3,7 +3,6 @@ package com.seah.startupsim.web;
 import com.seah.startupsim.board.BoardRecordService;
 import com.seah.startupsim.common.MoneyFormat;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -14,8 +13,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 /** 로그인 없이 보는 엔딩 공유 페이지. game 패키지 밖에 두어 인증글 링크를 붙일 때 게임 코드를 건드리지 않는다. */
 @Controller
 public class ShareController {
-    private static final Map<String, String> ENDINGS = Map.of("CLOSED", "폐업", "SOLD", "매각",
-            "LONG_RUNNING", "장수 가게");
 
     public record SharePage(long gameId, String endingLabel, String shopName, String ownerName, String nickname,
             String areaName, String serviceName, int survivedQuarters, long totalProfit, long bestQuarterProfit,
@@ -46,7 +43,7 @@ public class ShareController {
     }
 
     static SharePage page(ShareRepository.Ending ending) {
-        String label = ENDINGS.getOrDefault(ending.endingType(), ending.endingType());
+        String label = DisplayLabels.ENDINGS.getOrDefault(ending.endingType(), ending.endingType());
         // 금액 칸은 템플릿이 ${@money.won(...)}로, OG 설명은 같은 규칙으로 여기서 만든다.
         return new SharePage(ending.gameId(), label, ending.shopName(), ending.ownerName(), ending.nickname(),
                 ending.areaName(), ending.serviceName(), ending.survivedQuarters(), ending.totalProfit(),

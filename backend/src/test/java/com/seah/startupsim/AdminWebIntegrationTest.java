@@ -45,11 +45,20 @@ class AdminWebIntegrationTest {
     }
     @Test @DisplayName("관리자 대시보드와 목록 및 상세를 실제 템플릿으로 렌더링한다")
     void pages() throws Exception {
-        mvc().perform(get("/admin").with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("cards", "circuit")).andExpect(content().string(org.hamcrest.Matchers.containsString("수집 대시보드")));
-        mvc().perform(get("/admin/ingest/runs").with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("runs"));
+        mvc().perform(get("/admin").with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("cards", "circuit")).andExpect(content().string(org.hamcrest.Matchers.containsString("수집 대시보드")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<dd>정상</dd>")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("CLOSED"))));
         var jdbc = context.getBean(org.springframework.jdbc.core.JdbcTemplate.class);
+        jdbc.update("INSERT INTO ingest_runs(source,status,started_at) VALUES ('label-test','FAILED','2026-11-06T17:17:01.136608Z')");
+        mvc().perform(get("/admin/ingest/runs").with(user("admin").roles("ADMIN"))).andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<td>2026-11-07 02:17 (KST)</td>")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<td>실패</td>")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("T17:17:01"))));
+        mvc().perform(get("/admin/ingest/runs").with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("runs"));
         Long id = jdbc.queryForObject("INSERT INTO ingest_runs(source,status) VALUES ('test','SUCCEEDED') RETURNING id", Long.class);
-        mvc().perform(get("/admin/ingest/runs/" + id).with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("run", "raws"));
+        mvc().perform(get("/admin/ingest/runs/" + id).with(user("admin").roles("ADMIN"))).andExpect(status().isOk()).andExpect(model().attributeExists("run", "raws"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("test / null / 성공")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("(KST) ~ -")));
         mvc().perform(get("/admin/ingest/run").with(user("admin").roles("ADMIN"))).andExpect(status().isOk());
         mvc().perform(get("/admin/data-versions").with(user("admin").roles("ADMIN"))).andExpect(status().isOk());
     }

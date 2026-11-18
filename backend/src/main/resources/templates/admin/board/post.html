@@ -1,12 +1,12 @@
 <!DOCTYPE html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{admin/fragments :: head('게시글 상세')}"></head><body><header th:replace="~{admin/fragments :: nav}"></header><main><nav><a th:href="@{/admin/board/posts}">게시글</a> <a th:href="@{/admin/board/reports}">신고</a></nav><h1>게시글 상세</h1><p role="alert" th:if="${error}" th:text="${error}"></p>
-<h2 th:text="${post.title}"></h2><p th:text="${post.content}"></p><p th:text="${post.status}"></p>
+<h2 th:text="${post.title}"></h2><p th:text="${post.content}"></p><p th:text="${@labels.postStatus(post.status)}"></p>
 <form th:if="${post.status.name() == 'ACTIVE'}" method="post" th:action="@{/admin/board/posts/{id}/hide(id=${post.id})}"><button>글 숨김</button></form>
 <form th:if="${post.status.name() == 'HIDDEN'}" method="post" th:action="@{/admin/board/posts/{id}/restore(id=${post.id})}"><button>글 복구</button></form>
 <form th:if="${post.status.name() != 'DELETED'}" method="post" th:action="@{/admin/board/posts/{id}/delete(id=${post.id})}"><button>글 삭제</button></form>
 <form th:if="${post.status.name() == 'ACTIVE'}" method="post" th:action="@{/admin/board/posts/{id}/pin(id=${post.id})}">
 <input type="hidden" name="pinned" th:value="${!post.pinned}"><button th:text="${post.pinned ? '고정 해제' : '고정'}"></button></form>
 <h2>댓글 관리</h2><ul>
-<li th:each="c : ${comments}"><p th:text="${c.parentId == null ? '댓글 #' + c.id : '답글 #' + c.id + ' (부모 #' + c.parentId + ')'}"></p><p th:text="${c.content}"></p><p th:text="${c.status}"></p>
+<li th:each="c : ${comments}"><p th:text="${c.parentId == null ? '댓글 #' + c.id : '답글 #' + c.id + ' (부모 #' + c.parentId + ')'}"></p><p th:text="${c.content}"></p><p th:text="${@labels.postStatus(c.status)}"></p>
 <form th:if="${c.status.name() == 'ACTIVE'}" method="post" th:action="@{/admin/board/comments/{id}/hide(id=${c.id})}"><button>댓글 숨김</button></form>
 <form th:if="${c.status.name() == 'HIDDEN'}" method="post" th:action="@{/admin/board/comments/{id}/restore(id=${c.id})}"><button>댓글 복구</button></form>
 <form th:if="${c.status.name() != 'DELETED'}" method="post" th:action="@{/admin/board/comments/{id}/delete(id=${c.id})}"><button>댓글 삭제</button></form>
