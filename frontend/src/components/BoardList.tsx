@@ -99,7 +99,9 @@ export default function BoardList() {
     {current && 'error' in current && <p className="error" role="alert">{current.error}</p>}
     {data && <>
       <p className="board-count">게시글 {data.totalElements.toLocaleString('ko-KR')}건</p>
-      {!data.content.length ? <p className="card">조건에 맞는 게시글이 없습니다.</p> :
+      {!data.content.length ? (data.totalElements > 0 ? <div className="card">
+        <p>이 페이지에는 글이 없습니다.</p><button type="button" onClick={() => change({ page: 0 })}>첫 페이지로</button>
+      </div> : <p className="card">조건에 맞는 게시글이 없습니다.</p>) :
         <ul className="card board-posts" aria-label="게시글 목록">
           {data.content.map(p => <li key={p.postId}>
             <div><span className="badge">{labels[p.category]}</span> {p.isPinned && <span className="badge board-pinned">고정</span>}</div>

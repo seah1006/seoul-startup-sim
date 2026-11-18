@@ -21,14 +21,14 @@ function useCommentPage(postId: number, parentId: number | null | undefined, pag
   return result?.key === key ? result : undefined;
 }
 
-function Pager({ label, page, totalPages, onChange }: {
-  label: string; page: number; totalPages: number; onChange: (p: number) => void;
+function Pager({ label, page, totalPages, disabled, onChange }: {
+  label: string; page: number; totalPages: number; disabled: boolean; onChange: (p: number) => void;
 }) {
   if (Math.max(page + 1, totalPages) < 2) return null;
   return <nav className="choices" aria-label={label}>
-    <button type="button" disabled={!page} onClick={() => onChange(page - 1)}>이전</button>
+    <button type="button" disabled={disabled || !page} onClick={() => onChange(page - 1)}>이전</button>
     <span>{page + 1} / {Math.max(1, totalPages)}</span>
-    <button type="button" disabled={page + 1 >= totalPages} onClick={() => onChange(page + 1)}>다음</button>
+    <button type="button" disabled={disabled || page + 1 >= totalPages} onClick={() => onChange(page + 1)}>다음</button>
   </nav>;
 }
 
@@ -124,7 +124,7 @@ export function BoardComments({ postId, count, authRevision, onGuest, onReport, 
     <h2>댓글 {count}</h2>
     <form onSubmit={e => { e.preventDefault(); closeEditor(); add(); }}>
       <label>댓글 내용<textarea value={rootDraft} required maxLength={1000} disabled={busy} onChange={e => setRootDraft(e.target.value)}/></label>
-      <button className="primary" type="submit" disabled={busy || !rootDraft.trim()}>댓글 등록</button>
+      <button className="primary" type="submit" disabled={busy || !roots?.data || !rootDraft.trim()}>댓글 등록</button>
     </form>
     {!editor && <BoardFeedback error={error} onGuest={onGuest}/>}
     {!roots && <p role="status">댓글을 불러오는 중…</p>}
@@ -137,9 +137,9 @@ export function BoardComments({ postId, count, authRevision, onGuest, onReport, 
         <BoardFeedback error={replies?.error} onGuest={onGuest}/>
         {replies?.data && <><ul className="board-comments" aria-label="대댓글 목록">{replies.data.content.map(reply => <li key={reply.commentId}>
           {renderComment(reply)}
-        </li>)}</ul><Pager label="대댓글 페이지" page={replyPage} totalPages={replies.data.totalPages} onChange={p => { closeEditor(); setReplyPage(p); }}/></>}
+        </li>)}</ul><Pager label="대댓글 페이지" page={replyPage} totalPages={replies.data.totalPages} disabled={busy} onChange={p => { closeEditor(); setReplyPage(p); }}/></>}
       </section>}
     </li>)}</ul>}
-    {roots?.data && <Pager label="댓글 페이지" page={page} totalPages={roots.data.totalPages} onChange={turnPage}/>}
+    {roots?.data && <Pager label="댓글 페이지" page={page} totalPages={roots.data.totalPages} disabled={busy} onChange={turnPage}/>}
   </section>;
 }
