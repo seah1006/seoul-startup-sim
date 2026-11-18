@@ -91,7 +91,8 @@ public class EndingService {
         }
         GameRecordRepository.Summary summary = records.summary(id);
         if (summary == null) {
-            throw new IllegalStateException("종료된 게임의 엔딩 기록이 없습니다: " + id);
+            // V9 이전에 끝난 게임은 V12가 결산 이력으로 백필한다. 그래도 없으면 500 대신 계약 오류로 알린다.
+            throw new GameException(404, "NOT_FOUND", "이 게임의 엔딩 기록이 없습니다.");
         }
         return summary;
     }

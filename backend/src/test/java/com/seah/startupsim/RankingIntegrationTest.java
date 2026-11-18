@@ -212,13 +212,22 @@ class RankingIntegrationTest {
         LocalDate today = rankings.today();
         mvc.perform(get("/api/rankings")).andExpect(status().isOk()).andExpect(jsonPath("$.entries.length()").value(0));
         mvc.perform(get("/api/rankings").param("date", today.minusDays(6).toString())).andExpect(status().isOk());
-        for (var params : List.of(List.of("date", today.minusDays(7).toString()), List.of("date", today.plusDays(1).toString()),
-                List.of("date", "2026-13-01"), List.of("kind", "INDUSTRY"), List.of("kind", "AREA"),
-                List.of("kind", "WEEKLY"), List.of("limit", "101"), List.of("limit", "0"))) {
+        for (var params : List.of(List.of("date", today.minusDays(7).toString(), "최근 7일만 조회할 수 있어요."),
+                List.of("date", today.plusDays(1).toString(), "최근 7일만 조회할 수 있어요."),
+                List.of("date", "2026-13-01", "날짜는 2026-11-07 형식으로 보내 주세요."),
+                List.of("kind", "INDUSTRY", "업종/상권 랭킹에는 key가 필요해요."),
+                List.of("kind", "AREA", "업종/상권 랭킹에는 key가 필요해요."),
+                List.of("kind", "WEEKLY", "랭킹 종류는 ALL, INDUSTRY, AREA 중 하나예요."),
+                List.of("limit", "101", "limit은 1~100 사이여야 해요."), List.of("limit", "0", "limit은 1~100 사이여야 해요."),
+                List.of("limit", "many", "limit은 1~100 사이여야 해요."))) {
             mvc.perform(get("/api/rankings").param(params.get(0), params.get(1)))
-                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                    .andExpect(jsonPath("$.message").value(params.get(2)));
         }
-        mvc.perform(get("/api/rankings").param("kind", "AREA").param("key", " ")).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/rankings").param("kind", "AREA").param("key", " ")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("업종/상권 랭킹에는 key가 필요해요."));
+        mvc.perform(get("/api/rankings").param("kind", "AREA").param("key", "A".repeat(33)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("key는 32자 이하로 보내 주세요."));
         mvc.perform(get("/api/rankings").param("kind", "AREA").param("key", "A")).andExpect(status().isOk());
     }
 

@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{admin/fragments :: head('신고 상세')}"></head><body><header th:replace="~{admin/fragments :: nav}"></header><main><nav><a th:href="@{/admin/board/posts}">게시글</a> <a th:href="@{/admin/board/reports}">신고</a></nav><h1>신고 상세</h1><p role="alert" th:if="${error}" th:text="${error}"></p>
 <p><a th:href="@{/admin/board/posts/{id}(id=${postId})}">대상 게시글 보기</a></p>
-<dl><dt>대상 종류</dt><dd th:text="${report.type}"></dd><dt>대상 번호</dt><dd th:text="${report.targetId}"></dd><dt>대상 내용</dt><dd th:text="${target}"></dd><dt>사유</dt><dd th:text="${report.reason}"></dd><dt>상세 사유</dt><dd th:text="${report.detail}"></dd><dt>상태</dt><dd th:text="${report.status}"></dd><dt>처리자</dt><dd th:text="${report.handledBy}"></dd></dl>
+<dl><dt>대상 종류</dt><dd th:text="${@labels.target(report.type)}"></dd><dt>대상 번호</dt><dd th:text="${report.targetId}"></dd><dt>대상 내용</dt><dd th:text="${target}"></dd><dt>사유</dt><dd th:text="${@labels.reason(report.reason)}"></dd><dt>상세 사유</dt><dd th:text="${report.detail}"></dd><dt>상태</dt><dd th:text="${@labels.reportStatus(report.status)}"></dd><dt>처리자</dt><dd th:text="${report.handledBy}"></dd></dl>
 <div th:if="${report.status.name() == 'PENDING'}">
 <form method="post" th:action="@{/admin/board/reports/{id}/resolve(id=${report.id})}"><button>처리 및 대상 숨김</button></form>
 <form method="post" th:action="@{/admin/board/reports/{id}/dismiss(id=${report.id})}"><button>기각</button></form></div>

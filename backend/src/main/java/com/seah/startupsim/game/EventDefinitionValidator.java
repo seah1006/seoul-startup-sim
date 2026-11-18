@@ -262,9 +262,13 @@ public final class EventDefinitionValidator {
         optionalInteger(node, "weight", 1, 100);
         enabled(node);
         condition(node.get("conditionExpr"), Scope.REACTION);
-        String body = text(node.get("text"), "text", 2, 300);
-        String rest = body.replace("{shopName}", "").replace("{areaName}", "").replace("{serviceName}", "");
-        require(!rest.contains("{") && !rest.contains("}"), "text", "허용되지 않은 치환 변수입니다.");
+        tokens(text(node.get("text"), "text", 2, 300), "text");
+    }
+
+    /** 치환 변수는 shopName·areaName·serviceName과 선택 조사 쌍({shopName:이/가} 등)만 허용한다. */
+    private void tokens(String text, String path) {
+        String rest = EventText.withoutTokens(text);
+        require(!rest.contains("{") && !rest.contains("}"), path, "허용되지 않은 치환 변수입니다.");
     }
 
     public void moment(JsonNode node) {
@@ -278,8 +282,8 @@ public final class EventDefinitionValidator {
         optionalInteger(node, "weight", 1, 100);
         enabled(node);
         condition(node.get("conditionExpr"), Scope.MOMENT);
-        text(node.get("successText"), "successText", 2, 300);
-        text(node.get("failText"), "failText", 2, 300);
+        tokens(text(node.get("successText"), "successText", 2, 300), "successText");
+        tokens(text(node.get("failText"), "failText", 2, 300), "failText");
         effects(node.get("onSuccess"), true, "onSuccess");
         effects(node.get("onFail"), true, "onFail");
     }

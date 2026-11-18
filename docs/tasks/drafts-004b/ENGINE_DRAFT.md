@@ -329,7 +329,7 @@ advance(gameId, key, expectedVersion)
 4. 가중 추첨 `n`회, 같은 code 중복 금지(뽑힌 항목 제외 후 누적 가중치 재계산). REVIEW 후보가 있으면 **첫 뽑기는 REVIEW 풀에서** 한다(결산 카드에 리뷰가 최소 1개 보이도록).
 5. 후보가 `n`보다 적으면 있는 만큼만. 0개면 `reactions = []`(1.4 조건 4와 일치).
 6. `likes`는 `REACTION_LIKES` 스트림에서 `3 + rng.nextInt(60)`에 버킷 보정(`bucket.profit == UP`이면 ×2). 템플릿에 저장하지 않는다.
-7. `{shopName}`, `{areaName}`, `{serviceName}` 세 개만 치환(`shops`, `trade_areas.name`, `service_industries.name`). 다른 중괄호는 저장 시 거부.
+7. `{shopName}`, `{areaName}`, `{serviceName}` 세 개만 치환(`shops`, `trade_areas.name`, `service_industries.name`). 다른 중괄호는 저장 시 거부. (TASK-007B) 뒤에 조사 쌍을 붙인 `{shopName:이/가}`, `:을/를`, `:은/는`, `:과/와`, `:이에요/예요`는 값의 끝 글자 받침(한글 종성, 숫자는 한국어 읽기, 영문은 발음 근사, 그 밖은 `이(가)` 병기)에 맞는 조사를 붙인다(`EventText`).
 8. 저장: `turn_results.reactions`(V5에 이미 존재하는 jsonb 컬럼)와 `response`의 `reactions` 필드 양쪽. 응답 형식은 계약 3장 그대로 `[{kind, author, rating?, text, likes}]`.
 
 ### 4.2 순간(moment)

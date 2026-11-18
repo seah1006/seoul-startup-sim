@@ -169,9 +169,8 @@ public class NeighborhoodEventService {
         return weight == null || weight.isNull() ? 10 : weight.intValue();
     }
 
-    /** 허용된 세 치환 변수만 바꾼다. 실제 점포 상호는 쓰지 않는다. */
+    /** 허용된 세 치환 변수(조사 선택 포함)만 바꾼다. 실제 점포 상호는 쓰지 않는다. */
     static String render(String text, Shop shop) {
-        return text.replace("{shopName}", shop.shopName()).replace("{areaName}", shop.areaName())
-                .replace("{serviceName}", shop.serviceName());
+        return EventText.render(text, shop);
     }
 }

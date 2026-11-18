@@ -65,6 +65,8 @@ class EventFlowIntegrationTest {
         jdbc.execute("TRUNCATE users, trade_areas, data_versions, stores CASCADE");
         // 8분기 골든은 V10 밸런스 조정 전 설정으로 만들었다. 엔진 재현성 검증을 밸런스 값과 분리한다.
         GoldenSettings.pin(jdbc, json);
+        // 같은 이유로 이벤트 정의도 V8 시드 그대로 되돌린다(V12 빈도 조정·반응 조사 문법과 분리).
+        GoldenEvents.pin(jdbc);
         user = auth.create().userId();
         jdbc.update("INSERT INTO data_versions (id, source, status) VALUES (100, 'fixture', 'ACTIVE')");
         jdbc.update("""

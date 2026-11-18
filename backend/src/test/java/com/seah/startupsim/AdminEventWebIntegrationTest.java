@@ -70,13 +70,14 @@ class AdminEventWebIntegrationTest {
     @DisplayName("토글은 CSRF가 필요하고 활성을 뒤집으며 리비전을 올린다")
     void toggle() throws Exception {
         long id = jdbc.queryForObject("SELECT id FROM moment_templates ORDER BY code LIMIT 1", Long.class);
+        int rev = jdbc.queryForObject("SELECT rev FROM moment_templates WHERE id = ?", Integer.class, id);
         String path = "/admin/moments/" + id + "/toggle";
         mvc().perform(post(path).with(user("admin").roles("ADMIN"))).andExpect(status().isForbidden());
         mvc().perform(post(path).with(user("user").roles("USER")).with(csrf())).andExpect(status().isForbidden());
         mvc().perform(post(path).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/moments"));
         assertEquals(false, jdbc.queryForObject("SELECT enabled FROM moment_templates WHERE id = ?", Boolean.class, id));
-        assertEquals(2, jdbc.queryForObject("SELECT rev FROM moment_templates WHERE id = ?", Integer.class, id));
+        assertEquals(rev + 1, jdbc.queryForObject("SELECT rev FROM moment_templates WHERE id = ?", Integer.class, id));
         mvc().perform(post(path).with(user("admin").roles("ADMIN")).with(csrf())).andExpect(status().is3xxRedirection());
         assertEquals(true, jdbc.queryForObject("SELECT enabled FROM moment_templates WHERE id = ?", Boolean.class, id));
     }
@@ -86,6 +87,8 @@ class AdminEventWebIntegrationTest {
     void edit() throws Exception {
         long id = jdbc.queryForObject("SELECT id FROM turning_points WHERE code = 'RENT_HIKE'", Long.class);
         String path = "/admin/turning-points/" + id;
+        // 마이그레이션이 정의를 조정하면 리비전이 1보다 클 수 있으므로 시작 값 기준으로 본다.
+        int rev = jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id);
         String original = (String) mvc().perform(get(path).with(user("admin").roles("ADMIN"))).andExpect(status().isOk())
                 .andReturn().getModelAndView().getModel().get("definition");
         var unknown = (tools.jackson.databind.node.ObjectNode) json.readTree(original);
@@ -108,14 +111,14 @@ class AdminEventWebIntegrationTest {
                 .andExpect(status().isBadRequest());
         mvc().perform(post(path).param("definition", original).with(user("admin").roles("ADMIN")))
                 .andExpect(status().isForbidden());
-        assertEquals(1, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
+        assertEquals(rev, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
         var title = (tools.jackson.databind.node.ObjectNode) json.readTree(original);
         title.put("title", "임대료 재계약 통보");
         String retitled = json.writeValueAsString(title);
         mvc().perform(post(path).param("definition", retitled).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(path));
         assertEquals("임대료 재계약 통보", jdbc.queryForObject("SELECT title FROM turning_points WHERE id = ?", String.class, id));
-        assertEquals(2, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
+        assertEquals(rev + 1, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
         assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM turning_point_options WHERE turning_point_id = ?", Integer.class, id));
     }
 }
