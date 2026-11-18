@@ -275,6 +275,28 @@ class BoardPostIntegrationTest {
         }
         assertEquals(1L, jdbc.queryForObject("SELECT view_count FROM posts WHERE id = ?", Long.class, id));
     }
+    @Test void concurrentHideRollsBackNewView() throws Exception {
+        long id = fixture(owner, "FREE", "숨김 조회 경합", "본문");
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var request = new TransactionTemplate(transactions).execute(tx -> {
+                jdbc.update("UPDATE posts SET status = 'HIDDEN', hidden_at = now() WHERE id = ?", id);
+                var future = executor.submit(() -> mvc.perform(get(POSTS + "/" + id).header(TOKEN, owner.token())));
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                boolean waiting = false;
+                while (System.nanoTime() < deadline && !future.isDone()) {
+                    jdbc.execute("SELECT pg_stat_clear_snapshot()");
+                    waiting = Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE 'UPDATE posts SET view_count%')", Boolean.class));
+                    if (waiting) break;
+                    java.util.concurrent.locks.LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(20));
+                }
+                assertTrue(waiting);
+                return future;
+            });
+            request.get(10, TimeUnit.SECONDS).andExpect(status().isNotFound());
+        }
+        assertEquals(0L, jdbc.queryForObject("SELECT view_count FROM posts WHERE id = ?", Long.class, id));
+        assertEquals(0L, jdbc.queryForObject("SELECT count(*) FROM post_views WHERE post_id = ?", Long.class, id));
+    }
     private void search(String type, String q, long... expected) throws Exception {
         var result = mvc.perform(get(POSTS).param("searchType", type).param("q", q))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content", hasSize(expected.length)));

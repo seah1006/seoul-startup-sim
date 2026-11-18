@@ -112,7 +112,7 @@ class BoardModerationIntegrationTest {
         }
         for (int i = 0; i < 21; i++) {
             jdbc.update("INSERT INTO comments(post_id, author_id, content) VALUES (?, ?, '페이징')", id, owner.id());
-            jdbc.update("INSERT INTO post_reports(target_type,target_id,reporter_id,reason,status) VALUES ('POST',?,?, 'ABUSE','DISMISSED')", id, guest().id());
+            jdbc.update("INSERT INTO post_reports(target_type,target_id,reporter_id,reason,status,handled_at) VALUES ('POST',?,?, 'ABUSE','DISMISSED',now())", id, guest().id());
         }
         mvc.perform(get(ADMIN + "posts").with(admin).param("q", title)).andExpect(status().isOk())
                 .andExpect(model().attribute("posts", org.hamcrest.Matchers.hasSize(20)))
