@@ -9,6 +9,7 @@
 | v0.1 | 2026-11-04 | 첫 초안 (월 단위 턴, 계산식, ERD, API, 수집 파이프라인) |
 | v0.2 | 2026-11-06 | 커리어 시뮬레이션 구조 반영: 턴을 분기 단위로 변경, 사장님 생성, 분기 결산 카드, 전환점 이벤트, 동네 반응, 엔딩과 랭킹, 게스트 플레이 추가 |
 | v0.3 | 2026-11-07 | DATA-001 조사 결과 반영: 매출은 분기 합계, 좌표계 EPSG:5181, 결측 정책, 상가업소 수집 방식(증분 불가 → 분기 스냅샷), 임대료는 고정값 확정 (근거: `docs/data/DATA_NOTES.md`) |
+| v0.4 | 2026-11-18 | 19장 사장님 커뮤니티(게시판) 추가: RECORD 엔딩 인증글, 댓글·좋아요·신고, 관리자 숨김. V11 |
 
 ## 1. 개요
 
@@ -364,6 +365,9 @@ common/     공통 예외 처리, 응답 형식
 | Spring Boot + Thymeleaf + React | 프레임워크 강의(Spring MVC) 범위 반영. 게임은 React, 관리자와 공유 페이지는 서버 렌더링 |
 | Thymeleaf (JSP 대신) | Spring Boot의 jar 실행 방식에서 JSP는 war 패키징 등 제약이 있음 |
 | PostgreSQL + PostGIS | 공간 인덱스, JSONB 원본 저장, `ON CONFLICT` upsert, advisory lock |
+| 커뮤니티 게시판 추가 (19장) | 싱글 게임에서도 엔딩 기록 공유와 공략으로 사용자끼리 연결. 기말 평가의 게시판 CRUD를 정면으로 보여줌 |
+| 게시판 사용자 화면 React, 관리자 Thymeleaf | 게스트 토큰 헤더 인증과 SPA 흐름 유지, Spring MVC 폼·PRG는 관리자에서 시연 |
+| RECORD 스냅샷 + DB 트리거 이중 방어 | 게임 데이터가 바뀌어도 글은 그대로, 직접 SQL로도 남의 게임·진행 중 게임 인증 불가 |
 
 ## 17. 범위
 
@@ -386,3 +390,57 @@ common/     공통 예외 처리, 응답 형식
 | 4주 | 게임 엔진: 사장님, 분기 턴, 매출 계산, 원장, 전환점 엔진 |
 | 5주 | React 화면 (홈, 사장님 만들기, 지도, 결산 카드, 전환점), 동네 반응, 엔딩 |
 | 6주 | 랭킹 배치, 게스트와 카카오 로그인, 배포, 시연 시나리오, 발표 자료 |
+
+## 19. 사장님 커뮤니티 (게시판) — v0.4, 2026-11-18
+
+> 상세: API `docs/api/API_CONTRACT.md` 4장, DB `docs/board/V11__board.sql`, 근거와 대안 `docs/board/drafts/`(DB/API/기획 초안). 지시서 TASK-005A/B/C.
+
+### 왜 넣는가
+- 싱글 플레이 게임이라도 "다른 사장님과의 비교"는 랭킹만으로는 약하다. 엔딩 결과를 글로 남기고 공략을 나누는 커뮤니티가 있으면 한 판이 끝난 뒤에도 서비스에 머물 이유가 생긴다.
+- 기말과제 평가에서 게시판 CRUD(페이징, 검색, 정렬, 검증, 권한, 낙관적 락, 댓글, 좋아요, 신고)를 정면으로 보여줄 수 있다.
+- 게시판이 게임과 따로 놀지 않도록 **엔딩 인증글(RECORD)** 로 게임 데이터와 연결한다.
+
+### 구성
+| 카테고리 | 내용 |
+| --- | --- |
+| FREE 자유 / TIP 공략 / QNA 질문 | 일반 게시판 |
+| RECORD 엔딩 인증 | 끝난 내 게임(ENDED)을 첨부. 첨부 시점의 엔딩 요약(엔딩 종류, 업종, 상권, 가게·사장님 이름, 생존 분기, 누적 순이익)을 글에 스냅샷으로 복사해 업종·상권 필터와 정렬에 쓴다 |
+
+- 게임 연결 지점: 엔딩 화면 → "엔딩 인증하기"(`/board/write?category=RECORD&gameId=…`), 인증글 카드 → `/share/{gameId}`, 공유 페이지 → 인증글 링크, 홈 → 인기글 미리보기.
+- 랭킹 행 → 인증글 연결은 랭킹 응답 변경이 필요해 후속.
+
+### 규칙 (DB와 서비스가 같이 지킨다)
+| 규칙 | 서비스 | DB |
+| --- | --- | --- |
+| RECORD는 본인 소유 + ENDED 게임만 | 없음·남의 게임 404(존재 노출 금지), 진행 중 409 | 트리거 `trg_posts_record_game_guard` |
+| 게임당 삭제되지 않은(ACTIVE·HIDDEN) RECORD 1건, DELETED 후 재작성 허용 | 409 `RECORD_ALREADY_POSTED` | 부분 유일 인덱스 `ux_posts_record_game` |
+| 스냅샷은 서버가 채움 (요청은 `gameId`만) | 위조 방지 | CHECK `ck_posts_record_snapshot` |
+| 대댓글은 1단계까지, 같은 글의 ACTIVE 루트에만 | 부모 없음·다른 글·비공개 404, 대댓글을 부모로 지정 400 `COMMENT_DEPTH_EXCEEDED` | 트리거 `trg_comments_depth_guard` |
+| 좋아요 사용자당 1회, PUT/DELETE 멱등 | 실제 삽입·삭제 행 수로 카운터 갱신 | UNIQUE(post_id, user_id) |
+| 신고 사용자당 대상별 1회, 자기 글 신고 금지 | 409 / 403 | UNIQUE(target_type, target_id, reporter_id) |
+| 수정·삭제는 작성자만, 동시 수정은 낙관적 락 | 403, 409 `POST_VERSION_CONFLICT` | `version` 컬럼 (카운터 갱신은 version을 올리지 않음) |
+| 삭제는 soft delete, 숨김은 관리자만 | 상태 `ACTIVE/HIDDEN/DELETED` | CHECK로 `deleted_at`과 상태 일치 |
+| 조회수는 유효 토큰 사용자만 KST 하루 1회 | 신규 삽입 성공 시에만 +1 | `post_views` PK(post_id, user_id, viewed_on) |
+
+- 검색: 한국어 형태소 분석기가 없어 `tsvector` 대신 `ILIKE '%키워드%'` + `pg_trgm` GIN 인덱스. postgis/postgis:16-3.5에서 pg_trgm 1.6 가용, 인덱스 사용 확인(EXPLAIN).
+- 숨김·삭제된 루트 댓글은 공개 답글이 남아 있을 때만 "표시할 수 없는 댓글입니다." 자리표시자로 남긴다.
+
+### 화면 기술
+- 사용자 게시판: **React + REST** (게임과 같은 SPA, `X-Guest-Token` 헤더 인증을 그대로 사용. Thymeleaf 폼은 커스텀 헤더를 보낼 수 없어 쿠키 브리지가 따로 필요해짐).
+- 관리자 게시판 `/admin/board/**`: **Thymeleaf + Spring Security 세션**. 폼 바인딩, `BindingResult`, CSRF, PRG(303 + 플래시)를 여기서 보여준다.
+- 공유 페이지 `/share/{gameId}`: Thymeleaf, 로그인 없이 공개.
+
+### 교차 리뷰로 확정한 것 (2026-11-18)
+- 판정 순서 `401 → 400 → 404 → 403 → 409` 고정, 비공개 대상에는 좋아요·댓글·신고 불가(404), 관리자 숨김·복구 시 카운터 재계산, LIKE 이스케이프(`\`, `%`, `_`), 게시판 쓰기 레이트 리밋(429). 자세한 규칙은 API 4장 "판정 순서와 안전 규칙".
+- 동시 대댓글 교착: 깊이 트리거가 부모를 `FOR SHARE`로 잠그면 두 사람이 같은 댓글에 동시에 답글을 달 때 `deadlock detected`가 실제로 재현됐다. `FOR KEY SHARE`로 바꿔 두 답글 모두 성공, `reply_count` 2를 확인했다.
+- Flyway 순서: V11은 V8~V10보다 번호가 크므로, V8~V10이 병합되기 전에는 전용 DB에서만 적용하고 main 병합은 그 뒤에 한다(`outOfOrder`는 켜지 않는다).
+
+### 패키지
+`com.seah.startupsim.board` (controller, service, repository, dto). game 패키지는 수정하지 않고, 인증은 `GuestAuth.resolve()`에 위임, RECORD 원본은 읽기 전용 조회 포트(`BoardRecordReadRepository`)로만 읽는다.
+
+### 범위
+| 기말 (MVP) | 이후 |
+| --- | --- |
+| 목록(페이징·검색·정렬·필터), 상세(조회수), 작성·수정(낙관적 락)·삭제(soft) | 이미지 업로드, 리치 에디터 |
+| 댓글 + 1단계 대댓글, 좋아요, 신고, 관리자 숨김·복구·고정 | 금칙어, 자동 블라인드, 알림 |
+| RECORD 인증글 + 공유 페이지 연결 (엔딩 요약 구현 후) | 랭킹 → 인증글 연결, 동네 반응 답글(선택 코드 기록으로 결정론 유지) |
