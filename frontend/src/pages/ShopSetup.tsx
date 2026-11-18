@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, useMock } from '../api/client';
 import type { Area, GameState, Industry, Report, Stores } from '../api/types';
-import { money } from '../components/ResultCard';
+import { formatDistance, money } from '../components/ResultCard';
 import { AreaMap } from '../components/AreaMap';
 export default function ShopSetup({
   game,
@@ -81,7 +81,7 @@ export default function ShopSetup({
   }
   return (
     <>
-      <p className="eyebrow">STEP 02 / FIND YOUR NEIGHBORHOOD</p>
+      <p className="eyebrow">2단계 · 동네 찾기</p>
       <h1>첫 가게, 어느 동네가 좋을까요?</h1>
       <div className="grid map-layout">
         <section>
@@ -124,7 +124,7 @@ export default function ShopSetup({
           />
         </section>
         <section className="card">
-          <p className="eyebrow">AREA REPORT {useMock ? '· 목 데이터' : ''}</p>
+          <p className="eyebrow">상권 리포트 {useMock ? '· 목 데이터' : ''}</p>
           <h2>{area?.name || '동네를 선택해 주세요'}</h2>
           {report && (
             <>
@@ -182,7 +182,7 @@ export default function ShopSetup({
               <h3>반경 300m 경쟁 점포 {stores.count}곳</h3>
               {stores.stores.map((s) => (
                 <p key={s.storeId}>
-                  {s.name} · {s.distanceM}m
+                  {s.name} · {formatDistance(s.distanceM)}
                 </p>
               ))}
             </>

@@ -47,7 +47,7 @@ export default function NewOwner() {
   }
   return (
     <>
-      <p className="eyebrow">STEP 01 / YOUR OWNER</p>
+      <p className="eyebrow">1단계 · 사장님</p>
       <h1>어떤 사장님이 될까요?</h1>
       <section className="card">
         <label>
