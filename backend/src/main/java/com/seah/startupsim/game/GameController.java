@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import java.util.Map;
+import com.seah.startupsim.game.GameResponses.Guest;
+import com.seah.startupsim.game.GameResponses.Candidates;
+import com.seah.startupsim.game.GameResponses.State;
+import com.seah.startupsim.game.GameResponses.DecisionSaved;
+import com.seah.startupsim.game.GameResponses.Advanced;
 import java.util.List;
 import com.seah.startupsim.game.GameTypes.Decision;
 import com.seah.startupsim.game.GameTypes.Create;
@@ -33,21 +37,22 @@ public class GameController {
         this.auth=auth;this.candidates=candidates;this.service=service;this.advance=advance;this.repository=repository;
     }
     @PostMapping("/guest") @ResponseStatus(HttpStatus.CREATED)
-    public Map<String,Object> guest() { return auth.create(); }
+    public Guest guest() { return auth.create(); }
     @GetMapping("/owners/candidates")
-    public Map<String,Object> candidates(@RequestHeader(value="X-Guest-Token",required=false) String token,@RequestParam Background background,@RequestParam long seed) {
-        auth.resolve(token);return Map.of("background",background,"candidates",candidates.generate(background,seed));
+    public Candidates candidates(@RequestHeader(value="X-Guest-Token",required=false) String token,@RequestParam Background background,@RequestParam long seed) {
+        auth.resolve(token);return new Candidates(background, candidates.generate(background,seed));
     }
     @PostMapping("/games") @ResponseStatus(HttpStatus.CREATED)
-    public Map<String,Object> create(@RequestHeader(value="X-Guest-Token",required=false) String token,@Valid @RequestBody Create request) { return service.create(auth.resolve(token),request); }
+    public State create(@RequestHeader(value="X-Guest-Token",required=false) String token,@Valid @RequestBody Create request) { return service.create(auth.resolve(token),request); }
     @GetMapping("/games/{id}")
-    public Map<String,Object> state(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id) { return repository.state(id,auth.resolve(token)); }
+    public State state(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id) { return repository.state(id,auth.resolve(token)); }
     @GetMapping("/games/{id}/turns")
-    public List<Map<String,Object>> turns(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id) { return repository.turns(id,auth.resolve(token)); }
+    public List<QuarterOutcome> turns(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id) { return repository.turns(id,auth.resolve(token)); }
     @PostMapping("/games/{id}/shop")
-    public Map<String,Object> shop(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id,@Valid @RequestBody Shop request) { return service.shop(id,auth.resolve(token),request); }
+    public State shop(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id,@Valid @RequestBody Shop request) { return service.shop(id,auth.resolve(token),request); }
     @PutMapping("/games/{id}/turns/{turn}/decision")
-    public Map<String,Object> decision(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id,@PathVariable int turn,@Valid @RequestBody Decision request) { return service.decision(id,auth.resolve(token),turn,request); }
+    public DecisionSaved decision(@RequestHeader(value="X-Guest-Token",required=false) String token,@PathVariable long id,@PathVariable int turn,@Valid @RequestBody Decision request) { return service.decision(id,auth.resolve(token),turn,request); }
     @PostMapping("/games/{id}/advance")
-    public Map<String,Object> advance(@RequestHeader(value="X-Guest-Token",required=false) String token,@RequestHeader(value="Idempotency-Key",required=false) String key,@PathVariable long id,@Valid @RequestBody Advance request) { return advance.advance(id,auth.resolve(token),key,request.expectedVersion()); }
+    public Advanced advance(@RequestHeader(value="X-Guest-Token",required=false) String token,@RequestHeader(value="Idempotency-Key",required=false) String key,@PathVariable long id,@Valid @RequestBody Advance request) { return advance.advance(id,auth.resolve(token),key,request.expectedVersion()); }
 }
+

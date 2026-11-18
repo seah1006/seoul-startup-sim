@@ -5,7 +5,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
-import java.util.Map;
+import com.seah.startupsim.game.GameResponses.Guest;
 import java.util.UUID;
 
 /** 게스트 토큰 원문은 발급 응답에만 담고 SHA-256 해시로 인증한다. */
@@ -13,11 +13,11 @@ import java.util.UUID;
 public class GuestAuth {
     private final JdbcTemplate jdbc;
     public GuestAuth(JdbcTemplate jdbc) { this.jdbc=jdbc; }
-    public Map<String,Object> create() {
+    public Guest create() {
         String token=UUID.randomUUID().toString()+UUID.randomUUID();
         String nickname="손님-"+UUID.randomUUID().toString().substring(0,4);
         Long id=jdbc.queryForObject("INSERT INTO users(nickname,guest_token_hash) VALUES (?,?) RETURNING id",Long.class,nickname,hash(token));
-        return Map.of("guestToken",token,"userId",id,"nickname",nickname);
+        return new Guest(token, id, nickname);
     }
     public long resolve(String token) {
         if(token==null || token.isBlank()) throw new GameException(401,"UNAUTHORIZED","게스트 인증이 필요합니다.");
@@ -30,3 +30,4 @@ public class GuestAuth {
         catch(java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }
 }
+
