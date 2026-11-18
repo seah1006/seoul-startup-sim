@@ -126,14 +126,16 @@ class SeoulCollectorIntegrationTest {
     }
 
     @Test
-    @DisplayName("실제 샘플 적재는 원본과 활성 버전을 저장하고 재실행 시 멱등이다")
-    void sampleAndIdempotency() throws Exception {
+    @DisplayName("재수집은 이전 버전을 보존하고 새 버전만 활성화한다")
+    void sampleAndVersionPreservation() throws Exception {
         API.stubFor(get(urlPathMatching(".*")).willReturn(aResponse().withBody(sample())));
         service.run("seoul-area-sales", "20262");
         assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM area_sales_q", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM raw_payloads", Integer.class));
         service.run("seoul-area-sales", "20262");
-        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM area_sales_q", Integer.class));
+        assertEquals(10, jdbc.queryForObject("SELECT count(*) FROM area_sales_q", Integer.class));
+        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM area_sales_q_active", Integer.class));
+        assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM area_sales_q q JOIN data_versions v ON v.id=q.version_id WHERE v.status='READY'", Integer.class));
         assertEquals(5, jdbc.queryForObject("SELECT updated FROM ingest_runs ORDER BY id DESC LIMIT 1", Integer.class));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM data_versions WHERE status='ACTIVE'", Integer.class));
     }

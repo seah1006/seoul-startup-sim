@@ -93,3 +93,16 @@
 ## 환경 변수
 
 API 키는 저장소에 커밋하지 않습니다. `.env.example`을 복사해 `.env`를 만들어 사용합니다.
+
+### 분기 데이터 자동 갱신 (TASK-004E)
+- 기본값은 꺼짐: `app.ingest.schedule.enabled=false`. 켜려면 환경 변수 `APP_INGEST_SCHEDULE_ENABLED=true`를 설정합니다.
+- 매일 서울 시간 04:00에 매출·점포·유동인구의 최신 ACTIVE 분기 이후부터 현재 분기까지 신규 자료를 확인하고, 제공된 분기만 기존 백필 경로로 적재합니다. 초기 데이터가 없으면 관리자 수동 백필이 먼저 필요합니다.
+- 시각은 `app.ingest.schedule.cron`으로 조정합니다. 같은 출처의 중복 적재는 DB의 RUNNING 유일 인덱스로 막습니다. 직장인구 전체 수집과 상권 SHP/메타, 상가 CSV 스냅샷은 관리자 수동 수집 대상입니다.
+- 서울 API 수집기는 공통 속도 제한·재시도·서킷 브레이커를 거칩니다. 상가업소는 외부 API가 아닌 로컬 CSV 전체 교체 방식입니다.
+- 분기 참조는 버전별로 보존합니다. `/admin/data-versions`에서 삭제 대상 미리보기를 확인하고, 활성·게임 고정·적재 중·현재 상권/점포 참조가 없는 버전만 정리할 수 있습니다.
+
+### 인증 진입점 IP 제한
+- `app.security.ip-rate-limit.paths`: POST 제한 경로 목록, 기본 `/api/guest,/api/auth/signup,/api/auth/login`. 아직 없는 인증 경로도 생성되면 같은 독립 필터가 적용됩니다.
+- `max-requests=20`, `window-seconds=600`: IP당 설정 경로 전체를 합해 슬라이딩 윈도우 제한합니다. 초과는 공통 `429 RATE_LIMITED` JSON과 Retry-After를 반환합니다.
+- `app.security.trust-proxy=false` 기본값에서는 X-Forwarded-For를 무시합니다. 외부에서 프록시를 우회할 수 없고 프록시가 전달 헤더를 덮어쓰도록 구성한 경우에만 켭니다.
+- `app.security.ip-rate-limit.max-ips=10000`: 메모리 추적 상한이며 가득 차면 새 IP도 제한합니다. 단일 JVM 정책이므로 다중 인스턴스 배포에는 공유 저장소 제한기를 별도 도입해야 합니다.

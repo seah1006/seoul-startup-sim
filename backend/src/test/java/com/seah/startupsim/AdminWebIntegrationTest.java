@@ -74,6 +74,10 @@ class AdminWebIntegrationTest {
         if (!matcher.find()) throw new IllegalStateException("CSRF 토큰 없음");
         return client.send(HttpRequest.newBuilder(URI.create(base + path)).header("Content-Type", "application/x-www-form-urlencoded").POST(HttpRequest.BodyPublishers.ofString("_csrf=" + java.net.URLEncoder.encode(matcher.group(1), java.nio.charset.StandardCharsets.UTF_8))).build(), HttpResponse.BodyHandlers.ofString());
     }
+    @Test @DisplayName("버전 정리는 관리자와 CSRF가 필요하고 PRG로 완료한다")
+    void purgeSecurity() throws Exception {
+        mvc().perform(post("/admin/data-versions/purge").with(user("admin").roles("ADMIN"))).andExpect(status().isForbidden());
+        mvc().perform(post("/admin/data-versions/purge").with(user("user").roles("USER")).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().isForbidden());
+        mvc().perform(post("/admin/data-versions/purge").with(user("admin").roles("ADMIN")).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/admin/data-versions"));
+    }
 }
-
-

@@ -59,7 +59,7 @@ class AreaWebIntegrationTest {
         r.add("spring.datasource.url", DB::getJdbcUrl);
         r.add("spring.datasource.username", DB::getUsername);
         r.add("spring.datasource.password", DB::getPassword);
-        r.add("app.ingest.seoul-base-url", SEOUL::baseUrl);
+        r.add("app.external.seoul.base-url", SEOUL::baseUrl);
         r.add("app.external.seoul.api-key", () -> "test-area-key");
     }
 
@@ -113,15 +113,15 @@ class AreaWebIntegrationTest {
     }
 
     @Test
-    @DisplayName("메타 API 오류는 원본과 실패 이력을 남기고 활성 버전을 만들지 않는다")
+    @DisplayName("메타 인증 오류는 실패 이력을 남기고 활성 버전을 만들지 않는다")
     void metadataFailure() {
         ingest.run("seoul-area-shapes", null);
         SEOUL.stubFor(get(urlEqualTo("/test-area-key/json/TbgisTrdarRelm/1/1000/"))
                 .willReturn(aResponse().withHeader("Content-Type", "application/json")
                         .withBody("{\"RESULT\":{\"CODE\":\"ERROR-300\"}}")));
-        assertThrows(IllegalStateException.class, () -> ingest.run("seoul-area-meta", null));
+        assertThrows(com.seah.startupsim.ingest.client.SeoulApiException.class, () -> ingest.run("seoul-area-meta", null));
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM ingest_runs WHERE source='seoul-area-meta' AND status='FAILED'", Integer.class));
-        assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM raw_payloads WHERE source='seoul-area-meta'", Integer.class));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM raw_payloads WHERE source='seoul-area-meta'", Integer.class));
         assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM data_versions WHERE source='seoul-area-meta'", Integer.class));
     }
 
@@ -170,5 +170,12 @@ class AreaWebIntegrationTest {
                 + environment.getRequiredProperty("local.server.port") + uri)).GET().build(),
                 HttpResponse.BodyHandlers.ofString());
     }
+    @Test @DisplayName("메타 서버 장애는 공통 클라이언트로 세 번 재시도 후 실패하고 적재하지 않는다")
+    void metadataRetriesServerFailure() {
+        SEOUL.stubFor(get(urlEqualTo("/test-area-key/json/TbgisTrdarRelm/1/1000/"))
+                .willReturn(aResponse().withStatus(503)));
+        assertThrows(com.seah.startupsim.ingest.client.SeoulApiException.class,()->ingest.run("seoul-area-meta",null));
+        SEOUL.verify(3,getRequestedFor(urlEqualTo("/test-area-key/json/TbgisTrdarRelm/1/1000/")));
+        assertEquals(0,jdbc.queryForObject("SELECT count(*) FROM data_versions WHERE source='seoul-area-meta'",Integer.class));
+    }
 }
-
