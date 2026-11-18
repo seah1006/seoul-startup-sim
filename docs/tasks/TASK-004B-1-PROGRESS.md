@@ -74,3 +74,56 @@ MarketDataRepository와 GameService 버전 고정 코드, 다른 Flyway 버전, 
 5. 최종 전체 검사 및 완료 조건 재확인.
 
 정의 **로드/부팅 검증 연결은 이번에 완료**했다. 관리자 저장 검증 연결은 잔여다. MarketDataRepository·GameService·game_data_pins·GuestAuth·보안 필터·기존 골든 파일은 이번 실행에서 수정하지 않았다. push 없음.
+
+## 4차 실행 (2026-11-18, Claude가 Codex 진행분 인계)
+
+### main 병합
+- 진행 중 변경을 `git stash -u` → `git merge main`(TASK-006A 회원 인증, V7_2, `.gitattributes`) → `git stash pop`. 충돌 없음(`99f07ad`).
+- 전환점 API 사용자 식별은 기존 GameController와 같이 `GuestAuth.resolve`를 쓴다. 병합 후 `GuestAuth`가 보안 컨텍스트(Bearer)와 `X-Guest-Token`을 모두 받으므로 HTTP 테스트에서 두 헤더를 모두 확인했다.
+
+### Codex 미커밋 변경 처리
+- `AdvanceService`(대기 중 409 `TURNING_POINT_PENDING`), `GameRepository.pendingTurningPoint`, `EventContextFactory`, `EventEffectService`, `TurningPointService/Controller`, `TurningPointIntegrationTest`는 그대로 살리고 완성했다(테스트 3개가 병합 후에도 통과해 버릴 이유 없음).
+- `EventEngine`은 다시 썼다. 이유: 전환점만 다뤘고 순간·반응·경쟁점이 없었으며, 엔딩 분기에서 반응·순간까지 건너뛰었다. 새 구조는 순간 → 가상 경쟁점 → 반응 → (엔딩이 아니면) 전환점. 정의별 발생 판정을 `judge()`로 분리해 정의 추가 불변 테스트가 직접 검사한다.
+- 효과 요약 문구를 계약 형식으로 바꿨다(`지원금 +1,000원`, `매출 +20%`, `+4%p`). 플래그는 내부 상태라 화면 요약에서 뺐다.
+
+### 구현·커밋
+- `a6f32ce` 이벤트 엔진 흐름·전환점 GET(200/204)/POST choice. choice는 `Idempotency-Key` 필수, `endpoint='turning-point-choice'`, 다른 엔드포인트 키 재사용 409 `IDEMPOTENCY_KEY_REUSED`, 게임 행 잠금으로 직렬화, `games.version`만 +1(`current_turn` 유지), 이미 해결 409 `TURNING_POINT_ALREADY_RESOLVED`, 대기 없음 404 `NO_PENDING_TURNING_POINT`, 남의 선택지 400. 대기 행은 payload(제목·설명·선택지·성공률·효과 요약·효과 원본)와 `definition_rev`를 스냅샷하고 선택 시 정의 테이블을 다시 읽지 않는다.
+  - `NeighborhoodEventService`: 순간(가중 추첨, `0.5+(stat-difficulty)×slope` clamp, STAT/MODIFIER/TEXT만, 현금 없음), 반응(2~3개, 첫 뽑기는 REVIEW 풀, `{shopName}{areaName}{serviceName}`만 치환, likes는 `REACTION_LIKES` 스트림), 가상 경쟁점(개업·폐업 비율, 실제 점포 행은 닫지 않음).
+  - 가상 경쟁점 변화는 별도 필드 없이 반응 한 자리를 "동네 커뮤니티" 문구로 쓴다(총 개수는 그대로 2~3). 반응 템플릿이 모두 꺼져 있으면 경쟁점 변화도 멈춘다(노출 경로가 없으므로).
+  - `turn_results.reactions`·`moment`(V8 사본 컬럼)와 `response`를 같은 값으로 저장. 활성 정의가 0건이면 엔진이 즉시 반환한다.
+- `c749064` 이벤트 켠 8분기 새 골든 `src/test/resources/game/events-on-eight-quarters.json`(V8 시드 콘텐츠 그대로, 시드 20261118, 선택 규칙 = 분기 번호 mod 선택지 수). 같은 시드 두 게임의 바이트 동일 + 골든 일치. 골든 재생성은 `WRITE_EVENT_GOLDEN=1` 환경 변수로만.
+  - 정의 추가 불변: V8 전환점 12개 vs 새 정의(priority 1000, p=0.9) 추가 + 역순 정렬, 시드 20개 × 분기 8개에서 기존 12개 판정이 모두 같음.
+  - 확률 경계: 성공률 10%/90% 선택지를 고정 시드(첫 난수가 0.1 이상·0.9 미만인 시드)로 실패/성공 각각 확인, 실패 시 현금 불변.
+  - HTTP: 204/401/200(Bearer), 키 없음 400, 잘못된 optionId 400, 대기 중 advance 409, 선택 200, 다른 키 재선택 409.
+- `bfe876f` 관리자 `/admin/turning-points`, `/admin/reactions`, `/admin/moments`: 목록(코드·이름·활성·rev·전환점은 최근 30일 발생 수), `POST …/{id}/toggle`(enabled 반전 + rev+1, PRG), `GET/POST …/{id}` JSON 편집. 저장 시 부팅·사용 시와 같은 `EventDefinitionValidator`를 통과해야 하고 실패하면 400과 오류 경로(`conditionExpr…`, `baseProbability…`)를 폼에 표시하고 저장하지 않는다. code 변경 거부, 삭제 없음, 기존 보안·CSRF 그대로.
+  - 대기 스냅샷 불변: 대기 중 관리자 저장(제목·효과 변경)과 비활성화 뒤에도 GET 응답이 같고, 선택은 스냅샷 효과(+1,000원)로 적용, `definition_rev`=1 유지.
+
+### 8분기 데모 (고정 시드 20261118, 이벤트 켬, `EventFlowIntegrationTest` 실행 결과 `build/reports/events-demo.md`)
+
+| 분기 | 순이익 | 전환점 | 선택 | 결과 | 반응 수 | 순간 |
+|---|---:|---|---|---|---:|---|
+| 20231 | 21,359,778 | - | - | - | 2 | 옆 가게와 식자재·비품 공동 구매 (실패) |
+| 20232 | 37,324,773 | - | - | - | 2 | 계절 한정 메뉴 시식회 (실패) |
+| 20233 | 33,000,302 | DELIVERY_APP | 배달 플랫폼 입점 | 성공 | 2 | 새벽 시장 직거래 발품 (실패) |
+| 20234 | 52,370,024 | RENT_HIKE | 인상안 수용 | 성공 | 2 | 단골손님의 친구 동반 방문 (실패) |
+| 20241 | 59,078,193 | REDEVELOPMENT_RUMOR | 권리금 받고 인근으로 이전 | 성공 | 2 | 새벽 시장 직거래 발품 (성공) |
+| 20242 | 51,779,917 | SECOND_BRANCH | 내실을 다지며 보류 | 성공 | 2 | 까다로운 미식가의 방문 (실패) |
+| 20243 | 55,171,675 | - | - | - | 3 | 단골손님의 친구 동반 방문 (성공) |
+| 20244 | 79,945,116 | CORPORATE_CATERING | 단발성 체험 납품으로 간 보기 | 성공 | 2 | 재고 로스 제로 달성 (성공) |
+
+픽스처는 테스트용 가상 상권 1개(9분기 데이터)다. 실제 상권 데이터 기반 수치가 아니다. 관찰: 8분기 중 전환점 5회로 빈도가 높고 선택 결과가 모두 성공이다(선택 규칙상 성공률 100% 선택지가 많이 걸림). 밸런스 조정은 관리자 화면 몫으로 남긴다.
+
+### 검증
+- `gradlew.bat clean check --offline`: **BUILD SUCCESSFUL**, 2분 30초, **106개 / 실패 0 / 오류 0 / 건너뜀 0**. 004A `GameIntegrationTest` "고정 시드 4분기 JSON 회귀 스냅샷" 통과(골든 파일 수정 없음).
+- worktree DB 5438에 `bootRun`(앱 8086)으로 V1~V8(V7_2 포함) 순서 적용 확인, 부팅 정의 검증 ERROR 로그 없음. 정의 수 쿼리 결과:
+  ```
+   turning_points | options | reactions | moments
+               12 |      28 |        36 |      12
+  ```
+  같은 앱에서 `GET /api/games/1/turning-point` 토큰 없음 401, `/admin/turning-points` 비로그인 302 확인 후 앱 종료.
+- MarketDataRepository, GameService 창업·버전 고정, 004A 골든 파일, 인증·보안 필터는 수정하지 않았다. push 없음.
+
+### 남은 것·제안
+- 파트 1 완료 조건 1~3 충족. 파트 2(V9)는 미착수.
+- 제안: API_CONTRACT 3장에 `NO_PENDING_TURNING_POINT`(404), `TURNING_POINT_ALREADY_RESOLVED`(409) 코드를 명시하면 프론트 처리 분기가 분명해진다(ENGINE 3.3에는 있음).
+- 제안: 관리자 이벤트 목록 경로는 지시서대로 `/admin/turning-points` 등을 썼다(ENGINE 6장의 `/admin/events/...`와 다름, 지시서 우선).
