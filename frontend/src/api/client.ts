@@ -18,6 +18,7 @@ import type {
   Stores,
 } from './types';
 import { mockRequest } from './mock';
+import { mockAuth } from './mock/auth';
 export const useMock = import.meta.env.VITE_USE_MOCK !== 'false';
 export class ApiError extends Error {
   constructor(
@@ -42,6 +43,7 @@ async function guest(): Promise<string> {
             return r.json();
           });
       localStorage.setItem(guestStorageKey, data.guestToken);
+      window.dispatchEvent(new Event('authchange'));
       return data.guestToken;
     })().catch((e) => {
       guestPromise = undefined;
@@ -66,7 +68,11 @@ export async function sendWithGuestRecovery(
     localStorage.removeItem(guestStorageKey);
     guestPromise = undefined;
   }
-  return send(optional ? null : await guest());
+  window.dispatchEvent(new Event('authchange'));
+  if (optional) return send(null);
+  if (/^\/(new|games)(?:\/|$)/.test(window.location.pathname)) return send(await guest());
+  window.dispatchEvent(new Event('authrequired'));
+  return response;
 }
 export async function request<T>(
   url: string,
@@ -74,15 +80,25 @@ export async function request<T>(
   body?: unknown,
   key?: string,
 ): Promise<T> {
-  const token = await guest();
-  if (useMock) return mockRequest<T>(url, method, body, key);
+  const gameRequest = /^\/(games|owners)(?:\/|$)/.test(url);
+  const token = gameRequest ? await guest() : localStorage.getItem(guestStorageKey);
+  if (useMock) {
+    try {
+      return url.startsWith('/auth/')
+        ? (mockAuth(url, method, token, body) as T)
+        : await mockRequest<T>(url, method, body, key);
+    } catch (e) {
+      const error = e as ApiError;
+      throw new ApiError(error.status || 500, error.message, error.code);
+    }
+  }
   const response = await sendWithGuestRecovery(
     (token) =>
       fetch(`/api${url}`, {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'X-Guest-Token': token!,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(key ? { 'Idempotency-Key': key } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),

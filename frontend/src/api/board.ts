@@ -1,4 +1,4 @@
-import { api, ApiError, guestStorageKey, useMock, sendWithGuestRecovery } from './client';
+import { ApiError, guestStorageKey, useMock, sendWithGuestRecovery } from './client';
 import { mockBoardRequest } from './mock/board';
 import type {
   CommentItem,
@@ -40,7 +40,7 @@ async function boardRequest<T>(
         signal,
         headers: {
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-          ...(guestToken ? { 'X-Guest-Token': guestToken } : {}),
+          ...(guestToken ? { Authorization: `Bearer ${guestToken}` } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
