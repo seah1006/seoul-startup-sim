@@ -23,8 +23,11 @@ class EventEffectSummaryTest {
     }
 
     @Test
-    @DisplayName("선택 결과 효과 값(describe)은 이벤트 골든이 고정한 기존 표기를 유지한다")
-    void describeKeepsGoldenFormat() {
-        assertEquals("-2,000,000원", effects.describe(List.of(new EventDsl.Cash(-2000000, "포장재"))).getFirst().value());
+    @DisplayName("선택 결과 효과 값(describe)도 선택 전과 같은 화면 금액 규칙을 쓴다")
+    void describeUsesScreenMoneyFormat() {
+        assertEquals("-200만 원", effects.describe(List.of(new EventDsl.Cash(-2000000, "포장재"))).getFirst().value());
+        assertEquals("+150만 원", effects.describe(List.of(
+                new EventDsl.ModifierEffect("rent", "ADD", 1500000, 4, "임대료"))).getFirst().value());
+        assertEquals("+2,500원", effects.describe(List.of(new EventDsl.Cash(2500, "지원금"))).getFirst().value());
     }
 }
