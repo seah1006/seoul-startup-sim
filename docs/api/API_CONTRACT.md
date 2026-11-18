@@ -156,7 +156,7 @@
 - `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) 본문 `{ "expectedVersion": 3 }` → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
   - 영업 4분기 미만은 400, 전환점 대기 중에는 409 `TURNING_POINT_PENDING`.
 - 자동 엔딩: CLOSED(잔액 2분기 연속 음수), LONG_RUNNING(데이터 마지막 분기 도달)
-- `GET /api/games/{gameId}/summary` → 소유자만, 종료 전에는 409 `GAME_NOT_ENDED`. 종료 후:
+- `GET /api/games/{gameId}/summary` → 소유자만, 종료 전에는 409 `GAME_NOT_ENDED`. 종료됐지만 엔딩 기록이 없으면(V9 이전 종료분 중 V12 백필 대상이 아닌 경우) 404 `NOT_FOUND`. 종료 후:
   ```json
   { "gameId": 10, "endingType": "LONG_RUNNING", "ownerName": "김사장", "shopName": "망원커피",
     "areaName": "망원역", "serviceName": "커피-음료", "survivedQuarters": 14,

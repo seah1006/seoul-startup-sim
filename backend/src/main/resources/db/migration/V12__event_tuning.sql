@@ -17,3 +17,28 @@ UPDATE turning_points SET base_probability = 0.08, rev = rev + 1, updated_at = n
 UPDATE turning_points SET base_probability = 0.12, rev = rev + 1, updated_at = now() WHERE code = 'DELIVERY_APP';
 UPDATE turning_points SET base_probability = 0.08, rev = rev + 1, updated_at = now() WHERE code = 'HYGIENE_INSPECTION';
 UPDATE turning_points SET base_probability = 0.08, cooldown_quarters = 8, rev = rev + 1, updated_at = now() WHERE code = 'LOCAL_FESTIVAL';
+
+------------------------------------------------------------------------------
+-- 2. V9 이전에 끝난 게임의 엔딩 기록 백필
+------------------------------------------------------------------------------
+-- V9 전에는 매각 엔딩이 없었으므로 CLOSED·LONG_RUNNING만 대상이다. 숫자는 GameRecordRepository.insert와 같은
+-- 식(turn_results 집계)으로, 이름·업종·상권은 현재 shops·owners·users 값으로 채운다. 종료 시각 기록이 없어
+-- 마지막 진행 요청(멱등 키) 시각을, 그것도 없으면 마이그레이션 시각을 쓴다. 2026-11-18 메인 DB에는 대상 0건.
+INSERT INTO game_records
+    (game_id, user_id, nickname, ending_type, survived_quarters, total_profit, best_quarter_profit,
+     shop_count, sale_value, area_code, area_name, service_code, service_name, shop_name, owner_name,
+     ended_at, ranking_date)
+SELECT g.id, g.user_id, u.nickname, g.ending_type,
+       (SELECT count(*) FROM turn_results t WHERE t.game_id = g.id),
+       (SELECT coalesce(sum(t.profit), 0) FROM turn_results t WHERE t.game_id = g.id),
+       (SELECT coalesce(max(t.profit), 0) FROM turn_results t WHERE t.game_id = g.id),
+       g.shop_count, NULL, s.area_code, s.area_name, s.service_code, s.service_name, s.name, o.name,
+       e.ended_at, (e.ended_at AT TIME ZONE 'Asia/Seoul')::date
+FROM games g
+JOIN users u ON u.id = g.user_id
+JOIN shops s ON s.game_id = g.id
+JOIN owners o ON o.game_id = g.id
+CROSS JOIN LATERAL (SELECT coalesce((SELECT max(k.created_at) FROM idempotency_keys k WHERE k.game_id = g.id), now())
+                    AS ended_at) e
+WHERE g.status = 'ENDED' AND g.ending_type IN ('CLOSED', 'LONG_RUNNING')
+  AND NOT EXISTS (SELECT 1 FROM game_records r WHERE r.game_id = g.id);

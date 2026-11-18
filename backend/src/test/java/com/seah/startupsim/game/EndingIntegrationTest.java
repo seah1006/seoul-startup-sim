@@ -305,6 +305,45 @@ class EndingIntegrationTest {
                 List.copyOf(json.readTree(body).propertyNames()));
     }
     @Test
+    @DisplayName("V9 이전 종료 게임: 기록이 없으면 요약 404, V12 백필 SQL은 결산 이력으로 기록을 한 번만 만든다")
+    void legacyEndedGame() throws Exception {
+        var mvc = MockMvcBuilders.webAppContextSetup(context).apply(SecurityMockMvcConfigurers.springSecurity()).build();
+        long id = game();
+        jdbc.update("UPDATE games SET last_quarter = '20232' WHERE id = ?", id);
+        next(id, "legacy-0");
+        next(id, "legacy-1");
+        // V9 이전에는 game_records 자체가 없었다. 그 상태를 기록 삭제로 만든다.
+        jdbc.update("DELETE FROM game_records WHERE game_id = ?", id);
+        String path = "/api/games/" + id + "/summary";
+        mvc.perform(get(path).header("X-Guest-Token", token))
+                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        String backfill = backfillSql();
+        jdbc.execute(backfill);
+        jdbc.execute(backfill);
+        assertEquals(1, records(id));
+        var row = jdbc.queryForMap("SELECT * FROM game_records WHERE game_id = ?", id);
+        assertEquals("LONG_RUNNING", row.get("ending_type"));
+        assertEquals(2, row.get("survived_quarters"));
+        assertEquals(jdbc.queryForObject("SELECT sum(profit) FROM turn_results WHERE game_id = ?", Long.class, id),
+                row.get("total_profit"));
+        assertEquals(List.of("가상 가게", "김사장"), List.of(row.get("shop_name"), row.get("owner_name")));
+        Instant endedAt = ((java.sql.Timestamp) row.get("ended_at")).toInstant();
+        assertEquals(GameRecordRepository.rankingDate(endedAt), ((java.sql.Date) row.get("ranking_date")).toLocalDate());
+        mvc.perform(get(path).header("X-Guest-Token", token)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.endingType").value("LONG_RUNNING"));
+    }
+
+    /** V12 마이그레이션의 백필 INSERT 문을 그대로 꺼낸다. */
+    private static String backfillSql() throws Exception {
+        try (var input = EndingIntegrationTest.class.getResourceAsStream("/db/migration/V12__event_tuning.sql")) {
+            String sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            var matcher = java.util.regex.Pattern.compile("INSERT INTO game_records[\\s\\S]*?;").matcher(sql);
+            assertTrue(matcher.find(), "V12에 백필 INSERT가 있어야 한다");
+            return matcher.group();
+        }
+    }
+
+    @Test
     @DisplayName("엔딩 기록 실패는 결산·종료 상태까지 함께 롤백한다(같은 트랜잭션)")
     void recordFailureRollsBackEnding() {
         long id = game();
