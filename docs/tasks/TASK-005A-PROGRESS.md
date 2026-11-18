@@ -63,3 +63,12 @@
 - [2-1 게시판 범위] 사용자별 슬라이딩 60초 제한 + IP별 보조 제한(기본 글 10/댓글 30/신고 15). IP 설정과 프록시 신뢰 opt-in은 API 계약 4장 참조. 모든 admission에서 만료 식별자 정리. 경계 버스트·사용자 교체 IP 우회·프록시 opt-in·만료 정리 단위 테스트 추가. `/api/guest` 및 game/common은 미수정.
 - 범위: board 소스/테스트, 관리자 board 템플릿 및 문서만 수정. 마이그레이션, 메인 DB, push 미실행. DB 통합 검증은 격리 Testcontainers만 사용.
 - 최종 검증: `gradlew.bat --offline test --tests '*Board*' --no-daemon` 성공(22 tests), `gradlew.bat --offline clean check --no-daemon` 성공(2m 5s, 67 tests / failures 0 / errors 0 / skipped 0). `git diff --check` 통과.
+
+## main 통합·회원 전용 (TASK-005A-2)
+- 최신 main 병합 충돌 2개 해결: `application.yml`은 `app.board.rate-limit`과 `app.security.ip-rate-limit`을 모두 유지, 관리자 `fragments.html`은 main 메뉴(전환점·동네 반응·순간)에 게시판 링크를 추가. Flyway는 V1~V5, V7, V7_1, V7_2, V8 뒤에 V11이 적용되며 Testcontainers 새 DB에서 전체 통과.
+- `BoardGuestAuth`는 main `auth` 패키지(`ApiTokenAuthenticationFilter`가 채운 `AuthenticatedUser`)를 읽도록 변경. `game` 패키지(`GameException`, `GuestAuth`) 의존 제거. 컨트롤러의 `X-Guest-Token` 직접 파싱 제거(Authorization Bearer와 X-Guest-Token은 필터가 처리).
+- 글 작성·수정·삭제, 댓글, 좋아요, 신고, 내 글 조회는 MEMBER만: 토큰 없음 401 `UNAUTHORIZED`, 게스트 토큰 403 `MEMBER_REQUIRED`. 읽기(목록·상세·댓글)는 공개이며 상세는 게스트 토큰도 허용. 잘못된 토큰은 필터에서 401.
+- `BoardExceptionHandler`가 `AuthException`도 계약 JSON으로 변환.
+- 기존 게시판 테스트는 지우지 않고 회원 세션(`BoardTestUsers`)으로 전환. 신규 `BoardMemberOnlyIntegrationTest`: 게스트 403(쓰기 9종+내 글), 무토큰 401과 공개 읽기, 회원 쓰기, 탈퇴 사용자의 글·댓글 작성자가 "탈퇴한 사장님"으로 표시되고 탈퇴 토큰은 401.
+- [2-1 게스트 발급 남용 방지] main의 IP 필터(`/api/guest`, 가입, 로그인 대상)와 회원 전용 쓰기로 해결됨. 게스트는 게시판에 쓸 수 없어 게스트 대량 발급으로 쓰기 제한을 우회할 수 없다. 사용자·IP 제한은 보조 장치로 유지.
+- 검증: `gradlew.bat clean check --offline` 성공, 132 tests / failures 0 / errors 0 / skipped 0. game·auth·common 미수정, push·main 병합 없음.
