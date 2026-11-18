@@ -44,11 +44,9 @@ class BoardModerationIntegrationTest {
     private static final String API = "/api/board/reports";
     private record Guest(long id, String token) {}
 
-    private Guest guest() throws Exception {
-        String token = UUID.randomUUID().toString();
-        String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
-        return new Guest(jdbc.queryForObject("INSERT INTO users(nickname, guest_token_hash) VALUES ('가상손님', ?) RETURNING id",
-                Long.class, digest), token);
+    private Guest guest() {
+        var user = BoardTestUsers.member(jdbc, "가상회원" + UUID.randomUUID().toString().substring(0, 8));
+        return new Guest(user.id(), user.token());
     }
 
     private long article(Guest guest) {

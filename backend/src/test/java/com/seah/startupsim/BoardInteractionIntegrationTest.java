@@ -66,10 +66,9 @@ class BoardInteractionIntegrationTest {
             List<String> tokens = new ArrayList<>();
             List<Long> ids = new ArrayList<>();
             for (int i = 0; i < users; i++) {
-                String token = UUID.randomUUID().toString();
-                tokens.add(token);
-                ids.add(jdbc.queryForObject("INSERT INTO users (nickname, guest_token_hash) VALUES (?, ?) RETURNING id",
-                        Long.class, "테스트손님" + i, digest(token)));
+                var user = BoardTestUsers.member(jdbc, "테스트회원" + i);
+                tokens.add(user.token());
+                ids.add(user.id());
             }
             return new Fixture(post(ids.getFirst()), post(ids.getFirst()), tokens);
         });

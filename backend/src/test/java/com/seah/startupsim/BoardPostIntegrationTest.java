@@ -323,12 +323,9 @@ class BoardPostIntegrationTest {
                 .andExpect(jsonPath("$.message").isNotEmpty()).andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 
-    private Guest guest(String nickname) throws Exception {
-        String token = UUID.randomUUID().toString();
-        String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
-        long id = jdbc.queryForObject("INSERT INTO users(nickname, guest_token_hash) VALUES (?, ?) RETURNING id",
-                Long.class, nickname, hash);
-        return new Guest(id, token);
+    private Guest guest(String nickname) {
+        var user = BoardTestUsers.member(jdbc, nickname);
+        return new Guest(user.id(), user.token());
     }
 
     private long fixture(Guest user, String category, String title, String body) {
