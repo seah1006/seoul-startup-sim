@@ -50,7 +50,7 @@ public class AuthService {
     }
 
     private AuthRepository.Account account(long id, boolean lock) {
-        return repository.find("id = ? AND deleted_at IS NULL" + (lock ? " FOR UPDATE" : ""), id)
+        return repository.findById(id, lock)
                 .stream().findFirst().orElseThrow(AuthException::unauthorized);
     }
 
@@ -68,19 +68,13 @@ public class AuthService {
     @Transactional
     public Guest createGuest() {
         String nickname = "손님-" + UUID.randomUUID();
-        long id = repository.jdbc().queryForObject("""
-                INSERT INTO users(nickname, role) VALUES (?, 'GUEST') RETURNING id
-                """, Long.class, nickname);
+        long id = repository.createGuest(nickname);
         return new Guest(issue(id, "GUEST"), id, nickname);
     }
 
     private String issue(long userId, String kind) {
         String token = UUID.randomUUID().toString() + UUID.randomUUID();
-        repository.jdbc().update("""
-                INSERT INTO auth_sessions(user_id, token_hash, kind, created_at, last_used_at, expires_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """, userId, hash(token), kind, now(), now(),
-                Timestamp.from(clock.instant().plus(Duration.ofDays(kind.equals("MEMBER") ? 14 : 30))));
+        repository.createSession(userId, hash(token), kind, now(), Timestamp.from(clock.instant().plus(Duration.ofDays(kind.equals("MEMBER") ? 14 : 30))));
         return token;
     }
 
@@ -90,14 +84,7 @@ public class AuthService {
             throw AuthException.unauthorized();
         }
         String tokenHash = hash(token);
-        var users = repository.jdbc().query("""
-                UPDATE auth_sessions s SET last_used_at = ?,
-                    expires_at = CASE WHEN s.kind = 'MEMBER' THEN ? ELSE s.expires_at END
-                FROM users u WHERE s.user_id = u.id AND s.token_hash = ?
-                    AND s.revoked_at IS NULL AND s.expires_at > ? AND u.deleted_at IS NULL
-                RETURNING u.id, u.role
-                """, (rs, row) -> new AuthenticatedUser(rs.getLong(1), rs.getString(2), tokenHash),
-                now(), Timestamp.from(clock.instant().plus(Duration.ofDays(14))), tokenHash, now());
+        var users = repository.authenticate(tokenHash, now(), Timestamp.from(clock.instant().plus(Duration.ofDays(14))));
         return users.stream().findFirst().orElseThrow(AuthException::unauthorized);
     }
 
@@ -111,16 +98,10 @@ public class AuthService {
                     throw new AuthException(409, "ALREADY_MEMBER", "이미 가입한 회원입니다.");
                 }
                 id = guest.userId();
-                repository.jdbc().update("""
-                        UPDATE users SET login_id = ?, password_hash = ?, nickname = ?, role = 'MEMBER',
-                            is_guest = false, updated_at = ? WHERE id = ?
-                        """, loginId, encoder.encode(password), nickname, now(), id);
+                repository.convert(id, loginId, encoder.encode(password), nickname, now());
                 revokeAll(id, null);
             } else {
-                id = repository.jdbc().queryForObject("""
-                        INSERT INTO users(login_id, password_hash, nickname, role, is_guest)
-                        VALUES (?, ?, ?, 'MEMBER', false) RETURNING id
-                        """, Long.class, loginId, encoder.encode(password), nickname);
+                id = repository.createMember(loginId, encoder.encode(password), nickname);
             }
             return new LoginResult(issue(id, "MEMBER"), me(id));
         } catch (DuplicateKeyException exception) {
@@ -163,7 +144,7 @@ public class AuthService {
     // 실패 카운트를 오류 응답 이후에도 보존한다.
     @Transactional(noRollbackFor = AuthException.class)
     public LoginResult login(String loginId, String password) {
-        var found = repository.find("login_id = ? FOR UPDATE", loginId);
+        var found = repository.findByLoginForUpdate(loginId);
         var user = found.isEmpty() ? null : found.getFirst();
         boolean matches = encoder.matches(password == null ? "" : password,
                 user == null || user.passwordHash() == null ? dummyHash : user.passwordHash());
@@ -171,33 +152,24 @@ public class AuthService {
             throw AuthException.credentials();
         }
         if (user.lockedUntil() != null && user.lockedUntil().isAfter(clock.instant())) {
-            repository.jdbc().update("UPDATE users SET failed_login_count = failed_login_count + 1 WHERE id = ?", user.id());
+            repository.countLockedAttempt(user.id());
             throw new AuthException(423, "ACCOUNT_LOCKED", "잠시 후 다시 시도해 주세요.");
         }
         if (!matches) {
-            Integer count = repository.jdbc().queryForObject("""
-                    UPDATE users SET failed_login_count = CASE
-                        WHEN failed_login_at IS NULL OR failed_login_at <= ? THEN 1 ELSE failed_login_count + 1 END,
-                        failed_login_at = CASE WHEN failed_login_at IS NULL OR failed_login_at <= ? THEN ? ELSE failed_login_at END,
-                        updated_at = ? WHERE id = ? RETURNING failed_login_count
-                    """, Integer.class, Timestamp.from(clock.instant().minus(Duration.ofMinutes(15))),
-                    Timestamp.from(clock.instant().minus(Duration.ofMinutes(15))), now(), now(), user.id());
+            Integer count = repository.failLogin(user.id(), Timestamp.from(clock.instant().minus(Duration.ofMinutes(15))), now());
             if (count >= 5) {
-                repository.jdbc().update("UPDATE users SET locked_until = ? WHERE id = ?",
-                        Timestamp.from(clock.instant().plus(Duration.ofMinutes(15))), user.id());
+                repository.lock(user.id(), Timestamp.from(clock.instant().plus(Duration.ofMinutes(15))));
                 throw new AuthException(423, "ACCOUNT_LOCKED", "잠시 후 다시 시도해 주세요.");
             }
             throw AuthException.credentials();
         }
-        repository.jdbc().update("""
-                UPDATE users SET failed_login_count = 0, failed_login_at = NULL, locked_until = NULL WHERE id = ?
-                """, user.id());
+        repository.clearFailures(user.id());
         return new LoginResult(issue(user.id(), "MEMBER"), me(user.id()));
     }
 
     @Transactional
     public void logout(AuthenticatedUser user) {
-        repository.jdbc().update("UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ?", now(), user.tokenHash());
+        repository.revoke(user.tokenHash(), now());
     }
 
     @Transactional
@@ -205,7 +177,7 @@ public class AuthService {
         requireMember(user.userId());
         nickname(nickname);
         try {
-            repository.jdbc().update("UPDATE users SET nickname = ?, updated_at = ? WHERE id = ?", nickname, now(), user.userId());
+            repository.rename(user.userId(), nickname, now());
         } catch (DuplicateKeyException exception) {
             throw duplicate(exception);
         }
@@ -220,8 +192,7 @@ public class AuthService {
             throw AuthException.credentials();
         }
         password(replacement);
-        repository.jdbc().update("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
-                encoder.encode(replacement), now(), user.userId());
+        repository.changePassword(user.userId(), encoder.encode(replacement), now());
         revokeAll(user.userId(), user.tokenHash());
     }
 
@@ -232,17 +203,12 @@ public class AuthService {
         if (password == null || !encoder.matches(password, account.passwordHash())) {
             throw AuthException.credentials();
         }
-        repository.jdbc().update("""
-                UPDATE users SET deleted_at = ?, nickname = '탈퇴한 사장님', updated_at = ? WHERE id = ?
-                """, now(), now(), user.userId());
+        repository.delete(user.userId(), now());
         revokeAll(user.userId(), null);
     }
 
     private void revokeAll(long id, String keep) {
-        repository.jdbc().update("""
-                UPDATE auth_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL
-                    AND (CAST(? AS text) IS NULL OR token_hash <> ?)
-                """, now(), id, keep, keep);
+        repository.revokeAll(id, keep, now());
     }
 }
 
