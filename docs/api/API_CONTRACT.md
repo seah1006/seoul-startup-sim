@@ -348,7 +348,7 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ### 가입·로그인
 - `POST /api/auth/signup` `{ "loginId": "seah01", "password": "…", "nickname": "망원사장" }`
   - 요청에 유효한 게스트 토큰이 있으면 **그 게스트 사용자를 회원으로 전환**(같은 userId, 게임 유지). 없으면 새 사용자.
-  - loginId 4~20자 영문 소문자·숫자·`_`, 유일. nickname 2~12자, 유일. password 8~64자, 영문과 숫자 포함.
+  - loginId 4~20자 영문 소문자·숫자·`_`, 유일. nickname 2~12자, 유일. password 8~64자, 영문과 숫자 포함. UTF-8 기준 72바이트 이하.
   - `201 { "token": "…", "user": UserMe }`. 중복 409 `LOGIN_ID_TAKEN` / `NICKNAME_TAKEN`, 형식 400.
   - 전환 시 기존 게스트 토큰은 폐기된다.
 - `POST /api/auth/login` `{ "loginId", "password" }` → `200 { "token", "user": UserMe }`
@@ -367,3 +367,4 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 
 ### 남용 방지
 - `POST /api/guest`, `/api/auth/signup`, `/api/auth/login`: IP당 10분 20회(설정값), 초과 429 `RATE_LIMITED`
+
