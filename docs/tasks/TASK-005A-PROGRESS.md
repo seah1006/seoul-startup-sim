@@ -20,3 +20,10 @@
 
 ## 2단계: 댓글·대댓글·좋아요
 - 2단계 시작. 메인 확인: 1단계 전체 check 통과(52 tests, 0 failures).
+- 완료: 루트와 답글 분리 페이징 및 선택 인증(`no-store`), 댓글 작성·수정·삭제, 부모 검증(다른 글·비공개는 404, 공개 대댓글은 400), `COMMENT_VERSION_CONFLICT` 및 자리표시자.
+- 완료: 좋아요 PUT/DELETE 멱등 처리, 실제 삽입·삭제 행 수 기준 카운터. 댓글·좋아요 쓰기의 공통 잠금 순서는 글(`FOR NO KEY UPDATE`) 먼저이며 대댓글 작성 시 부모도 잠근다. `comment_count`는 ACTIVE 합계, `reply_count`는 ACTIVE 답글 수. 모든 감소에 `count > 0` 가드. 카운터는 버전·수정일 불변.
+- 1단계 리뷰 반영: 예외 advice 범위에 새 컨트롤러 추가, 게스트 인증 바인딩 공용화, 부모를 DB 쓰기 전 검증, 미분류 DB 제약·트리거 오류는 SQLSTATE만 기록. 비공개 게시글의 타 작성자 404·형식 검증 우선·조회수 불변도 테스트.
+- 검증: `gradlew.bat --no-daemon test --offline --tests '*BoardInteractionIntegrationTest'` 통과(5 tests, 0 failures, 0 errors, 0 skipped). 실제 HTTP 동시 대댓글 2건 모두 201(답글 수 2), 좋아요 동일 사용자 10회 → 1, 서로 다른 10명 → 10, 중복 해제 → 0. 비공개 404/카운터 불변, 댓글 409, 페이징/자리표시자 확인.
+- 커밋: `a1e0be2` 시작, `d29f0e6` 댓글, `b973530` 좋아요, `c509582` HTTP 통합 테스트.
+- 다음: 3단계 신고·관리자에서는 댓글 상태 변경도 글을 먼저 잠그고, 상태 변경과 공개 카운터 재계산을 동일 트랜잭션에서 수행. 4단계 레이트 리밋·시드 및 완료 검증은 미착수.
+- 최종 검증: `gradlew.bat --no-daemon check --offline` 성공(2m 13s; 57 tests, 0 failures, 0 errors, 0 skipped). frontend/game 및 V11 변경 없음, push 없음.
