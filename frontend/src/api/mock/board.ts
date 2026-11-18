@@ -1,5 +1,5 @@
 import { boardCategories, boardSearchTypes, boardSorts } from '../types';
-import type { BoardErrorCode, CreateReportRequest, PageResponse, PostDetail, PostListItem, RecordSnapshot, UpdatePostRequest } from '../types';
+import type { BoardErrorCode, CommentItem, CreateCommentRequest, CreateReportRequest, UpdateCommentRequest, PageResponse, PostDetail, PostListItem, RecordSnapshot, UpdatePostRequest } from '../types';
 
 type MockPost = { item: PostListItem; content: string; version: number; mine: boolean; deleted?: boolean };
 const key = 'sss-mock-board-v1';
@@ -19,15 +19,45 @@ function seed() {
       postId: i + 1, category: record ? 'RECORD' : boardCategories[i % 3],
       title: i === 0 ? '사장님 커뮤니티 이용 안내' : record ? `${record.shopName} · ${stories[i - 1]}` : `${stories[i % stories.length]} (${i + 1})`,
       authorNickname: i === 0 ? '운영팀' : `연습 사장님 ${i % 5 + 1}`, createdAt: date, updatedAt: date,
-      viewCount: i * 7 % 83, likeCount: i % 11, commentCount: i % 7, isPinned: i === 0, record,
+      viewCount: i * 7 % 83, likeCount: i % 11, commentCount: 0, isPinned: i === 0, record,
     }, content: i === 0 ? '게임 속 가상 창업 경험을 공유해 주세요.' : '첫 분기에는 고정비를 줄였습니다.\n다음에는 운영 시간을 바꿔 볼 계획입니다.', version: 0, mine: i === 1 || i === 4 };
   });
 }
 
-type MockDb = { posts: MockPost[]; likes: number[]; views: string[]; reports: string[] };
+type MockComment = { postId: number; item: CommentItem; mine: boolean; deleted?: boolean };
+type MockDb = { posts: MockPost[]; likes: number[]; views: string[]; reports: string[];
+  comments: MockComment[]; limits: Partial<Record<'comment' | 'report', { minute: number; count: number }>> };
+function seedComments(): MockComment[] {
+  const rows = [
+    [1, null, '첫 분기의 운영 시간은 어떻게 정하셨나요?', false, false],
+    [2, null, '고정비 관리가 중요하다는 데 공감해요.', true, false],
+    [3, null, '화면에 노출되지 않는 삭제 댓글', false, true],
+    [4, 1, '손님이 많은 시간대부터 운영했어요.', true, false],
+    [5, 3, '저도 다음 분기에 시도해 보려고요.', false, false],
+  ] as const;
+  return rows.map(([commentId, parentId, content, mine, deleted]) => {
+    const date = new Date(Date.UTC(2026, 10, 18, 3, commentId)).toISOString();
+    return { postId: 2, mine, deleted, item: { commentId, parentId, content,
+      authorNickname: mine ? '나' : '연습 사장님', createdAt: date, updatedAt: date, version: 0,
+      replyCount: 0, isMine: false, isPlaceholder: false } };
+  });
+}
 function load(): MockDb {
-  try { const raw = localStorage.getItem(key); if (raw) return JSON.parse(raw); } catch { /* 초기 목 데이터 사용 */ }
-  return { posts: seed(), likes: [], views: [], reports: [] };
+  let saved: Partial<MockDb> = {};
+  try { const raw = localStorage.getItem(key); if (raw) saved = JSON.parse(raw); } catch { /* 초기 목 데이터 사용 */ }
+  const db = { posts: seed(), likes: [], views: [], reports: [], comments: seedComments(), limits: {}, ...saved };
+  for (const post of db.posts) syncCount(db, post);
+  return db;
+}
+function syncCount(db: MockDb, post: MockPost) {
+  post.item.commentCount = db.comments.filter(c => c.postId === post.item.postId && !c.deleted).length;
+}
+function mockComment(item: MockComment, db: MockDb, authenticated: boolean): CommentItem {
+  const replyCount = item.item.parentId === null
+    ? db.comments.filter(c => c.item.parentId === item.item.commentId && !c.deleted).length : 0;
+  return item.deleted ? { ...item.item, replyCount, isPlaceholder: true, isMine: false,
+    authorNickname: null, updatedAt: null, version: null, content: '표시할 수 없는 댓글입니다.' }
+    : { ...item.item, replyCount, isMine: authenticated && item.mine };
 }
 const json = (body: unknown, status = 200, headers?: HeadersInit) => Response.json(body, { status, headers });
 const privateHeaders = { 'Cache-Control': 'no-store' };
@@ -71,6 +101,15 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
   const db = load();
   const save = () => localStorage.setItem(key, JSON.stringify(db));
   const authenticated = token === 'mock-guest';
+  function limited(kind: 'comment' | 'report', max: number) {
+    const minute = Math.floor(Date.now() / 60_000);
+    const previous = db.limits[kind];
+    const count = previous?.minute === minute ? previous.count : 0;
+    if (count >= max) return true;
+    db.limits[kind] = { minute, count: count + 1 };
+    return false;
+  }
+  const rateError = () => error(429, 'RATE_LIMITED', '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.');
   const mine = pathname === '/board/me/posts';
   const recordMatch = pathname.match(/^\/board\/records\/(\d+)$/);
   const publicRead = method === 'GET' && (pathname === '/board/posts' || recordMatch);
@@ -91,11 +130,13 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
       || !['SPAM', 'ABUSE', 'ADULT', 'ETC'].includes(b.reason)
       || (b.detail !== undefined && (typeof b.detail !== 'string' || b.detail.trim().length > 500))
       || (b.reason === 'ETC' && !text(b.detail, 500))) return invalid();
-    const target = b.targetType === 'POST' ? db.posts.find(p => !p.deleted && p.item.postId === b.targetId) : undefined;
+    const target = b.targetType === 'POST' ? db.posts.find(p => !p.deleted && p.item.postId === b.targetId)
+      : db.comments.find(c => !c.deleted && c.item.commentId === b.targetId && db.posts.some(p => !p.deleted && p.item.postId === c.postId));
     if (!target) return missing();
     if (target.mine) return forbidden();
     const id = `${b.targetType}:${b.targetId}`;
     if (db.reports.includes(id)) return error(409, 'ALREADY_REPORTED', '이미 신고한 대상입니다.');
+    if (limited('report', 5)) return rateError();
     db.reports.push(id); save();
     return json({ reportId: db.reports.length, status: 'PENDING' }, 201);
   }
@@ -118,6 +159,56 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
     Object.assign(p.item, { category: b!.category, title: b!.title.trim(), updatedAt: new Date().toISOString() });
     save(); return json(detail(p));
   }
+  const commentMatch = sub?.match(/^\/comments(?:\/(\d+)(\/replies)?)?$/);
+  if (commentMatch) {
+    const id = commentMatch[1] === undefined ? null : Number(commentMatch[1]);
+    const replies = !!commentMatch[2];
+    if (id !== null && !integer(id, 1)) return invalid();
+    const target = db.comments.find(c => c.postId === postId && c.item.commentId === id);
+    if (method === 'GET' && (id === null || replies)) {
+      const page = readInt(searchParams, 'page', 0), size = readInt(searchParams, 'size', 20);
+      if (!integer(page, 0) || !integer(size, 1) || size > 50) return invalid();
+      if (!p || (replies && (!target || target.item.parentId !== null || (target.deleted && !mockComment(target, db, false).replyCount)))) return missing();
+      const rows = db.comments.filter(c => c.postId === postId && c.item.parentId === id)
+        .map(c => mockComment(c, db, authenticated)).filter(c => !c.isPlaceholder || c.replyCount > 0)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.commentId - b.commentId);
+      return json({ content: rows.slice(page * size, (page + 1) * size), page, size,
+        totalElements: rows.length, totalPages: Math.ceil(rows.length / size) } satisfies PageResponse<CommentItem>, 200, privateHeaders);
+    }
+    if (method === 'POST' && id === null) {
+      const b = body as CreateCommentRequest | undefined;
+      if (!b || !text(b.content, 1000) || (b.parentId != null && !integer(b.parentId, 1))) return invalid();
+      if (!p) return missing();
+      if (b.parentId != null) {
+        const parent = db.comments.find(c => c.postId === postId && c.item.commentId === b.parentId && !c.deleted);
+        if (!parent) return missing();
+        if (parent.item.parentId !== null) return error(400, 'COMMENT_DEPTH_EXCEEDED', '대댓글에는 답글을 작성할 수 없습니다.');
+      }
+      if (limited('comment', 10)) return rateError();
+      const commentId = Math.max(0, ...db.comments.map(c => c.item.commentId)) + 1;
+      const date = new Date().toISOString();
+      const comment: MockComment = { postId, mine: true, item: { commentId, parentId: b.parentId ?? null,
+        content: b.content.trim(), authorNickname: '나', createdAt: date, updatedAt: date,
+        version: 0, replyCount: 0, isMine: true, isPlaceholder: false } };
+      db.comments.push(comment); syncCount(db, p); save();
+      return json(comment.item, 201);
+    }
+    if (id !== null && !replies && (method === 'PUT' || method === 'DELETE')) {
+      const b = body as UpdateCommentRequest | undefined;
+      const version = method === 'PUT' ? b?.version : readInt(searchParams, 'version', NaN);
+      if (!integer(version, 0) || (method === 'PUT' && !text(b?.content, 1000))) return invalid();
+      if (!p || !target || target.deleted) return missing();
+      if (!target.mine) return forbidden();
+      if (target.item.version !== version) return error(409, 'COMMENT_VERSION_CONFLICT', '댓글이 변경되었습니다. 최신 댓글을 확인해 주세요.');
+      if (method === 'DELETE') {
+        target.deleted = true; syncCount(db, p); save();
+        return new Response(null, { status: 204 });
+      }
+      Object.assign(target.item, { content: b!.content.trim(), version: version + 1, updatedAt: new Date().toISOString() });
+      save(); return json(mockComment(target, db, authenticated));
+    }
+    return missing();
+  }
   if (!p) return missing();
   if (!sub && method === 'GET') {
     const day = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -130,11 +221,6 @@ export function mockBoardRequest(url: string, method: string, token: string | nu
     if (method === 'PUT' && index === -1) { db.likes.push(postId); p.item.likeCount++; }
     if (method === 'DELETE' && index !== -1) { db.likes.splice(index, 1); p.item.likeCount--; }
     save(); return new Response(null, { status: 204 });
-  }
-  if (sub === '/comments' && method === 'GET') {
-    const page = readInt(searchParams, 'page', 0), size = readInt(searchParams, 'size', 20);
-    if (!integer(page, 0) || !integer(size, 1) || size > 50) return invalid();
-    return json({ content: [], page, size, totalElements: 0, totalPages: 0 }, 200, privateHeaders);
   }
   return missing();
 }
