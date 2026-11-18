@@ -1,6 +1,7 @@
 package com.seah.startupsim.game;
 
 import com.seah.startupsim.game.GameResponses.Advanced;
+import java.time.Clock;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,10 +17,13 @@ public class AdvanceService {
     private final LedgerRepository ledger;
     private final MarketDataRepository marketData;
     private final GameModifierRepository modifiers;
+    private final GameRecordRepository records;
+    private final Clock clock;
 
     public AdvanceService(GameRepository games, QuarterCalculator calculator, TurnEventHook eventHook,
             ApplicationEventPublisher events, TurnRepository turns, LedgerRepository ledger,
-            MarketDataRepository marketData, GameModifierRepository modifiers) {
+            MarketDataRepository marketData, GameModifierRepository modifiers, GameRecordRepository records,
+            Clock clock) {
         this.games = games;
         this.calculator = calculator;
         this.eventHook = eventHook;
@@ -28,6 +32,8 @@ public class AdvanceService {
         this.ledger = ledger;
         this.marketData = marketData;
         this.modifiers = modifiers;
+        this.records = records;
+        this.clock = clock;
     }
 
     /** 결산·원장·종료·이벤트 표현·멱등 응답은 실패 시 함께 롤백해야 한다. */
@@ -87,6 +93,10 @@ public class AdvanceService {
         int negatives = outcome.cashAfter() < 0 ? game.negativeQuarters() + 1 : 0;
         String ending = negatives >= 2 ? "CLOSED" : outcome.quarter().equals(game.lastQuarter()) ? "LONG_RUNNING" : null;
         games.finishQuarter(game.id(), outcome.cashAfter(), negatives, ending);
+        if (ending != null) {
+            // 리스너가 아니라 같은 트랜잭션에서 써야 기록 누락 없이 랭킹·요약·인증글 원본이 남는다.
+            records.insert(game.id(), ending, null, clock.instant());
+        }
         return ending;
     }
 
