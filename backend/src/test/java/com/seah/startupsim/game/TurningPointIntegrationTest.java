@@ -21,6 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** 실제 훅·행 잠금·스냅샷을 통해 전환점 발생부터 선택·재개까지 검증한다. */
 @Testcontainers
@@ -44,14 +48,18 @@ class TurningPointIntegrationTest {
     @Autowired AdvanceService advance;
     @Autowired TurningPointService points;
     @Autowired GameModifierRepository modifiers;
+    @Autowired org.springframework.web.context.WebApplicationContext context;
     long user;
     long game;
+    String token;
 
     @BeforeEach
     void fixture() {
         new org.springframework.transaction.support.TransactionTemplate(transactions).executeWithoutResult(status -> {
         jdbc.execute("TRUNCATE users, trade_areas, data_versions, turning_points, reaction_templates, moment_templates CASCADE");
-        user = auth.create().userId();
+        var guest = auth.create();
+        user = guest.userId();
+        token = guest.guestToken();
         jdbc.update("UPDATE game_settings SET value = '0' WHERE key = 'event.fire.minTurn'");
         jdbc.update("INSERT INTO data_versions (id, source, status) VALUES (100, 'fixture', 'ACTIVE')");
         jdbc.update("""
@@ -152,6 +160,69 @@ class TurningPointIntegrationTest {
         }
         assertEquals(cash - 50, repository.state(game, user).cash());
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM ledger_entries WHERE type = 'EVENT' AND game_id = ?", Integer.class, game));
+    }
+
+    @Test
+    void successBoundaryUsesFixedSeedDraw() {
+        jdbc.update("UPDATE turning_point_options SET success_formula = '{\"base\":0.1,\"min\":0.1,\"max\":0.1}' WHERE order_no = 1");
+        jdbc.update("UPDATE turning_point_options SET success_formula = '{\"base\":0.9,\"min\":0.9,\"max\":0.9}', on_success = '[{\"type\":\"CASH\",\"amount\":700,\"memo\":\"성공 보상\"}]' WHERE order_no = 2");
+        long seed = 1;
+        while (!(draw(seed, 1) >= 0.1 && draw(seed, 2) < 0.9)) {
+            seed++;
+        }
+        long second = games.create(user, new GameTypes.Create("사장", GameTypes.Background.OFFICE_WORKER, "c1", 123, List.of("service"), "20231")).gameId();
+        games.shop(second, user, new GameTypes.Shop("A", "CS100010", 127, 38, "가상 가게"));
+        jdbc.update("UPDATE games SET seed = ? WHERE id IN (?, ?)", seed, game, second);
+        next("advance");
+        long other = game;
+        game = second;
+        next("advance");
+        var low = points.view(other, user);
+        assertEquals(List.of(10, 90), low.options().stream().map(TurningPointService.OptionView::successRatePct).toList());
+        long cash = repository.state(other, user).cash();
+        var failed = points.choose(other, user, "low", low.options().get(0).optionId());
+        assertFalse(failed.success());
+        assertEquals("실패", failed.resultText());
+        assertEquals(cash, failed.game().cash());
+        var succeeded = points.choose(second, user, "high", points.view(second, user).options().get(1).optionId());
+        assertTrue(succeeded.success());
+        assertEquals("성공", succeeded.resultText());
+        assertEquals(List.of(new EventEffectService.EffectView("성공 보상", "+700원")), succeeded.effects());
+    }
+
+    private static double draw(long seed, int order) {
+        return EventRandom.stream(seed, 0, EventRandom.Purpose.TURNING_POINT_SUCCESS, "TEST_POINT#" + order).nextDouble();
+    }
+
+    @Test
+    void httpContract() throws Exception {
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(context)
+                .apply(org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity()).build();
+        String path = "/api/games/" + game + "/turning-point";
+        mvc.perform(get(path).header("X-Guest-Token", token)).andExpect(status().isNoContent());
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        next("advance");
+        mvc.perform(get(path).header("Authorization", "Bearer " + token)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("TEST_POINT"))
+                .andExpect(jsonPath("$.options[0].successRatePct").value(100))
+                .andExpect(jsonPath("$.options[0].onSuccess").value(org.hamcrest.Matchers.startsWith("지원금 +1,000원, 인맥 +2, 매출 지원")))
+                .andExpect(jsonPath("$.options[0].successEffects").doesNotExist());
+        long option = points.view(game, user).options().getFirst().optionId();
+        mvc.perform(post(path + "/choice").header("X-Guest-Token", token).contentType("application/json")
+                .content("{\"optionId\":" + option + "}")).andExpect(status().isBadRequest());
+        mvc.perform(post(path + "/choice").header("X-Guest-Token", token).header("Idempotency-Key", "bad")
+                .contentType("application/json").content("{\"optionId\":999999}")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/games/" + game + "/advance").header("X-Guest-Token", token).header("Idempotency-Key", "blocked")
+                .contentType("application/json").content("{\"expectedVersion\":" + repository.state(game, user).version() + "}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TURNING_POINT_PENDING"));
+        mvc.perform(post(path + "/choice").header("X-Guest-Token", token).header("Idempotency-Key", "http-choice")
+                .contentType("application/json").content("{\"optionId\":" + option + "}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.game.pendingTurningPoint").value(false))
+                .andExpect(jsonPath("$.effects[0].label").value("지원금"));
+        mvc.perform(post(path + "/choice").header("X-Guest-Token", token).header("Idempotency-Key", "other-key")
+                .contentType("application/json").content("{\"optionId\":" + option + "}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TURNING_POINT_ALREADY_RESOLVED"));
     }
 
     @Test
