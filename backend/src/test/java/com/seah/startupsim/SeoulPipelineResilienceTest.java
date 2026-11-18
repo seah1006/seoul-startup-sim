@@ -41,7 +41,7 @@ import java.util.List;
 
 /** 실제 샘플을 확장한 다중 페이지로 수집 트랜잭션과 장애 제어의 경계를 검증한다. */
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = {"spring.datasource.hikari.maximum-pool-size=2", "spring.datasource.hikari.connection-timeout=2000"})
 class SeoulPipelineResilienceTest {
     private static final String SOURCE = "seoul-area-sales";
     private static final String SERVICE = "VwsmTrdarSelngQq";
@@ -203,6 +203,21 @@ class SeoulPipelineResilienceTest {
         assertEquals(4001, jdbc.queryForObject("SELECT count(*) FROM area_sales_q", Integer.class));
         assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM raw_payloads", Integer.class));
     }
+    @Test
+    @DisplayName("느린 HTTP 응답 중에도 Hikari 두 커넥션 모두 조회에 사용할 수 있다")
+    void slowApiDoesNotOccupyConnection() throws Exception {
+        var requested = new java.util.concurrent.CountDownLatch(1);
+        API.addMockServiceRequestListener((request,response) -> requested.countDown());
+        API.stubFor(get(urlEqualTo(url(1))).willReturn(aResponse().withFixedDelay(1500).withBody(page(1,1,1,100))));
+        IngestService ingest = service(100);
+        try (var pool = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var future = pool.submit(() -> ingest.run(SOURCE,QUARTER));
+            assertTrue(requested.await(5,java.util.concurrent.TimeUnit.SECONDS));
+            try (var first=jdbc.getDataSource().getConnection(); var second=jdbc.getDataSource().getConnection()) {
+                assertTrue(first.isValid(1)); assertTrue(second.isValid(1));
+                assertTrue(!future.isDone(),"응답 대기 중에 커넥션을 확인해야 한다");
+            }
+            future.get(5,java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
 }
-
-
