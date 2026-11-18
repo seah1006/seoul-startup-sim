@@ -78,7 +78,7 @@ foreach ($moment in $moments) {
 # 스키마 원본은 그대로 보존하고 콘텐츠만 끝에 추가한다. 개행은 운영체제와 무관하게 LF다.
 $output = ($schema.TrimEnd() + "`n`n" + ($lines -join "`n") + "`n").Replace("`r`n", "`n")
 if ($Check) {
-    if (!(Test-Path $target) -or [IO.File]::ReadAllText($target) -cne $output) {
+    if (!(Test-Path $target) -or [IO.File]::ReadAllText($target).Replace("`r`n", "`n") -cne $output) {
         throw 'V8이 원본과 다릅니다. 생성 스크립트를 다시 실행하세요.'
     }
 } else {
