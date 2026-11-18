@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <p className="eyebrow">SEOUL STARTUP SIMULATOR</p>
+        <p className="eyebrow">서울 창업 시뮬레이터</p>
         <h1>
           당신의 가게가
           <br />
@@ -31,7 +31,7 @@ export default function Home() {
       <section className="grid two">
         <RankingPreview />
         <article className="card">
-          <p className="eyebrow">REAL DATA, YOUR STORY</p>
+          <p className="eyebrow">진짜 데이터, 나만의 이야기</p>
           <h2>현실의 동네, 나만의 선택</h2>
           <p>
             서울 열린데이터광장 · 서울시 상권분석서비스

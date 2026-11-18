@@ -46,7 +46,7 @@ export function TurningPointCard({
   }
   return (
     <section className="card turning-point" aria-label="전환점">
-      <p className="eyebrow">TURNING POINT</p>
+      <p className="eyebrow">전환점</p>
       {result ? (
         <>
           <h2>{result.success ? '선택이 좋은 결실을 맺었어요' : '새로운 경험이 되었어요'}</h2>
@@ -131,7 +131,7 @@ export function EndingScreen({ game }: { game: GameState }) {
   };
   return (
     <section className="card ending">
-      <p className="eyebrow">YOUR STORY</p>
+      <p className="eyebrow">나의 창업 이야기</p>
       <h2>{titles[game.endingType || 'LONG_RUNNING']}</h2>
       {summary ? (
         <>

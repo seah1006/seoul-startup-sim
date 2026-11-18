@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { Area, Stores } from '../api/types';
+import { geometryToRings, toKakaoPath } from '../geo';
+import { formatDistance } from './ResultCard';
 declare global {
   interface Window {
     kakao: any;
@@ -77,15 +79,10 @@ export function AreaMap({
             overlays.forEach((o) => o.setMap(null));
             overlays = [];
             for (const f of data.features) {
-              const shapes =
-                f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-              for (const shape of shapes as number[][][][]) {
+              for (const rings of geometryToRings(f.geometry)) {
                 const polygon = new k.Polygon({
                   map: map.current,
-                  path:
-                    shape.length === 1
-                      ? shape[0].map(([lng, lat]) => new k.LatLng(lat, lng))
-                      : shape.map((ring) => ring.map(([lng, lat]) => new k.LatLng(lat, lng))),
+                  path: toKakaoPath(rings, (lat, lng) => new k.LatLng(lat, lng)),
                   strokeWeight: 2,
                   strokeColor: '#28735c',
                   fillColor: '#80c2a5',
@@ -165,7 +162,7 @@ export function AreaMap({
         new k.Marker({
           map: map.current,
           position: new k.LatLng(store.lat, store.lng),
-          title: `${store.name} · ${store.distanceM}m`,
+          title: `${store.name} · ${formatDistance(store.distanceM)}`,
         }),
       );
     return () => markers.forEach((m) => m.setMap(null));

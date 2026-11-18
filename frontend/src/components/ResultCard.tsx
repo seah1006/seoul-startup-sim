@@ -9,11 +9,13 @@ export const money = (n: number) => {
     ? `${sign}${Math.floor(man / 10000).toLocaleString('ko-KR')}억${man % 10000 ? ` ${(man % 10000).toLocaleString('ko-KR')}만` : ''} 원`
     : `${sign}${man.toLocaleString('ko-KR')}만 원`;
 };
+export const formatDistance = (m: number) =>
+  m >= 1000 ? `${(Math.round(m / 100) / 10).toLocaleString('ko-KR')}km` : `${Math.round(m)}m`;
 export const quarterLabel = (q: string) => `${q.slice(0, 4)}년 ${q.slice(4)}분기`;
 export function ResultCard({ result: r }: { result: QuarterResult }) {
   return (
     <article className="card result">
-      <p className="eyebrow">QUARTER REPORT · {quarterLabel(r.quarter)}</p>
+      <p className="eyebrow">분기 결산 · {quarterLabel(r.quarter)}</p>
       <h2>{quarterLabel(r.quarter)}가 끝났어요</h2>
       <p>{r.headline.label}</p>
       <strong className="headline">{money(r.headline.amount)}</strong>
@@ -25,7 +27,7 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
           방문객<strong>{r.visitors.toLocaleString()}명</strong>
         </div>
         <div>
-          객단가<strong>{r.avgTicket.toLocaleString()}원</strong>
+          객단가<strong>{money(r.avgTicket)}</strong>
         </div>
       </div>
       <div className="detail">

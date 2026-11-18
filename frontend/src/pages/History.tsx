@@ -10,6 +10,7 @@ export default function History({ turns }: { turns: QuarterResult[] }) {
       ) : (
         <>
           <svg
+            className="chart"
             viewBox={`0 0 ${Math.max(320, turns.length * 70)} 240`}
             role="img"
             aria-label="분기별 순이익 차트"

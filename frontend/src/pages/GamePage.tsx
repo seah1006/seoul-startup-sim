@@ -91,7 +91,7 @@ export default function Game() {
         <TurningPointCard game={game} onGame={setGame} />
       ) : (
         <section className="card">
-          <p className="eyebrow">YOUR NEXT MOVE</p>
+          <p className="eyebrow">이번 분기 운영</p>
           <h2>이번 분기는 어떻게 운영할까요?</h2>
           <form
             onSubmit={(e) => {

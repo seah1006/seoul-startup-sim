@@ -108,7 +108,7 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
   const page = query.page ?? 0;
   return (
     <section className="board" aria-labelledby="board-title">
-      <p className="eyebrow">SEOUL STARTUP COMMUNITY</p>
+      <p className="eyebrow">사장님 커뮤니티</p>
       <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
       <nav className="choices" aria-label="게시판 메뉴">
         <MemberOnly>

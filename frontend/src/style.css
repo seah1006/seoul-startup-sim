@@ -250,6 +250,12 @@ select {
 }
 .search input {
   margin: 0;
+  min-width: 0;
+}
+.search button {
+  white-space: nowrap;
+  min-width: 72px;
+  flex-shrink: 0;
 }
 .map {
   height: 450px;
@@ -320,7 +326,8 @@ select {
   padding: 16px;
   border-radius: 10px;
 }
-svg {
+.chart svg,
+svg.chart {
   width: 100%;
   max-height: 300px;
 }
@@ -365,7 +372,7 @@ footer {
   .two,
   .three,
   .map-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .grid {
     gap: 8px;
@@ -629,4 +636,62 @@ td {
 .board-editor textarea:focus-visible {
   outline: 3px solid #cb8d42;
   outline-offset: 3px;
+}
+
+.card,
+.grid > * {
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .ranking-table,
+  .ranking-table tbody {
+    display: block;
+  }
+  .ranking-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .ranking-table .rank-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e1e5dc;
+  }
+  .ranking-table td {
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .ranking-table .rk-rank {
+    grid-row: 1;
+    grid-column: 1;
+    font-weight: 700;
+  }
+  .ranking-table .rk-owner {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .ranking-table .rk-profit {
+    grid-row: 1;
+    grid-column: 3;
+    font-weight: 700;
+    white-space: nowrap;
+    text-align: right;
+  }
+  .ranking-table .rk-area {
+    grid-row: 2;
+    grid-column: 2;
+  }
+  .ranking-table .rk-survive {
+    grid-row: 2;
+    grid-column: 3;
+    white-space: nowrap;
+    text-align: right;
+  }
 }
