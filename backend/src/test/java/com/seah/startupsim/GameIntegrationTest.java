@@ -6,6 +6,7 @@ import com.seah.startupsim.game.GameException;
 import com.seah.startupsim.game.GameRepository;
 import com.seah.startupsim.game.GameService;
 import com.seah.startupsim.game.GameTypes;
+import com.seah.startupsim.game.GoldenSettings;
 import com.seah.startupsim.game.GuestAuth;
 import com.seah.startupsim.game.TurnEventHook;
 import com.seah.startupsim.game.TurnResultBuilder;
@@ -84,6 +85,8 @@ class GameIntegrationTest {
         jdbc.execute("""
                 TRUNCATE users, trade_areas, data_versions CASCADE
                 """);
+        // 골든 4분기는 V10 밸런스 조정 전 설정으로 만들었다. 엔진 재현성 검증을 밸런스 값과 분리한다.
+        GoldenSettings.pin(jdbc, json);
         user = auth.create().userId();
         jdbc.update("""
                 INSERT INTO data_versions (id, source, status) VALUES (100, 'fixture', 'ACTIVE')

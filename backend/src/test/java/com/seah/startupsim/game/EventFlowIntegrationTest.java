@@ -63,6 +63,8 @@ class EventFlowIntegrationTest {
     @BeforeEach
     void fixture() {
         jdbc.execute("TRUNCATE users, trade_areas, data_versions, stores CASCADE");
+        // 8분기 골든은 V10 밸런스 조정 전 설정으로 만들었다. 엔진 재현성 검증을 밸런스 값과 분리한다.
+        GoldenSettings.pin(jdbc, json);
         user = auth.create().userId();
         jdbc.update("INSERT INTO data_versions (id, source, status) VALUES (100, 'fixture', 'ACTIVE')");
         jdbc.update("""
