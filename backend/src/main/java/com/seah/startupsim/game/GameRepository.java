@@ -109,7 +109,13 @@ public class GameRepository {
                 """, Boolean.class, id, game.currentTurn()));
         return new State(id, game.version(), game.status(), game.endingType(), game.currentTurn(),
                 game.startQuarter(), game.lastQuarter(), quarter(game.startQuarter(), game.currentTurn()),
-                game.cash(), owner(id), shopState, pending, false);
+                game.cash(), owner(id), shopState, pending, pendingTurningPoint(id));
+    }
+
+    public boolean pendingTurningPoint(long id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM game_turning_points WHERE game_id = ? AND resolved_at IS NULL)
+                """, Boolean.class, id));
     }
 
     public List<QuarterOutcome> turns(long id, long user) {

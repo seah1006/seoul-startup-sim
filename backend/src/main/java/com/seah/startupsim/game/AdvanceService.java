@@ -61,6 +61,9 @@ public class AdvanceService {
             throw new GameException(409, "GAME_VERSION_CONFLICT", "게임 버전이 변경되었습니다.");
         }
         GameService.playing(game);
+        if (games.pendingTurningPoint(game.id())) {
+            throw new GameException(409, "TURNING_POINT_PENDING", "전환점을 먼저 선택해 주세요.");
+        }
     }
 
     private QuarterSnapshot loadSnapshot(Game game) {

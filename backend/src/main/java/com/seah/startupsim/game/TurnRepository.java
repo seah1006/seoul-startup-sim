@@ -31,10 +31,10 @@ public class TurnRepository {
     public void saveEventPresentation(long gameId, QuarterOutcome outcome) {
         jdbc.update("""
                 UPDATE turn_results
-                SET response = ?::jsonb, reactions = ?::jsonb
+                SET response = ?::jsonb, reactions = ?::jsonb, moment = ?::jsonb
                 WHERE game_id = ? AND turn = ?
                 """, json.writeValueAsString(outcome), json.writeValueAsString(outcome.reactions()),
-                gameId, outcome.turn());
+                outcome.moment() == null ? null : json.writeValueAsString(outcome.moment()), gameId, outcome.turn());
     }
 
     public GameTypes.Decision decision(long gameId, int turn) {
