@@ -39,3 +39,17 @@ SELECT (SELECT count(*) FROM turning_points) AS turning_points,
 8. 최종 전체 clean check 및 완료 조건 재검증.
 
 MarketDataRepository와 GameService 버전 고정 코드, 다른 Flyway 버전, 파트 2는 수정하지 않았다. push 하지 않았다.
+
+## 2차 실행 (2026-11-18)
+
+- `62b21a8`: `EventDsl`의 sealed 조건 AST·확률 공식·효과 7종 record와 `EventDefinitionValidator` 추가.
+- 조건: 8개 연산자, all/any/not/빈 객체, 결측 비교 false, 숫자·문자열·boolean 타입, 변수·키·연산자 화이트리스트, 깊이 4·노드 30·배열 20 상한. BigDecimal 비교로 원 단위 정밀도 유지.
+- 확률: 기준 능력치 40, 최대 2개 statBonus, per10 범위, clamp, 정수 성공률 반올림.
+- 효과: CASH/STAT/MODIFIER/FLAG/SHOP_COUNT/RIVAL_ADD/TEXT 각각 엄격한 키·타입·범위. 순간은 STAT ±2·MODIFIER 최대 2분기·TEXT만 허용.
+- 전환점/반응/순간 전체 정의 검증 진입점 제공. code·선택지 수/순서·문구 길이·별점·치환 변수 검증. 위반은 400 INVALID_EXPRESSION과 JSON 경로를 포함한다.
+- 실제 Flyway로 적재한 V8 콘텐츠를 DB에서 읽어 **전환점 12·반응 36·순간 12 전체 검증 성공**.
+- 검증 명령: `gradlew.bat test --offline --tests '*EventDslTest' --tests '*EventSeedIntegrationTest' --tests '*GameIntegrationTest' --tests '*EventRandomTest'`.
+- 결과: **BUILD SUCCESSFUL, 21개 / 실패 0 / 오류 0**, 004A 고정 시드 4분기 골든 포함. 이번 실행의 전체 clean check는 미실행(1차 60개 통과 기록과 구분).
+- 실행 시간 제한에 따라 DSL 단계에서 커밋. 1차 잔여 목록의 1번 중 파서·평가기·검증기 및 시드 전수 검증은 완료. **실서비스 정의 저장·로드 호출, 부팅 전수 검사/오류 로깅·사용 시 무효 정의 스킵은 흐름·관리자 단계에서 연결해야 한다.**
+- 다음 착수는 **계산기 보정**이며 1차 잔여 2~8번을 순서대로 진행한다.
+- MarketDataRepository·GameService·game_data_pins·골든 파일은 이번 실행에서 수정하지 않았다. push 없음.
