@@ -36,4 +36,31 @@ public class TurnRepository {
                 """, json.writeValueAsString(outcome), json.writeValueAsString(outcome.reactions()),
                 gameId, outcome.turn());
     }
-}
+    public GameTypes.Decision decision(long gameId, int turn) {
+        var decisions = jdbc.query("""
+                SELECT price_level, open_hours, staff, marketing, owner_activity
+                FROM turn_decisions WHERE game_id = ? AND turn = ?
+                """, (row, index) -> new GameTypes.Decision(GameTypes.Price.valueOf(row.getString("price_level")),
+                row.getInt("open_hours"), row.getInt("staff"), row.getLong("marketing"),
+                GameTypes.Activity.valueOf(row.getString("owner_activity"))), gameId, turn);
+        if (decisions.isEmpty()) {
+            throw GameException.invalid("이번 분기의 운영 결정을 저장해 주세요.");
+        }
+        return decisions.getFirst();
+    }
+
+    public GameResponses.Advanced cached(long gameId, String key) {
+        var responses = jdbc.queryForList("""
+                SELECT response::text FROM idempotency_keys WHERE game_id = ? AND key = ?
+                """, String.class, gameId, key);
+        return responses.isEmpty() ? null : json.readValue(responses.getFirst(), GameResponses.Advanced.class);
+    }
+
+    public GameResponses.Advanced cache(long gameId, String key, GameResponses.Advanced response) {
+        String encoded = json.writeValueAsString(response);
+        jdbc.update("""
+                INSERT INTO idempotency_keys (game_id, key, response) VALUES (?, ?, ?::jsonb)
+                """, gameId, key, encoded);
+        return json.readValue(encoded, GameResponses.Advanced.class);
+    }}
+

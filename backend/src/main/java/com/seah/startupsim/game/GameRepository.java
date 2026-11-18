@@ -122,4 +122,20 @@ public class GameRepository {
         int index = Integer.parseInt(start.substring(0, 4)) * 4 + Integer.parseInt(start.substring(4)) - 1 + offset;
         return "" + (index / 4) + (index % 4 + 1);
     }
-}
+    public void applyStats(long gameId, List<GameTypes.StatChange> changes) {
+        for (var change : changes) {
+            // SQL 식별자는 바인딩할 수 없으므로 고정 화이트리스트만 허용한다.
+            if (!OwnerCandidates.STATS.contains(change.stat())) {
+                throw new IllegalStateException("알 수 없는 능력치입니다.");
+            }
+            jdbc.update("UPDATE owners SET " + change.stat() + " = ? WHERE game_id = ?", change.after(), gameId);
+        }
+    }
+
+    public void finishQuarter(long gameId, long cash, int negatives, String ending) {
+        jdbc.update("""
+                UPDATE games SET current_turn = current_turn + 1, version = version + 1,
+                    cash = ?, negative_quarters = ?, status = ?, ending_type = ? WHERE id = ?
+                """, cash, negatives, ending == null ? "PLAYING" : "ENDED", ending, gameId);
+    }}
+

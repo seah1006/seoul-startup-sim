@@ -1,89 +1,96 @@
 package com.seah.startupsim.game;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-
-import com.seah.startupsim.game.GameTypes.Decision;
-import com.seah.startupsim.game.GameTypes.Price;
-import com.seah.startupsim.game.GameTypes.Activity;
-import org.springframework.context.ApplicationEventPublisher;
-import com.seah.startupsim.game.GameTypes.Costs;
-
-import com.seah.startupsim.game.GameTypes.Advance;
 import com.seah.startupsim.game.GameResponses.Advanced;
 
-/** 게임 행을 잠근 한 트랜잭션 안에서 결산·원장·멱등 응답을 함께 저장한다. */
+/** 행 잠금은 동시 쓰기를, 버전은 오래된 화면을, 멱등 키는 통신 재시도의 중복 결산을 막는다. */
 @Service
 public class AdvanceService {
-    private record StoreCounts(int stores, long openings, long closings) {}
-    private final GameRepository r;
+    private final GameRepository games;
     private final QuarterCalculator calculator;
     private final TurnEventHook eventHook;
     private final ApplicationEventPublisher events;
     private final TurnRepository turns;
     private final LedgerRepository ledger;
+    private final MarketDataRepository marketData;
 
-    public AdvanceService(GameRepository r, QuarterCalculator calculator,
-            TurnEventHook eventHook, ApplicationEventPublisher events,
-            TurnRepository turns, LedgerRepository ledger) {
-        this.r = r;
+    public AdvanceService(GameRepository games, QuarterCalculator calculator, TurnEventHook eventHook,
+            ApplicationEventPublisher events, TurnRepository turns, LedgerRepository ledger,
+            MarketDataRepository marketData) {
+        this.games = games;
         this.calculator = calculator;
         this.eventHook = eventHook;
         this.events = events;
         this.turns = turns;
         this.ledger = ledger;
+        this.marketData = marketData;
     }
+
+    /** 결산·원장·종료·이벤트 표현·멱등 응답은 실패 시 함께 롤백해야 한다. */
     @Transactional
-    public Advanced advance(long id,long user,String key,long expectedVersion) {
-        if(key==null || key.isBlank() || key.length()>100) throw GameException.invalid("Idempotency-Key가 필요합니다.");
-        var g=r.game(id,user,true);
-        var cached=r.jdbc().queryForList("SELECT response::text FROM idempotency_keys WHERE game_id=? AND key=?",String.class,id,key);
-        if(!cached.isEmpty()) return r.decode(cached.getFirst(), Advanced.class);
-        if(g.version()!=expectedVersion) throw new GameException(409,"GAME_VERSION_CONFLICT","게임 버전이 변경되었습니다.");
-        GameService.playing(g);
-        int turn=g.currentTurn();
-        String quarter=GameRepository.quarter(g.startQuarter(),turn);
-        var decisions=r.jdbc().query("SELECT price_level,open_hours,staff,marketing,owner_activity FROM turn_decisions WHERE game_id=? AND turn=?",(row,index) -> new Decision(Price.valueOf(row.getString("price_level")),row.getInt("open_hours"),row.getInt("staff"),row.getLong("marketing"),Activity.valueOf(row.getString("owner_activity"))),id,turn);
-        if(decisions.isEmpty()) throw GameException.invalid("이번 분기의 운영 결정을 저장해 주세요.");
-        Shop shop = r.shop(id);
-        if (shop == null) throw GameException.invalid("먼저 창업해 주세요.");
-        Decision decision = decisions.getFirst();
-        var sales=r.jdbc().queryForList("SELECT q.sales_amount FROM area_sales_q q JOIN game_data_pins p ON p.version_id=q.version_id AND p.game_id=? WHERE q.area_code=? AND q.service_code=? AND q.quarter=?",Long.class,id,shop.areaCode(),shop.serviceCode(),quarter);
-        var counts=r.jdbc().query("SELECT q.store_count,q.opening_count,q.closing_count FROM area_stores_q q JOIN game_data_pins p ON p.version_id=q.version_id AND p.game_id=? WHERE q.area_code=? AND q.service_code=? AND q.quarter=?",(row,index) -> new StoreCounts(row.getInt(1),row.getLong(2),row.getLong(3)),id,shop.areaCode(),shop.serviceCode(),quarter);
-        StoreCounts count=counts.isEmpty()?new StoreCounts(0,0,0):counts.getFirst();
-        Long average=r.jdbc().queryForObject("SELECT (sum(s.sales_amount)/nullif(sum(t.store_count),0))::bigint FROM area_sales_q s JOIN area_stores_q t USING(area_code,quarter,service_code) JOIN trade_areas a ON a.area_code=s.area_code WHERE a.district_code=? AND s.quarter=? AND s.service_code=? AND EXISTS(SELECT 1 FROM game_data_pins p WHERE p.game_id=? AND p.version_id=s.version_id) AND EXISTS(SELECT 1 FROM game_data_pins p WHERE p.game_id=? AND p.version_id=t.version_id) AND EXISTS(SELECT 1 FROM game_data_pins p WHERE p.game_id=? AND p.version_id=a.version_id)",Long.class,shop.districtCode(),quarter,shop.serviceCode(),id,id,id);
-        Long market=sales.isEmpty()?null:sales.getFirst();
-        if(market==null && average==null) throw GameException.invalid("고정된 버전에 이 분기의 매출 추정 자료가 없습니다.");
-        var settings = g.settings();
-        var input=new QuarterCalculator.Input(g.seed(),turn,quarter,g.cash(),market,average==null?0:average,
-                count.stores(),r.jdbc().queryForObject("SELECT count(*) FROM rivals WHERE game_id=?",Integer.class,id),
-                shop.areaM2(),count.openings(),count.closings(),r.stats(id),r.focus(id),decision,settings,shop.districtCode());
-        QuarterOutcome result=calculator.calculate(input);
-        long marketSize=market==null?input.districtPerStore()*input.stores():market;
-        turns.saveOutcome(id, marketSize, result);
-        ledger.recordQuarter(id, result);
-        for(var c:result.statChanges()) {
-            if(!OwnerCandidates.STATS.contains(c.stat())) throw new IllegalStateException();
-            r.jdbc().update("UPDATE owners SET "+c.stat()+"=? WHERE game_id=?",c.after(),id);
+    public Advanced advance(long id, long user, String key, long expectedVersion) {
+        validateKey(key);
+        Game game = games.game(id, user, true);
+        Advanced cached = turns.cached(id, key);
+        if (cached != null) {
+            return cached;
         }
-        int negatives=result.cashAfter()<0?g.negativeQuarters()+1:0;
-        String ending=negatives>=2?"CLOSED":quarter.equals(g.lastQuarter())?"LONG_RUNNING":null;
-        r.jdbc().update("UPDATE games SET current_turn=current_turn+1,version=version+1,cash=?,negative_quarters=?,status=?,ending_type=? WHERE id=?",result.cashAfter(),negatives,ending==null?"PLAYING":"ENDED",ending,id);
-        TurnResultBuilder resultBuilder = new TurnResultBuilder(result);
-        eventHook.afterQuarter(new GameContext(id, user, g.seed(), turn, quarter, ending),
-                result, resultBuilder);
-        result = resultBuilder.build();
-        turns.saveEventPresentation(id, result);
+        validateGame(game, expectedVersion);
+        QuarterSnapshot snapshot = loadSnapshot(game);
+        QuarterOutcome outcome = calculator.calculate(snapshot.input());
+        saveSettlement(game, snapshot, outcome);
+        String ending = finishQuarter(game, outcome);
+        TurnResultBuilder result = applyEvents(game, outcome, ending);
+        Advanced response = new Advanced(result.build(),
+                games.state(id, user).withPendingTurningPoint(result.pendingTurningPoint()));
+        return turns.cache(id, key, response);
+    }
+
+    private void validateKey(String key) {
+        if (key == null || key.isBlank() || key.length() > 100) {
+            throw GameException.invalid("Idempotency-Key가 필요합니다.");
+        }
+    }
+
+    private void validateGame(Game game, long expectedVersion) {
+        if (game.version() != expectedVersion) {
+            throw new GameException(409, "GAME_VERSION_CONFLICT", "게임 버전이 변경되었습니다.");
+        }
+        GameService.playing(game);
+    }
+
+    private QuarterSnapshot loadSnapshot(Game game) {
+        var decision = turns.decision(game.id(), game.currentTurn());
+        Shop shop = games.shop(game.id());
+        if (shop == null) {
+            throw GameException.invalid("먼저 창업해 주세요.");
+        }
+        return marketData.snapshot(game, shop, games.owner(game.id()), decision);
+    }
+
+    private void saveSettlement(Game game, QuarterSnapshot snapshot, QuarterOutcome outcome) {
+        turns.saveOutcome(game.id(), snapshot.marketSize(), outcome);
+        ledger.recordQuarter(game.id(), outcome);
+        games.applyStats(game.id(), outcome.statChanges());
+    }
+
+    private String finishQuarter(Game game, QuarterOutcome outcome) {
+        int negatives = outcome.cashAfter() < 0 ? game.negativeQuarters() + 1 : 0;
+        String ending = negatives >= 2 ? "CLOSED" : outcome.quarter().equals(game.lastQuarter()) ? "LONG_RUNNING" : null;
+        games.finishQuarter(game.id(), outcome.cashAfter(), negatives, ending);
+        return ending;
+    }
+
+    private TurnResultBuilder applyEvents(Game game, QuarterOutcome outcome, String ending) {
+        TurnResultBuilder result = new TurnResultBuilder(outcome);
+        eventHook.afterQuarter(new GameContext(game.id(), game.userId(), game.seed(), outcome.turn(),
+                outcome.quarter(), ending), outcome, result);
+        turns.saveEventPresentation(game.id(), result.build());
         if (ending != null) {
-            events.publishEvent(new GameEndedEvent(id, ending));
+            events.publishEvent(new GameEndedEvent(game.id(), ending));
         }
-        var gameState = r.state(id, user);
-        Advanced response = new Advanced(result, gameState.withPendingTurningPoint(resultBuilder.pendingTurningPoint()));
-        String encoded=r.encode(response);
-        r.jdbc().update("INSERT INTO idempotency_keys(game_id,key,response) VALUES (?,?,?::jsonb)",id,key,encoded);
-        return r.decode(encoded, Advanced.class);
+        return result;
     }
 }
-
-
