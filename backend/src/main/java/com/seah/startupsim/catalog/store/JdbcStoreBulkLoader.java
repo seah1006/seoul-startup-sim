@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public class JdbcStoreBulkLoader implements StoreBulkLoader {
     static final String UPSERT = """
-            INSERT INTO stores VALUES (?,?,?,?,?,?,?,?,?,?,?,
+            INSERT INTO stores(store_id,name,branch_name,large_code,middle_code,small_code,small_name,std_industry_code,district_code,dong_code,road_address,geom,snapshot,version_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,
                 ST_SetSRID(ST_MakePoint(?,?),4326),?,?)
             ON CONFLICT(store_id) DO UPDATE SET name=excluded.name,branch_name=excluded.branch_name,
             large_code=excluded.large_code,middle_code=excluded.middle_code,small_code=excluded.small_code,
@@ -18,7 +18,9 @@ public class JdbcStoreBulkLoader implements StoreBulkLoader {
             version_id=excluded.version_id
             """;
     private final JdbcTemplate jdbc;
-    public JdbcStoreBulkLoader(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public JdbcStoreBulkLoader(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
     public void load(List<StoreRow> rows, String snapshot, Long versionId) {
         jdbc.batchUpdate(UPSERT, rows.stream().map(r -> r.parameters(snapshot, versionId)).toList());
     }
