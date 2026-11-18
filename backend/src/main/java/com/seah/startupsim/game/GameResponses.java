@@ -1,8 +1,8 @@
 package com.seah.startupsim.game;
 
-import java.util.List;
 import com.seah.startupsim.game.GameTypes.Background;
 import com.seah.startupsim.game.GameTypes.Candidate;
+import java.util.List;
 
 /** 직렬화 경계에서도 임의 키 맵을 만들지 않는 게임 응답 계약. */
 public final class GameResponses {

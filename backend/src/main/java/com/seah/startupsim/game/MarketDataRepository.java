@@ -1,9 +1,9 @@
 package com.seah.startupsim.game;
 
+import com.seah.startupsim.game.GameTypes.Decision;
 import java.util.List;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import com.seah.startupsim.game.GameTypes.Decision;
 
 /** 게임 시작 시 고정한 버전만 읽어 원본 갱신이 진행 중 게임을 바꾸지 않게 한다. */
 @Repository

@@ -1,8 +1,9 @@
 package com.seah.startupsim.game;
 
-import java.util.List;
 import com.seah.startupsim.game.GameTypes.Costs;
 import com.seah.startupsim.game.GameTypes.StatChange;
+import java.util.ArrayList;
+import java.util.List;
 
 /** 계산 결과를 명시적인 계약으로 보존해 확장 훅에서도 필드 누락을 막는다. */
 public record QuarterOutcome(int turn, String quarter, Headline headline, long revenue,
@@ -16,8 +17,9 @@ public record QuarterOutcome(int turn, String quarter, Headline headline, long r
         if (notes.isEmpty()) {
             return this;
         }
-        var combined = new java.util.ArrayList<>(dataNotes);
+        var combined = new ArrayList<>(dataNotes);
         combined.addAll(notes);
         return new QuarterOutcome(turn, quarter, headline, revenue, visitors, avgTicket, costs, profit,
                 cashAfter, areaRank, statChanges, areaNews, moment, reactions, List.copyOf(combined));
-    }}
+    }
+}

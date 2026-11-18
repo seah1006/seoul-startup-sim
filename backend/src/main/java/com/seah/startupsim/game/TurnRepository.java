@@ -36,6 +36,7 @@ public class TurnRepository {
                 """, json.writeValueAsString(outcome), json.writeValueAsString(outcome.reactions()),
                 gameId, outcome.turn());
     }
+
     public GameTypes.Decision decision(long gameId, int turn) {
         var decisions = jdbc.query("""
                 SELECT price_level, open_hours, staff, marketing, owner_activity
@@ -62,5 +63,5 @@ public class TurnRepository {
                 INSERT INTO idempotency_keys (game_id, key, response) VALUES (?, ?, ?::jsonb)
                 """, gameId, key, encoded);
         return json.readValue(encoded, GameResponses.Advanced.class);
-    }}
-
+    }
+}

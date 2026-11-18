@@ -1,5 +1,7 @@
 package com.seah.startupsim.game;
 
+import com.seah.startupsim.game.GameResponses.ShopState;
+import com.seah.startupsim.game.GameResponses.State;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,8 +10,6 @@ import java.util.stream.Stream;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.ObjectMapper;
-import com.seah.startupsim.game.GameResponses.ShopState;
-import com.seah.startupsim.game.GameResponses.State;
 
 /** 소유권과 행 잠금으로 같은 게임의 동시 변경을 직렬화한다. */
 @Repository
@@ -123,13 +123,16 @@ public class GameRepository {
         int index = Integer.parseInt(start.substring(0, 4)) * 4 + Integer.parseInt(start.substring(4)) - 1 + offset;
         return "" + (index / 4) + (index % 4 + 1);
     }
+
     public void applyStats(long gameId, List<GameTypes.StatChange> changes) {
         for (var change : changes) {
             // SQL 식별자는 바인딩할 수 없으므로 고정 화이트리스트만 허용한다.
             if (!OwnerCandidates.STATS.contains(change.stat())) {
                 throw new IllegalStateException("알 수 없는 능력치입니다.");
             }
-            jdbc.update("UPDATE owners SET " + change.stat() + " = ? WHERE game_id = ?", change.after(), gameId);
+            jdbc.update("""
+                    UPDATE owners SET %s = ? WHERE game_id = ?
+                    """.formatted(change.stat()), change.after(), gameId);
         }
     }
 
@@ -138,7 +141,9 @@ public class GameRepository {
                 UPDATE games SET current_turn = current_turn + 1, version = version + 1,
                     cash = ?, negative_quarters = ?, status = ?, ending_type = ? WHERE id = ?
                 """, cash, negatives, ending == null ? "PLAYING" : "ENDED", ending, gameId);
-    }    double settingNumber(String key, String value) {
+    }
+
+    double settingNumber(String key, String value) {
         try {
             var number = json.readTree(value);
             if (number == null || !number.isNumber() || !Double.isFinite(number.doubleValue())) {
@@ -156,4 +161,5 @@ public class GameRepository {
         if (!settings.containsKey("initialCapital")) {
             throw GameException.invalid("필수 게임 설정 initialCapital이 없습니다.");
         }
-    }}
+    }
+}
