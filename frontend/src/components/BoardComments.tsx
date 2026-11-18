@@ -1,3 +1,4 @@
+import { MemberOnly } from './Auth';
 import { useEffect, useRef, useState } from 'react';
 import { boardApi } from '../api/board';
 import type { CommentItem, PageResponse } from '../api/types';
@@ -195,26 +196,28 @@ export function BoardComments({
         )}
         <p className="board-plain-text">{c.content}</p>
         <div className="choices">
-          {!c.isPlaceholder && c.parentId === null && (
-            <button type="button" disabled={busy} onClick={() => start('reply', c)}>
-              답글 쓰기
-            </button>
-          )}
-          {!c.isPlaceholder &&
-            (c.isMine ? (
-              <>
-                <button type="button" disabled={busy} onClick={() => start('edit', c)}>
-                  댓글 수정
-                </button>
-                <button type="button" disabled={busy} onClick={() => start('delete', c)}>
-                  댓글 삭제
-                </button>
-              </>
-            ) : (
-              <button type="button" disabled={busy} onClick={() => onReport(c.commentId)}>
-                댓글 신고
+          <MemberOnly>
+            {!c.isPlaceholder && c.parentId === null && (
+              <button type="button" disabled={busy} onClick={() => start('reply', c)}>
+                답글 쓰기
               </button>
-            ))}
+            )}
+            {!c.isPlaceholder &&
+              (c.isMine ? (
+                <>
+                  <button type="button" disabled={busy} onClick={() => start('edit', c)}>
+                    댓글 수정
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => start('delete', c)}>
+                    댓글 삭제
+                  </button>
+                </>
+              ) : (
+                <button type="button" disabled={busy} onClick={() => onReport(c.commentId)}>
+                  댓글 신고
+                </button>
+              ))}
+          </MemberOnly>
           {c.replyCount > 0 && (
             <button
               type="button"
@@ -227,39 +230,44 @@ export function BoardComments({
           )}
         </div>
         {(editing === 'edit' || editing === 'reply') && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (editing === 'reply') add(c);
-              else if (c.version !== null && draft.trim()) {
-                const version = c.version;
-                void mutate(
-                  () =>
-                    boardApi.updateComment(postId, c.commentId, { content: draft.trim(), version }),
-                  () => {},
-                );
-              }
-            }}
-          >
-            <label>
-              {editing === 'edit' ? '수정할 댓글' : '답글 내용'}
-              <textarea
-                value={draft}
-                maxLength={1000}
-                required
-                disabled={busy}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-            </label>
-            <div className="choices">
-              <button type="submit" disabled={busy || !draft.trim()}>
-                {editing === 'edit' ? '수정 저장' : '답글 등록'}
-              </button>
-              <button type="button" disabled={busy} onClick={closeEditor}>
-                취소
-              </button>
-            </div>
-          </form>
+          <MemberOnly>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (editing === 'reply') add(c);
+                else if (c.version !== null && draft.trim()) {
+                  const version = c.version;
+                  void mutate(
+                    () =>
+                      boardApi.updateComment(postId, c.commentId, {
+                        content: draft.trim(),
+                        version,
+                      }),
+                    () => {},
+                  );
+                }
+              }}
+            >
+              <label>
+                {editing === 'edit' ? '수정할 댓글' : '답글 내용'}
+                <textarea
+                  value={draft}
+                  maxLength={1000}
+                  required
+                  disabled={busy}
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+              </label>
+              <div className="choices">
+                <button type="submit" disabled={busy || !draft.trim()}>
+                  {editing === 'edit' ? '수정 저장' : '답글 등록'}
+                </button>
+                <button type="button" disabled={busy} onClick={closeEditor}>
+                  취소
+                </button>
+              </div>
+            </form>
+          </MemberOnly>
         )}
         {editing === 'delete' && (
           <div className="choices">

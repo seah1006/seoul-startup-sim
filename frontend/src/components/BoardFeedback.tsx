@@ -1,3 +1,4 @@
+import { JoinPrompt } from './Auth';
 import { useEffect, useId, useRef, useState } from 'react';
 import { boardApi } from '../api/board';
 import { ApiError, restartGuest } from '../api/client';
@@ -5,7 +6,7 @@ import type { CreateReportRequest } from '../api/types';
 
 function message(error: unknown) {
   if (error instanceof ApiError) {
-    if (error.status === 401) return '게스트 세션이 필요합니다. 게스트로 시작해 주세요.';
+    if (error.status === 401 || error.code === 'MEMBER_REQUIRED') return '로그인이 필요해요';
     if (error.status === 429) return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
     if (error.code === 'POST_VERSION_CONFLICT')
       return '게시글이 다른 곳에서 수정되었습니다. 최신 게시글을 불러와 주세요.';
@@ -28,6 +29,8 @@ export function BoardFeedback({
   const [guestError, setGuestError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   if (!error) return null;
+  if (error instanceof ApiError && (error.status === 401 || error.code === 'MEMBER_REQUIRED'))
+    return <JoinPrompt />;
   return (
     <div>
       <p role="alert" className="error">

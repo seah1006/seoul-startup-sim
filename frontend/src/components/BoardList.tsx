@@ -1,3 +1,4 @@
+import { MemberOnly } from './Auth';
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -109,9 +110,11 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
       <p className="eyebrow">SEOUL STARTUP COMMUNITY</p>
       <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
       <nav className="choices" aria-label="게시판 메뉴">
-        <Link className="button" to="/board/write">
-          글 쓰기
-        </Link>
+        <MemberOnly>
+          <Link className="button" to="/board/write">
+            글 쓰기
+          </Link>
+        </MemberOnly>
         {mine ? (
           <Link className="button" to="/board">
             전체 게시판

@@ -1,3 +1,4 @@
+import { mockUser } from './auth';
 import { mockEndingRecord, seedBoardRecords } from './index';
 import { boardCategories, boardSearchTypes, boardSorts } from '../types';
 import type {
@@ -260,7 +261,12 @@ export function mockBoardRequest(
   const { pathname, searchParams } = new URL(url, 'http://mock.local');
   const db = load();
   const save = () => localStorage.setItem(key, JSON.stringify(db));
-  const authenticated = token === 'mock-guest';
+  const user = mockUser(token);
+  const authenticated = Boolean(user);
+  for (const p of db.posts) p.mine = Boolean(user && p.item.authorNickname === user.nickname);
+  for (const c of db.comments) c.mine = Boolean(user && c.item.authorNickname === user.nickname);
+  if ((method !== 'GET' || pathname === '/board/me/posts') && user?.role === 'GUEST')
+    return error(403, 'MEMBER_REQUIRED', '로그인이 필요해요');
   function limited(kind: 'post' | 'comment' | 'report', max: number) {
     const minute = Math.floor(Date.now() / 60_000);
     const previous = db.limits[kind];
@@ -319,7 +325,7 @@ export function mockBoardRequest(
         postId,
         category: b.category,
         title: b.title.trim(),
-        authorNickname: '연습 사장님',
+        authorNickname: user?.nickname || '연습 사장님',
         createdAt: now,
         updatedAt: now,
         viewCount: 0,
