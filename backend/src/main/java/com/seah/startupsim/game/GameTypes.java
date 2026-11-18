@@ -25,8 +25,4 @@ public final class GameTypes {
     public record Candidate(String candidateId, Map<String,Integer> stats, int total) {}
     public record Costs(long rent, long ingredients, long labor, long marketing, long total) {}
     public record StatChange(String stat, int before, int after) {}
-    public record Result(int turn, String quarter, Map<String,Object> headline, long revenue,
-            long visitors, long avgTicket, Costs costs, long profit, long cashAfter,
-            Map<String,Integer> areaRank, List<StatChange> statChanges, Map<String,Object> areaNews,
-            Object moment, List<Object> reactions, List<String> dataNotes) {}
 }

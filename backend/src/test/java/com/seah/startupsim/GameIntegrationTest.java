@@ -1,5 +1,29 @@
 package com.seah.startupsim;
 
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.util.ArrayList;
+
+import java.nio.charset.StandardCharsets;
+
+import tools.jackson.databind.ObjectMapper;
+
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import org.springframework.test.context.event.ApplicationEvents;
+
+import org.springframework.test.context.event.RecordApplicationEvents;
+
+import com.seah.startupsim.game.TurnResultBuilder;
+
+import com.seah.startupsim.game.TurnEventHook;
+
+import com.seah.startupsim.game.GameEndedEvent;
+
 import com.seah.startupsim.game.AdvanceService;
 import com.seah.startupsim.game.GameException;
 import com.seah.startupsim.game.GameRepository;
@@ -29,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Testcontainers
 @SpringBootTest
+@RecordApplicationEvents
 class GameIntegrationTest {
     @Container static final PostgreSQLContainer<?> DB=new PostgreSQLContainer<>(DockerImageName.parse("postgis/postgis:16-3.5").asCompatibleSubstituteFor("postgres"));
     @DynamicPropertySource static void database(DynamicPropertyRegistry r) {
@@ -39,6 +64,8 @@ class GameIntegrationTest {
     @Autowired GameService service;
     @Autowired AdvanceService advance;
     @Autowired GameRepository repository;
+    @MockitoBean
+    TurnEventHook eventHook;
     long user;
     @BeforeEach void fixture() {
         jdbc.execute("TRUNCATE users,trade_areas,data_versions CASCADE");
@@ -67,23 +94,76 @@ class GameIntegrationTest {
         }
         assertEquals(jdbc.queryForObject("SELECT cash FROM games WHERE id=?",Long.class,a),jdbc.queryForObject("SELECT initial_capital+(SELECT sum(amount) FROM ledger_entries WHERE game_id=?) FROM games WHERE id=?",Long.class,a,a));
     }
-    @Autowired tools.jackson.databind.ObjectMapper json;
+    @Autowired ObjectMapper json;
+    @Autowired ApplicationEvents applicationEvents;
     @Test @DisplayName("고정 시드 4분기 JSON 회귀 스냅샷")
     void snapshot() throws Exception {
         long id=game();
-        var results=new java.util.ArrayList<Object>();
+        var results=new ArrayList<Object>();
         for(int turn=0;turn<4;turn++) {
             decision(id,turn);
             results.add(advance.advance(id,user,"snapshot-"+turn,turn+1).get("result"));
         }
-        String actual=json.writeValueAsString(results);
-        var target=java.nio.file.Path.of("src/test/resources/game/four-quarters.json");
-        if(Boolean.getBoolean("game.capture")) {
-            java.nio.file.Files.createDirectories(target.getParent());
-            java.nio.file.Files.writeString(target,actual);
+        byte[] actual = json.writeValueAsString(results).getBytes(StandardCharsets.UTF_8);
+        try (var golden = getClass().getResourceAsStream("/game/four-quarters.json")) {
+            assertNotNull(golden);
+            assertArrayEquals(golden.readAllBytes(), actual);
         }
-        assertEquals(java.nio.file.Files.readString(target),actual);
     }
+    @Test
+    @DisplayName("확장 훅이 채운 표현은 응답과 결산 이력에 함께 저장된다")
+    void hookPresentation() {
+        doAnswer(invocation -> {
+            TurnResultBuilder builder = invocation.getArgument(2);
+            builder.moment("가상 순간");
+            builder.reactions(List.of("가상 반응"));
+            builder.pendingTurningPoint(true);
+            return null;
+        }).when(eventHook).afterQuarter(any(),
+                any(), any());
+        long id = game();
+        decision(id, 0);
+        var response = advance.advance(id, user, "hook", 1);
+        var result = (Map<?, ?>) response.get("result");
+        assertEquals("가상 순간", result.get("moment"));
+        assertEquals(List.of("가상 반응"), result.get("reactions"));
+        assertEquals(true, ((Map<?, ?>) response.get("game")).get("pendingTurningPoint"));
+        assertEquals(result, repository.turns(id, user).getFirst());
+        assertEquals("[\"가상 반응\"]", jdbc.queryForObject(
+                "SELECT reactions::text FROM turn_results WHERE game_id=?", String.class, id));
+    }
+
+    @Test
+    @DisplayName("확장 훅 실패는 결산·원장·게임 버전을 모두 롤백한다")
+    void hookFailureRollsBack() {
+        doThrow(new IllegalStateException("hook failure"))
+                .when(eventHook).afterQuarter(any(),
+                        any(), any());
+        long id = game();
+        decision(id, 0);
+        assertThrows(IllegalStateException.class, () -> advance.advance(id, user, "failure", 1));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM turn_results WHERE game_id=?", Integer.class, id));
+        assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM ledger_entries WHERE game_id=?", Integer.class, id));
+        assertEquals(1L, jdbc.queryForObject("SELECT version FROM games WHERE id=?", Long.class, id));
+        assertEquals(0L, applicationEvents.stream(GameEndedEvent.class).count());
+    }
+
+    @Test
+    @DisplayName("마지막 분기에 종료 이벤트는 한 번만 발행하고 기본 전환점은 없다")
+    void endingEvent() {
+        long id = game();
+        for (int turn = 0; turn < 5; turn++) {
+            decision(id, turn);
+            advance.advance(id, user, "ending-" + turn, turn + 1);
+        }
+        advance.advance(id, user, "ending-4", 5);
+        var events = applicationEvents.stream(GameEndedEvent.class).toList();
+        assertEquals(1, events.size());
+        assertEquals(id, events.getFirst().gameId());
+        assertEquals("LONG_RUNNING", events.getFirst().endingType());
+        assertEquals(false, repository.state(id, user).get("pendingTurningPoint"));
+    }
+
     @Test @DisplayName("멱등 키 재시도와 DB 유일 제약이 이중 결산을 막는다")
     void idempotency() {
         long id=game();decision(id,0);

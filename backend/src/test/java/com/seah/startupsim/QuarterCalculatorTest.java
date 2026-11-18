@@ -31,4 +31,37 @@ class QuarterCalculatorTest {
     void capacity() {
         assertEquals(7200,calculator.calculate(input(Long.MAX_VALUE,0)).visitors());
     }
-}
+    QuarterCalculator.Input withDecision(GameTypes.Price price, int hours, int staff) {
+        var base = input(Long.MAX_VALUE, 0);
+        return new QuarterCalculator.Input(base.seed(), base.turn(), base.quarter(), base.cash(),
+                base.marketSales(), base.districtPerStore(), base.stores(), base.rivals(), base.areaM2(),
+                base.openings(), base.closings(), base.stats(), base.focus(),
+                new GameTypes.Decision(price, hours, staff, 0, GameTypes.Activity.REST),
+                base.settings(), base.districtCode());
+    }
+
+    @Test
+    @DisplayName("가격 수준별 객단가가 기존 배율을 따른다")
+    void priceLevels() {
+        assertEquals(9600, calculator.calculate(withDecision(GameTypes.Price.LOW, 6, 0)).avgTicket());
+        assertEquals(12000, calculator.calculate(withDecision(GameTypes.Price.NORMAL, 6, 0)).avgTicket());
+        assertEquals(15000, calculator.calculate(withDecision(GameTypes.Price.HIGH, 6, 0)).avgTicket());
+    }
+
+    @Test
+    @DisplayName("최소·최대 직원과 영업시간에서도 처리량 상한이 정확하다")
+    void capacityBoundaries() {
+        assertEquals(4320, calculator.calculate(withDecision(GameTypes.Price.NORMAL, 6, 0)).visitors());
+        assertEquals(126720, calculator.calculate(withDecision(GameTypes.Price.NORMAL, 16, 10)).visitors());
+    }
+
+    @Test
+    @DisplayName("자치구 평균 추정과 같은 규모의 실제 매출은 산술 결과가 같다")
+    void estimatedSalesPath() {
+        var estimated = calculator.calculate(input(null, 10));
+        var measured = calculator.calculate(input(1000000000L, 10));
+        assertEquals(measured.revenue(), estimated.revenue());
+        assertEquals(measured.profit(), estimated.profit());
+        assertEquals(1, estimated.dataNotes().size());
+        assertEquals(0, measured.dataNotes().size());
+    }}

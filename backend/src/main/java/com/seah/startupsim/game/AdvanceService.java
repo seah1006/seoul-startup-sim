@@ -7,7 +7,7 @@ import java.util.Map;
 import com.seah.startupsim.game.GameTypes.Decision;
 import com.seah.startupsim.game.GameTypes.Price;
 import com.seah.startupsim.game.GameTypes.Activity;
-import com.seah.startupsim.game.GameTypes.Result;
+import org.springframework.context.ApplicationEventPublisher;
 import com.seah.startupsim.game.GameTypes.Costs;
 import com.seah.startupsim.game.GameTypes.Shop;
 import com.seah.startupsim.game.GameTypes.Advance;
@@ -18,7 +18,21 @@ import static com.seah.startupsim.game.GameRepository.number;
 public class AdvanceService {
     private final GameRepository r;
     private final QuarterCalculator calculator;
-    public AdvanceService(GameRepository r,QuarterCalculator calculator) { this.r=r;this.calculator=calculator; }
+    private final TurnEventHook eventHook;
+    private final ApplicationEventPublisher events;
+    private final TurnRepository turns;
+    private final LedgerRepository ledger;
+
+    public AdvanceService(GameRepository r, QuarterCalculator calculator,
+            TurnEventHook eventHook, ApplicationEventPublisher events,
+            TurnRepository turns, LedgerRepository ledger) {
+        this.r = r;
+        this.calculator = calculator;
+        this.eventHook = eventHook;
+        this.events = events;
+        this.turns = turns;
+        this.ledger = ledger;
+    }
     @Transactional
     public Map<String,Object> advance(long id,long user,String key,long expectedVersion) {
         if(key==null || key.isBlank() || key.length()>100) throw GameException.invalid("Idempotency-Key가 필요합니다.");
@@ -46,10 +60,10 @@ public class AdvanceService {
         var input=new QuarterCalculator.Input(number(g,"seed"),turn,quarter,number(g,"cash"),market,average==null?0:average,
                 (int)number(count,"store_count"),r.jdbc().queryForObject("SELECT count(*) FROM rivals WHERE game_id=?",Integer.class,id),
                 shop.get("area_m2")==null?1:((Number)shop.get("area_m2")).doubleValue(),number(count,"opening_count"),number(count,"closing_count"),r.stats(id),r.focus(id),decision,settings,(String)shop.get("district_code"));
-        Result result=calculator.calculate(input);
+        QuarterOutcome result=calculator.calculate(input);
         long marketSize=market==null?input.districtPerStore()*input.stores():market;
-        r.jdbc().update("INSERT INTO turn_results(game_id,turn,market_size,share,revenue,visitors,cost,profit,area_rank,stat_changes,response) VALUES (?,?,?,?,?,?,?,?,?,?::jsonb,?::jsonb)",id,turn,marketSize,marketSize==0?0:result.revenue()/(double)marketSize,result.revenue(),result.visitors(),result.costs().total(),result.profit(),result.areaRank().get("rank"),r.encode(result.statChanges()),r.encode(result));
-        r.jdbc().update("INSERT INTO ledger_entries(game_id,turn,amount,type,memo) VALUES (?,?,?,'REVENUE','분기 매출'),(?,?,?,'COST','분기 운영비')",id,turn,result.revenue(),id,turn,-result.costs().total());
+        turns.saveOutcome(id, marketSize, result);
+        ledger.recordQuarter(id, result);
         for(var c:result.statChanges()) {
             if(!OwnerCandidates.STATS.contains(c.stat())) throw new IllegalStateException();
             r.jdbc().update("UPDATE owners SET "+c.stat()+"=? WHERE game_id=?",c.after(),id);
@@ -57,7 +71,17 @@ public class AdvanceService {
         int negatives=result.cashAfter()<0?(int)number(g,"negative_quarters")+1:0;
         String ending=negatives>=2?"CLOSED":quarter.equals(g.get("last_quarter"))?"LONG_RUNNING":null;
         r.jdbc().update("UPDATE games SET current_turn=current_turn+1,version=version+1,cash=?,negative_quarters=?,status=?,ending_type=? WHERE id=?",result.cashAfter(),negatives,ending==null?"PLAYING":"ENDED",ending,id);
-        Map<String,Object> response=Map.of("result",result,"game",r.state(id,user));
+        TurnResultBuilder resultBuilder = new TurnResultBuilder(result);
+        eventHook.afterQuarter(new GameContext(id, user, number(g, "seed"), turn, quarter, ending),
+                result, resultBuilder);
+        result = resultBuilder.build();
+        turns.saveEventPresentation(id, result);
+        if (ending != null) {
+            events.publishEvent(new GameEndedEvent(id, ending));
+        }
+        var gameState = r.state(id, user);
+        gameState.put("pendingTurningPoint", resultBuilder.pendingTurningPoint());
+        Map<String,Object> response=Map.of("result",result,"game",gameState);
         String encoded=r.encode(response);
         r.jdbc().update("INSERT INTO idempotency_keys(game_id,key,response) VALUES (?,?,?::jsonb)",id,key,encoded);
         return r.decode(encoded);

@@ -47,6 +47,7 @@ public class GameRepository {
         var shops=jdbc.queryForList("SELECT area_code AS \"areaCode\",area_name AS \"areaName\",service_code AS \"serviceCode\",service_name AS \"serviceName\",name AS \"shopName\",ST_X(geom) AS lng,ST_Y(geom) AS lat,(SELECT count(*) FROM rivals WHERE game_id=?) AS \"rivalCount\" FROM shops WHERE game_id=?",id,id);
         result.put("shop",shops.isEmpty()?null:shops.getFirst());
         result.put("pendingDecision",jdbc.queryForObject("SELECT count(*)=0 FROM turn_decisions WHERE game_id=? AND turn=?",Boolean.class,id,g.get("current_turn")));
+        result.put("pendingTurningPoint", false);
         return result;
     }
     public List<Map<String,Object>> turns(long id,long user) {
