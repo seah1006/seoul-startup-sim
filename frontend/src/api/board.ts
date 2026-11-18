@@ -13,14 +13,24 @@ async function boardRequest<T>(
 ): Promise<T> {
   const token = auth === 'required' ? await api.guest()
     : auth === 'optional' ? localStorage.getItem(guestStorageKey) : null;
-  const response = useMock ? mockBoardRequest(path, method, token, body) : await fetch(`/api${path}`, {
-    method, signal,
-    headers: {
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { 'X-Guest-Token': token } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  async function send(guestToken: string | null): Promise<Response> {
+    if (useMock) return mockBoardRequest(path, method, guestToken, body);
+    try {
+      return await fetch(`/api${path}`, {
+        method, signal,
+        headers: {
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(guestToken ? { 'X-Guest-Token': guestToken } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      throw new ApiError(0, '서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+  let response = await send(token);
+  if (auth === 'optional' && token && response.status === 401) response = await send(null);
   if (response.status === 204) return undefined as T;
   if (!response.ok) {
     const error = await response.json().catch(() => null);
