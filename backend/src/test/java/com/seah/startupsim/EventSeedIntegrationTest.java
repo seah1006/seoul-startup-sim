@@ -1,6 +1,11 @@
 package com.seah.startupsim;
 
+import com.seah.startupsim.game.EventDefinitionValidator;
 import java.sql.DriverManager;
+import java.sql.Connection;
+import java.util.function.Consumer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -40,6 +45,50 @@ class EventSeedIntegrationTest {
             assertEquals(12, result.getInt(4));
             assertEquals(0, result.getInt(5));
             assertEquals(0, result.getInt(6));
+            validateDefinitions(connection);
         }
+    }
+
+    private void validateDefinitions(Connection connection) throws Exception {
+        var validator = new EventDefinitionValidator();
+        validate(connection, """
+                SELECT jsonb_build_object(
+                    'code', p.code, 'title', p.title, 'description', p.description,
+                    'conditionExpr', p.condition_expr, 'baseProbability', p.base_probability,
+                    'statBonus', p.stat_bonus, 'probMin', p.prob_min, 'probMax', p.prob_max,
+                    'cooldownQuarters', p.cooldown_quarters, 'maxFires', p.max_fires,
+                    'minTurn', p.min_turn, 'priority', p.priority, 'enabled', p.enabled,
+                    'options', (SELECT jsonb_agg(jsonb_build_object(
+                        'orderNo', o.order_no, 'label', o.label, 'successFormula', o.success_formula,
+                        'onSuccess', o.on_success, 'onFail', o.on_fail,
+                        'successText', o.success_text, 'failText', o.fail_text) ORDER BY o.order_no)
+                        FROM turning_point_options o WHERE o.turning_point_id = p.id))::text
+                FROM turning_points p ORDER BY p.code
+                """, validator::turningPoint, 12);
+        validate(connection, """
+                SELECT jsonb_build_object('code', code, 'kind', kind, 'author', author,
+                    'rating', rating, 'weight', weight, 'enabled', enabled,
+                    'conditionExpr', condition_expr, 'text', body)::text
+                FROM reaction_templates ORDER BY code
+                """, validator::reaction, 36);
+        validate(connection, """
+                SELECT jsonb_build_object('code', code, 'title', title, 'stat', stat,
+                    'difficulty', difficulty, 'weight', weight, 'enabled', enabled,
+                    'conditionExpr', condition_expr, 'successText', success_text,
+                    'failText', fail_text, 'onSuccess', on_success, 'onFail', on_fail)::text
+                FROM moment_templates ORDER BY code
+                """, validator::moment, 12);
+    }
+
+    private void validate(Connection connection, String sql, Consumer<JsonNode> validation, int expected) throws Exception {
+        var json = new ObjectMapper();
+        int count = 0;
+        try (var statement = connection.createStatement(); var result = statement.executeQuery(sql)) {
+            while (result.next()) {
+                validation.accept(json.readTree(result.getString(1)));
+                count++;
+            }
+        }
+        assertEquals(expected, count);
     }
 }
