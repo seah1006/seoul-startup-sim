@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments :: head(${title})}"></head>
+<body>
+<header th:replace="~{admin/fragments :: nav}"></header>
+<main>
+    <h1 th:text="|${title} 편집 #${id}|">편집</h1>
+    <p><a th:href="@{/admin/{path}(path=${path})}">목록으로</a></p>
+    <p>조건식·확률·효과는 화이트리스트 DSL만 허용합니다. 저장할 때 부팅 검사와 같은 검증기를 통과해야 하며, code는 바꿀 수 없습니다.</p>
+    <p role="alert" class="error" th:if="${error}" th:text="|저장하지 않았습니다. ${error}|"></p>
+    <form method="post" th:action="@{/admin/{path}/{id}(path=${path},id=${id})}">
+        <textarea name="definition" rows="32" cols="100" spellcheck="false" th:text="${definition}"></textarea>
+        <p><button type="submit">검증 후 저장</button></p>
+    </form>
+</main>
+</body>
+</html>

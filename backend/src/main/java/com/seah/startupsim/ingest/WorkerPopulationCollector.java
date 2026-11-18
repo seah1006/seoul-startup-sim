@@ -22,27 +22,29 @@ public class WorkerPopulationCollector implements Collector {
     }
     public String source() { return "seoul-area-workers"; }
     public CollectResult collect(IngestContext context) {
+        java.util.List<JsonNode> rows = new java.util.ArrayList<>();
+        client.pages("VwsmTrdarWrcPopltnQq", "", page -> {
+            context.saveRaw("workers:"+page.start()+"-"+page.end(),page.raw());
+            if (page.rows().isArray()) page.rows().forEach(rows::add);
+        });
         return transaction.execute(status -> {
             Map<String,Long> versions = new HashMap<>();
             Map<String,Integer> totals = new HashMap<>();
             Set<String> seen = new HashSet<>();
-            Set<String> existing = new HashSet<>(jdbc.queryForList("SELECT quarter||':'||area_code FROM area_worker_pop_q",String.class));
+            Set<String> existing = new HashSet<>(jdbc.queryForList("SELECT quarter||':'||area_code FROM area_worker_pop_q_active",String.class));
             int[] counts = new int[3];
-            client.pages("VwsmTrdarWrcPopltnQq", "", page -> {
-                context.saveRaw("workers:"+page.start()+"-"+page.end(),page.raw());
-                if (page.rows().isArray()) for (JsonNode row : page.rows()) {
+            for (JsonNode row : rows) {
                     String quarter = row.path("STDR_YYQU_CD").asText();
                     QuarterBackfillService.validate(quarter);
                     String area = row.path("TRDAR_CD").asText();
                     String key = quarter+":"+area;
                     if (area.isBlank() || !seen.add(key)) throw new IllegalArgumentException("누락 또는 중복 직장인구 키");
                     long version = versions.computeIfAbsent(quarter, q -> jdbc.queryForObject("INSERT INTO data_versions(source,period,status) VALUES (?,?,'LOADING') RETURNING id",Long.class,source(),q));
-                    jdbc.update("INSERT INTO area_worker_pop_q VALUES (?,?,?,?) ON CONFLICT(quarter,area_code) DO UPDATE SET total_population=excluded.total_population,version_id=excluded.version_id",
+                    jdbc.update("INSERT INTO area_worker_pop_q VALUES (?,?,?,?)",
                             quarter,area,QuarterlyCollector.exactLong(row.path("TOT_WRC_POPLTN_CO"),"TOT_WRC_POPLTN_CO"),version);
                     totals.merge(quarter,1,Integer::sum);
                     counts[0]++; counts[existing.contains(key)?2:1]++;
-                }
-            });
+            }
             versions.forEach((q,v) -> {
                 jdbc.update("UPDATE data_versions SET status='READY' WHERE source=? AND period=? AND status='ACTIVE'",source(),q);
                 jdbc.update("UPDATE data_versions SET status='ACTIVE',row_count=?,activated_at=now() WHERE id=?",totals.get(q),v);

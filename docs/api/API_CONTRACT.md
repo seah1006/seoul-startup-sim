@@ -150,6 +150,8 @@
   → `200 { "success": true, "resultText": "…", "effects": [{ "label": "매출", "value": "+20%" }], "game": GameState }`
   - 선택은 분기를 넘기지 않는다. 이후 쓰기에는 응답의 `game.version`을 사용한다. `advance`, `choice`, `sell` 사이에 같은 키를 재사용하면 409 `IDEMPOTENCY_KEY_REUSED`.
 
+- 전환점 에러: 대기 중인 전환점이 없는데 선택 404 `NO_PENDING_TURNING_POINT`, 이미 처리된 전환점 409 `TURNING_POINT_ALREADY_RESOLVED`, 대기 중 advance·sell 409 `TURNING_POINT_PENDING`, 같은 Idempotency-Key를 다른 엔드포인트에 재사용 409 `IDEMPOTENCY_KEY_REUSED` (TASK-004B-1 구현 기준)
+
 ### 엔딩
 - `POST /api/games/{gameId}/sell` (헤더 `Idempotency-Key`) 본문 `{ "expectedVersion": 3 }` → 매각 엔딩 `200 GameState` (status ENDED, endingType SOLD)
   - 영업 4분기 미만은 400, 전환점 대기 중에는 409 `TURNING_POINT_PENDING`.
@@ -336,3 +338,35 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ### 후속으로 미룬 것
 - 랭킹 행 → 인증글 연결: 3장 랭킹 응답에 `gameId`를 추가하고 일괄 조회로 N+1을 피하는 후속 계약.
 - 이미지 업로드, 동네 반응 답글(선택 코드로 결정론 유지), 관리자 조치 감사 이력.
+
+## 5. v1.3 추가 (회원 인증과 계정) — 2026-11-18
+
+### 공통 인증 규칙
+- 헤더 `Authorization: Bearer <token>` (기존 `X-Guest-Token: <token>`도 허용, 둘 다 오면 Authorization 우선)
+- 토큰 종류: 게스트 토큰(`POST /api/guest`), 회원 토큰(가입·로그인). 서버는 해시만 저장. 회원 토큰 만료 14일(사용 시 연장), 게스트 30일.
+- 역할: `GUEST`, `MEMBER`. 회원 전용 API에 게스트 토큰 → 403 `MEMBER_REQUIRED`. 토큰 없음·무효·만료·폐기 → 401 `UNAUTHORIZED`.
+- **게시판 쓰기(글·댓글·좋아요·신고·RECORD)는 MEMBER만** (4장의 "X-Guest-Token 필수"를 "회원 토큰 필수"로 바꾼다). 읽기와 게임은 그대로.
+
+### 가입·로그인
+- `POST /api/auth/signup` `{ "loginId": "seah01", "password": "…", "nickname": "망원사장" }`
+  - 요청에 유효한 게스트 토큰이 있으면 **그 게스트 사용자를 회원으로 전환**(같은 userId, 게임 유지). 없으면 새 사용자.
+  - loginId 4~20자 영문 소문자·숫자·`_`, 유일. nickname 2~12자, 유일. password 8~64자, 영문과 숫자 포함. UTF-8 기준 72바이트 이하.
+  - `201 { "token": "…", "user": UserMe }`. 중복 409 `LOGIN_ID_TAKEN` / `NICKNAME_TAKEN`, 형식 400.
+  - 전환 시 기존 게스트 토큰은 폐기된다.
+- `POST /api/auth/login` `{ "loginId", "password" }` → `200 { "token", "user": UserMe }`
+  - 실패 401 `INVALID_CREDENTIALS`(아이디 존재 여부를 구분하지 않는 같은 메시지). 15분 안에 5회 실패하면 15분간 423 `ACCOUNT_LOCKED`.
+- `POST /api/auth/logout` (인증 필요) → 204, 현재 토큰 폐기
+
+### 내 계정
+- `GET /api/auth/me` → `UserMe`
+  ```json
+  { "userId": 12, "loginId": "seah01", "nickname": "망원사장", "role": "MEMBER", "createdAt": "2026-11-18T10:00:00+09:00" }
+  ```
+  게스트는 `{ "userId": 5, "loginId": null, "nickname": "손님-1a2b", "role": "GUEST", … }`
+- `PATCH /api/auth/me` `{ "nickname" }` → `UserMe` (회원만, 중복 409)
+- `PUT /api/auth/me/password` `{ "currentPassword", "newPassword" }` → 204. 현재 토큰을 뺀 **다른 세션 모두 폐기**. 현재 비밀번호 틀림 401 `INVALID_CREDENTIALS`
+- `DELETE /api/auth/me` `{ "password" }` → 204. 소프트 삭제, 닉네임 "탈퇴한 사장님", 모든 세션 폐기. 이후 같은 loginId로 재가입 불가(유일성 유지)
+
+### 남용 방지
+- `POST /api/guest`, `/api/auth/signup`, `/api/auth/login`: IP당 10분 20회(설정값), 초과 429 `RATE_LIMITED`
+

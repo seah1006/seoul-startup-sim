@@ -30,7 +30,7 @@ public class CatalogService {
         List<Map<String,Object>> industries = jdbc.queryForList("""
                 WITH district AS (
                     SELECT x.service_code, sum(x.sales_amount)::numeric / nullif(sum(t.store_count),0) AS per_store
-                    FROM area_sales_q x JOIN area_stores_q t USING(quarter,area_code,service_code)
+                    FROM area_sales_q_active x JOIN area_stores_q_active t USING(quarter,area_code,service_code)
                     JOIN trade_areas a USING(area_code)
                     WHERE x.quarter=? AND x.sales_amount IS NOT NULL AND t.store_count>0
                     AND a.district_code=(SELECT district_code FROM trade_areas WHERE area_code=?)
@@ -42,12 +42,12 @@ public class CatalogService {
                     coalesce(x.sales_amount,round(d.per_store*t.store_count)::bigint) AS "quarterSales",
                     (x.sales_amount IS NULL AND d.per_store*t.store_count IS NOT NULL) AS "salesEstimated"
                 FROM service_industries i
-                LEFT JOIN area_stores_q t ON t.service_code=i.service_code AND t.area_code=? AND t.quarter=?
-                LEFT JOIN area_sales_q x ON x.service_code=i.service_code AND x.area_code=? AND x.quarter=?
+                LEFT JOIN area_stores_q_active t ON t.service_code=i.service_code AND t.area_code=? AND t.quarter=?
+                LEFT JOIN area_sales_q_active x ON x.service_code=i.service_code AND x.area_code=? AND x.quarter=?
                 LEFT JOIN district d ON d.service_code=i.service_code
                 WHERE t.area_code IS NOT NULL OR x.area_code IS NOT NULL ORDER BY i.service_code
                 """, quarter,code,code,quarter,code,quarter);
-        List<Long> population = jdbc.queryForList("SELECT total_population FROM area_floating_pop_q WHERE area_code=? AND quarter=?",Long.class,code,quarter);
+        List<Long> population = jdbc.queryForList("SELECT total_population FROM area_floating_pop_q_active WHERE area_code=? AND quarter=?",Long.class,code,quarter);
         Map<String,Object> result = new LinkedHashMap<>();
         result.put("areaCode",code); result.put("name",name); result.put("quarter",quarter);
         result.put("floatingPopulation",population.isEmpty()?null:population.getFirst()); result.put("industries",industries);
