@@ -125,6 +125,69 @@ class GameIntegrationTest {
                 10, 2, 1000000, GameTypes.Activity.MENU_DEV));
     }
 
+
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
+    @Autowired com.seah.startupsim.ingest.IngestRepository ingestRepository;
+    @Autowired com.seah.startupsim.catalog.CatalogService catalog;
+
+    @Test
+    @DisplayName("2분기 후 동일 분기 재수집에도 고정 게임 결과는 바이트 동일하고 리포트만 갱신된다")
+    void recollectionPreservesPinnedGames() throws Exception {
+        long first = game();
+        long second = game();
+        var expected = new ArrayList<Object>();
+        var actual = new ArrayList<Object>();
+        for (int turn = 0; turn < 4; turn++) {
+            decision(second, turn);
+            expected.add(advance.advance(second, user, "control-" + turn, turn + 1).result());
+        }
+        for (int turn = 0; turn < 2; turn++) {
+            decision(first, turn);
+            actual.add(advance.advance(first, user, "before-" + turn, turn + 1).result());
+        }
+        var client = org.mockito.Mockito.mock(com.seah.startupsim.ingest.client.SeoulOpenApiClient.class);
+        var payload = json.readTree("{\"row\":[{\"STDR_YYQU_CD\":\"20233\",\"TRDAR_CD\":\"A\",\"SVC_INDUTY_CD\":\"CS100010\",\"THSMON_SELNG_AMT\":9000000000}]}");
+        doAnswer(invocation -> {
+            java.util.function.Consumer<com.seah.startupsim.ingest.client.SeoulOpenApiClient.ApiPage> callback = invocation.getArgument(2);
+            callback.accept(new com.seah.startupsim.ingest.client.SeoulOpenApiClient.ApiPage(1, 1000, payload.toString(), payload.path("row")));
+            return null;
+        }).when(client).pages(any(), any(), any());
+        var collector = new com.seah.startupsim.ingest.QuarterlyCollector("fixture", "sales", "area_sales_q", true,
+                List.of(new com.seah.startupsim.ingest.QuarterlyCollector.Field("sales_amount", "THSMON_SELNG_AMT")), client, jdbc, transactions);
+        new com.seah.startupsim.ingest.IngestService(List.of(collector), ingestRepository,
+                new com.seah.startupsim.common.SecretMasker(new com.seah.startupsim.common.ExternalProperties())).run("fixture", "20233");
+        // Fixture has all quarters in one version, unlike production's source/period versions.
+        jdbc.update("UPDATE data_versions SET status='READY' WHERE id=100");
+        for (int turn = 2; turn < 4; turn++) {
+            decision(first, turn);
+            actual.add(advance.advance(first, user, "after-" + turn, turn + 1).result());
+        }
+        assertArrayEquals(json.writeValueAsBytes(expected), json.writeValueAsBytes(actual));
+        var report = catalog.report("A", "20233");
+        var industries = (List<?>) report.get("industries");
+        var industry = (java.util.Map<?, ?>) industries.getFirst();
+        assertEquals(9000000000L, ((Number) industry.get("quarterSales")).longValue());
+        assertEquals(1000000000L, jdbc.queryForObject("SELECT sales_amount FROM area_sales_q WHERE version_id=100 AND area_code='A' AND quarter='20233'", Long.class));
+    }
+
+    @Test
+    @DisplayName("창업 후 점포와 상권 재적재에도 복사된 경쟁점과 게임 결과는 유지된다")
+    void storeReplacementAfterOpening() throws Exception {
+        long first = game();
+        long second = game();
+        jdbc.update("INSERT INTO data_versions(id,source,status) VALUES (200,'sbiz-stores-csv','READY')");
+        jdbc.execute("TRUNCATE stores");
+        jdbc.update("UPDATE trade_areas SET version_id=200");
+        for (int turn = 0; turn < 3; turn++) {
+            decision(first, turn); decision(second, turn);
+            assertArrayEquals(json.writeValueAsBytes(advance.advance(first,user,"reload-a-"+turn,turn+1).result()),
+                    json.writeValueAsBytes(advance.advance(second,user,"reload-b-"+turn,turn+1).result()));
+        }
+        assertEquals(1L, repository.state(first,user).shop().rivalCount());
+        long latest = game();
+        assertEquals(0L, repository.state(latest,user).shop().rivalCount());
+    }
+
     @Test
     @DisplayName("같은 시드의 두 게임은 4분기 결과가 같고 원장과 현금이 일치한다")
     void reproducible() {

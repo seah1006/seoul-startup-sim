@@ -28,7 +28,7 @@ public class GameService {
     }
 
     /** 진행 중 원본 데이터가 갱신되어도 같은 게임의 계산 근거가 바뀌지 않게 고정한다. */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public State create(long user, Create request) {
         if (request.focusStats().stream().distinct().count() != request.focusStats().size()
                 || !OwnerCandidates.STATS.containsAll(request.focusStats())) {
@@ -65,6 +65,7 @@ public class GameService {
         repository.jdbc().update("""
                 INSERT INTO game_data_pins (game_id, source, version_id)
                 SELECT ?, source, id FROM data_versions WHERE status = 'ACTIVE'
+                  AND source NOT IN ('sbiz-stores-csv', 'seoul-area-meta', 'seoul-area-shapes')
                 """, id);
         var stats = candidate.stats();
         var focus = request.focusStats();
@@ -91,9 +92,8 @@ public class GameService {
         var areas = repository.jdbc().query("""
                 SELECT a.name, a.district_code, a.area_m2 FROM trade_areas a
                 WHERE area_code = ? AND ST_Contains(geom, ST_SetSRID(ST_MakePoint(?, ?), 4326))
-                  AND EXISTS (SELECT 1 FROM game_data_pins p WHERE p.game_id = ? AND p.version_id = a.version_id)
                 """, (row, index) -> new Area(row.getString("name"), row.getString("district_code"),
-                row.getBigDecimal("area_m2")), request.areaCode(), request.lng(), request.lat(), id);
+                row.getBigDecimal("area_m2")), request.areaCode(), request.lng(), request.lat());
         if (areas.isEmpty()) {
             throw GameException.invalid("고정된 상권 영역 안의 위치를 선택해 주세요.");
         }
@@ -120,10 +120,9 @@ public class GameService {
             repository.jdbc().update("""
                     INSERT INTO rivals (game_id, sbiz_store_id, service_code, geom)
                     SELECT ?, s.store_id, ?, s.geom FROM stores s WHERE s.small_code = ?
-                      AND EXISTS (SELECT 1 FROM game_data_pins p WHERE p.game_id = ? AND p.version_id = s.version_id)
                       AND s.geom && ST_Envelope(ST_Buffer(ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, 300)::geometry)
                       AND ST_DWithin(s.geom::geography, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, 300)
-                    """, id, request.serviceCode(), code, id, request.lng(), request.lat(), request.lng(), request.lat());
+                    """, id, request.serviceCode(), code, request.lng(), request.lat(), request.lng(), request.lat());
         }
         repository.jdbc().update("""
                 UPDATE games SET version = version + 1 WHERE id = ?
