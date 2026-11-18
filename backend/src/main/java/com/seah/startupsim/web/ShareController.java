@@ -1,5 +1,6 @@
 package com.seah.startupsim.web;
 
+import com.seah.startupsim.board.BoardRecordService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -20,9 +21,11 @@ public class ShareController {
             int shopCount, String title, String description) {}
 
     private final ShareRepository repository;
+    private final BoardRecordService boardRecords;
 
-    public ShareController(ShareRepository repository) {
+    public ShareController(ShareRepository repository, BoardRecordService boardRecords) {
         this.repository = repository;
+        this.boardRecords = boardRecords;
     }
 
     @GetMapping("/share/{gameId}")
@@ -33,6 +36,8 @@ public class ShareController {
             return "share/not-found";
         }
         model.addAttribute("page", page(ending));
+        // 공개(ACTIVE) 인증글이 있을 때만 섹션을 그린다. 템플릿은 null이면 생략한다.
+        model.addAttribute("recordLink", boardRecords.publicLink(ending.gameId()).orElse(null));
         var base = ServletUriComponentsBuilder.fromCurrentContextPath();
         model.addAttribute("pageUrl", base.cloneBuilder().path("/share/{id}").buildAndExpand(ending.gameId()).toUriString());
         model.addAttribute("ogImage", base.cloneBuilder().path("/og/share-default.jpg").toUriString());
@@ -52,3 +57,4 @@ public class ShareController {
         return "%,d원".formatted(amount);
     }
 }
+

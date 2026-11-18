@@ -140,6 +140,15 @@ public class BoardPostRepository {
                 """, Long.class, request.category().name(), request.title(), request.content(), userId);
     }
 
+    long createRecord(long userId, String title, String content, RecordSnapshot s) {
+        return jdbc.queryForObject("""
+                INSERT INTO posts (category, title, content, author_id, game_id, ending_type, service_code, service_name,
+                    area_code, area_name, survived_quarters, total_profit, shop_name, owner_name)
+                VALUES ('RECORD', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                """, Long.class, title, content, userId, s.gameId(), s.endingType(), s.serviceCode(), s.serviceName(),
+                s.areaCode(), s.areaName(), s.survivedQuarters(), s.totalProfit(), s.shopName(), s.ownerName());
+    }
+
     Optional<EditState> editState(long postId) {
         return jdbc.query("""
                 SELECT author_id, category, version FROM posts WHERE id = ? AND status = 'ACTIVE'
@@ -206,3 +215,4 @@ public class BoardPostRepository {
         }
     }
 }
+

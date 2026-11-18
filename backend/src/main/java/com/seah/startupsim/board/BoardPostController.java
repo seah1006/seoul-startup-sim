@@ -26,13 +26,17 @@ public class BoardPostController {
     private static final String POSTS = "/posts";
     private static final String POST = POSTS + "/{postId}";
     private static final String LIKE = POST + "/like";
+    private static final String RECORD = "/records/{gameId}";
     private static final String MINE = "/me/posts";
     private final BoardGuestAuth auth;
     private final BoardPostService posts;
 
     private final BoardLikeService likes;
+    private final BoardRecordService records;
 
-    public BoardPostController(BoardGuestAuth auth, BoardPostService posts, BoardLikeService likes) {
+    public BoardPostController(BoardGuestAuth auth, BoardPostService posts, BoardLikeService likes,
+            BoardRecordService records) {
+        this.records = records;
         this.auth = auth;
         this.posts = posts;
         this.likes = likes;
@@ -43,7 +47,7 @@ public class BoardPostController {
     void authenticate(HttpServletRequest request) {
         String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         boolean read = BoardGuestAuth.isRead(request);
-        if (read && ("/api/board" + POSTS).equals(pattern)) return;
+        if (read && (("/api/board" + POSTS).equals(pattern) || ("/api/board" + RECORD).equals(pattern))) return;
         auth.bind(request, read && ("/api/board" + POST).equals(pattern));
     }
 
@@ -73,6 +77,13 @@ public class BoardPostController {
             @RequestAttribute(name = USER_ID, required = false) Long userId) {
         PostDetail detail = userId == null ? posts.anonymousDetail(postId) : posts.authenticatedDetail(postId, userId);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(detail);
+    }
+
+    @GetMapping(RECORD)
+    public ResponseEntity<RecordPostLink> record(@PathVariable long gameId) {
+        var link = records.publicLink(gameId);
+        if (link.isEmpty()) return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(link.get());
     }
 
     @PostMapping(POSTS)
@@ -108,3 +119,5 @@ public class BoardPostController {
         return ResponseEntity.noContent().build();
     }
 }
+
+

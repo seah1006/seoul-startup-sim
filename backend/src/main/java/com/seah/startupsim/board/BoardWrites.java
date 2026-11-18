@@ -23,6 +23,11 @@ final class BoardWrites {
                     && "ux_post_reports_target_reporter".equals(pg.getServerErrorMessage().getConstraint())) {
                 throw BoardException.alreadyReported();
             }
+            if (e instanceof DataIntegrityViolationException && e.getMostSpecificCause() instanceof PSQLException pg
+                    && "23505".equals(pg.getSQLState()) && pg.getServerErrorMessage() != null
+                    && "ux_posts_record_game".equals(pg.getServerErrorMessage().getConstraint())) {
+                throw new BoardException(HttpStatus.CONFLICT, "RECORD_ALREADY_POSTED", "이미 이 게임의 인증글이 있습니다.");
+            }
             // Do not log or expose DB/trigger text.
             String sqlState = e.getMostSpecificCause() instanceof SQLException sql ? sql.getSQLState() : "unknown";
             LOG.error("게시판 DB 쓰기 실패: SQLSTATE={}", sqlState);
@@ -30,3 +35,4 @@ final class BoardWrites {
         }
     }
 }
+

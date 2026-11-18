@@ -11,10 +11,12 @@ public class BoardPostService {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final BoardPostRepository posts;
     private final BoardRateLimiter limiter;
+    private final BoardRecordService records;
 
-    public BoardPostService(BoardPostRepository posts, BoardRateLimiter limiter) {
+    public BoardPostService(BoardPostRepository posts, BoardRateLimiter limiter, BoardRecordService records) {
         this.posts = posts;
         this.limiter = limiter;
+        this.records = records;
     }
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
@@ -48,11 +50,13 @@ public class BoardPostService {
     @Transactional
     public PostDetail create(long userId, CreatePostRequest request) {
         rejectNul(request.title(), request.content());
-        if (request.category() == PostCategory.RECORD) {
-            throw BoardException.invalid("엔딩 인증글은 아직 작성할 수 없습니다.");
+        boolean record = request.category() == PostCategory.RECORD;
+        if (record != (request.gameId() != null) || (record && request.gameId() < 1)) {
+            throw BoardException.invalid(record ? "인증글에는 gameId가 필요합니다." : "gameId는 인증글에만 쓸 수 있습니다.");
         }
         limiter.acquire(BoardRateLimiter.Kind.POST, userId);
-        long id = BoardWrites.safe(() -> posts.create(userId, request));
+        long id = record ? records.create(userId, request.gameId(), request.title(), request.content())
+                : BoardWrites.safe(() -> posts.create(userId, request));
         return detail(id, userId);
     }
 
@@ -108,3 +112,4 @@ public class BoardPostService {
         if (title.indexOf(0) >= 0 || content.indexOf(0) >= 0) throw BoardException.invalid();
     }
 }
+

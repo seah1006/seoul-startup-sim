@@ -22,6 +22,10 @@ dl{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0}
 dt{font-size:14px;color:#5b6876}
 dd{margin:4px 0 0;font-size:20px;font-weight:bold;word-break:break-all}
 .note{margin-top:24px;font-size:13px;color:#5b6876}
+.record{margin-top:24px;padding:16px;border-radius:12px;background:#f3f7f5}
+.record-label{margin:0 0 4px;font-size:14px;color:#5b6876}
+.record-link{font-weight:bold;color:#1f3a5f;word-break:break-all}
+.record-count{margin-left:8px;font-size:13px;color:#5b6876}
 .cta{display:inline-block;margin-top:16px;padding:12px 20px;border-radius:8px;background:#3d7a6b;color:#fff;text-decoration:none;font-weight:bold}
 </style>
 </head>
@@ -38,9 +42,14 @@ dd{margin:4px 0 0;font-size:20px;font-weight:bold;word-break:break-all}
     <div><dt>최고 분기 순이익</dt><dd th:text="${page.bestQuarterProfit}"></dd></div>
     <div><dt>매장 수</dt><dd th:text="|${page.shopCount}곳|"></dd></div>
   </dl>
-  <!-- TASK-005B: 공개 인증글 섹션(제목, 댓글 수, 링크)을 여기에 붙인다. 없으면 생략. -->
+  <section class="record" th:if="${recordLink != null}">
+    <p class="record-label">이 가게의 인증글</p>
+    <a class="record-link" th:href="@{${recordLink.postUrl}}" th:text="${recordLink.title}">인증글 제목</a>
+    <span class="record-count" th:text="|댓글 ${recordLink.commentCount}개|">댓글 0개</span>
+  </section>
   <p class="note">게임 속 가상 가게의 기록입니다. 매출은 서울시 상권분석서비스 자료를 바탕으로 서버가 계산했습니다.</p>
   <a class="cta" th:href="@{/}">나도 창업해 보기</a>
 </main>
 </body>
 </html>
+
