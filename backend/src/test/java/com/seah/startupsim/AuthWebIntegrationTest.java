@@ -127,6 +127,27 @@ class AuthWebIntegrationTest {
     }
 
     @Test
+    void loginLogoutAndUniformFailureMessages() throws Exception {
+        String login = id();
+        String password = secret();
+        service.signup(login, password, id(), null);
+        String wrong = secret();
+        String known = mvc.perform(body(post("/api/auth/login"), Map.of("loginId", login, "password", wrong)))
+                .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
+        String unknown = mvc.perform(body(post("/api/auth/login"), Map.of("loginId", id(), "password", wrong)))
+                .andExpect(status().isUnauthorized()).andReturn().getResponse().getContentAsString();
+        assertEquals(json.readTree(known).path("message").asText(), json.readTree(unknown).path("message").asText());
+        assertFalse(known.contains(wrong));
+        mvc.perform(body(post("/api/auth/login"), Map.of("loginId", login, "password", "가".repeat(25) + "a1")))
+                .andExpect(status().isBadRequest());
+        String result = mvc.perform(body(post("/api/auth/login"), Map.of("loginId", login, "password", password)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String token = json.readTree(result).path("token").asText();
+        mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
+        mvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void tokenExpiresAndMemberUseExtendsExpiry() {
         var guest = service.createGuest();
         var member = service.signup(id(), secret(), id(), null);

@@ -123,6 +123,13 @@ public class AuthService {
         nickname(nickname);
     }
 
+    private boolean matches(String value, String encoded) {
+        if (value != null && value.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw invalid();
+        }
+        return encoder.matches(value == null ? "" : value, encoded);
+    }
+
     private void password(String value) {
         if (value == null || value.length() < 8 || value.length() > 64
                 || value.getBytes(StandardCharsets.UTF_8).length > 72
@@ -146,7 +153,7 @@ public class AuthService {
     public LoginResult login(String loginId, String password) {
         var found = repository.findByLoginForUpdate(loginId);
         var user = found.isEmpty() ? null : found.getFirst();
-        boolean matches = encoder.matches(password == null ? "" : password,
+        boolean matches = matches(password,
                 user == null || user.passwordHash() == null ? dummyHash : user.passwordHash());
         if (user == null || user.deletedAt() != null) {
             throw AuthException.credentials();
@@ -188,7 +195,7 @@ public class AuthService {
     public void changePassword(AuthenticatedUser user, String current, String replacement) {
         requireMember(user.userId());
         var account = account(user.userId(), true);
-        if (current == null || !encoder.matches(current, account.passwordHash())) {
+        if (current == null || !matches(current, account.passwordHash())) {
             throw AuthException.credentials();
         }
         password(replacement);
@@ -200,7 +207,7 @@ public class AuthService {
     public void delete(AuthenticatedUser user, String password) {
         requireMember(user.userId());
         var account = account(user.userId(), true);
-        if (password == null || !encoder.matches(password, account.passwordHash())) {
+        if (password == null || !matches(password, account.passwordHash())) {
             throw AuthException.credentials();
         }
         repository.delete(user.userId(), now());
