@@ -59,3 +59,39 @@ describe.each([false, true])('게시판 어댑터 (목=%s)', mock => {
     await expect(boardApi.report(report)).rejects.toMatchObject({ status: 409, ...duplicate });
   });
 });
+
+const testCommentPost = 2;
+it('목에서 대댓글 페이징, 소속/깊이 확인, 댓글 신고, 429를 계약대로 응답한다', async () => {
+  const { boardApi, guestStorageKey } = await client(true);
+  const now = vi.spyOn(Date, 'now').mockReturnValue(1_800_000_000_000);
+  try {
+    localStorage.setItem(guestStorageKey, 'mock-guest');
+    const original = await boardApi.post(testCommentPost);
+    await expect(boardApi.createComment(testCommentPost, { content: '3단계', parentId: 4 }))
+      .rejects.toMatchObject({ status: 400, code: 'COMMENT_DEPTH_EXCEEDED' });
+    await expect(boardApi.createComment(3, { content: '다른 게시글', parentId: 1 })).rejects.toMatchObject({ status: 404 });
+    for (let i = 0; i < 10; i++) await boardApi.createComment(testCommentPost, { content: `답글 ${i}`, parentId: 1 });
+    await expect(boardApi.createComment(testCommentPost, { content: '제한 초과' })).rejects.toMatchObject({ status: 429, code: 'RATE_LIMITED' });
+    expect(await boardApi.replies(testCommentPost, 1, { page: 1, size: 5 })).toMatchObject({ page: 1, totalElements: 11, totalPages: 3 });
+    expect(await boardApi.post(testCommentPost)).toMatchObject({ version: original.version, commentCount: original.commentCount + 10 });
+    const report = { targetType: 'COMMENT', targetId: 1, reason: 'SPAM' } as const;
+    await expect(boardApi.report({ ...report, targetId: 2 })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
+    await expect(boardApi.report({ ...report, targetId: 3 })).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });
+    await expect(boardApi.report(report)).resolves.toMatchObject({ status: 'PENDING' });
+    await expect(boardApi.report(report)).rejects.toMatchObject({ status: 409, code: 'ALREADY_REPORTED' });
+  } finally { now.mockRestore(); }
+});
+
+it('선택 인증 401에서 토큰 없이 한 번만 재시도하고, 필수 인증 401은 보존한다', async () => {
+  const request = vi.fn(async (_: string, options: RequestInit) => (options.headers as Record<string, string>)['X-Guest-Token']
+    ? Response.json({ code: 'UNAUTHORIZED', message: '만료된 토큰' }, { status: 401 }) : Response.json({ likedByMe: false }));
+  vi.stubGlobal('fetch', request);
+  const { boardApi, guestStorageKey } = await client(false);
+  localStorage.setItem(guestStorageKey, 'expired');
+  await expect(boardApi.post(2)).resolves.toMatchObject({ likedByMe: false });
+  expect(request).toHaveBeenCalledTimes(2);
+  expect(request).toHaveBeenLastCalledWith('/api/board/posts/2', expect.objectContaining({ headers: {} }));
+  expect(localStorage.getItem(guestStorageKey)).toBe('expired');
+  await expect(boardApi.like(2, true)).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED', message: '만료된 토큰' });
+  expect(request).toHaveBeenCalledTimes(3);
+});

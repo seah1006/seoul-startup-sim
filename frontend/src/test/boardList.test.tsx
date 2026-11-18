@@ -61,3 +61,12 @@ it('앱에서 /board에 직접 진입해도 게스트를 자동 발급하지 않
     expect(localStorage.getItem(guestStorageKey)).toBeNull();
   } finally { window.history.replaceState({}, '', '/'); }
 });
+
+it('범위 밖 페이지를 검색 결과 없음과 구분하고 첫 페이지로 복귀한다', async () => {
+  render(<MemoryRouter initialEntries={['/board?page=99']}><BoardList/><HistoryControls/></MemoryRouter>);
+  expect(await screen.findByText('이 페이지에는 글이 없습니다.')).toBeVisible();
+  expect(screen.queryByText('조건에 맞는 게시글이 없습니다.')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '첫 페이지로' }));
+  expect(await screen.findByRole('list', { name: '게시글 목록' })).toBeVisible();
+  expect(screen.getByTestId('url')).not.toHaveTextContent('page=');
+});
