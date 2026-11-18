@@ -53,3 +53,16 @@ UPDATE turning_point_options
 SET on_success = regexp_replace(on_success::text, '("label": "[^"]*[0-9]만)"', '\1 원"', 'g')::jsonb,
     on_fail = regexp_replace(on_fail::text, '("label": "[^"]*[0-9]만)"', '\1 원"', 'g')::jsonb
 WHERE on_success::text ~ '"label": "[^"]*[0-9]만"' OR on_fail::text ~ '"label": "[^"]*[0-9]만"';
+
+------------------------------------------------------------------------------
+-- 4. 동네 반응 조사: 가게 이름 끝 글자 받침에 맞춰 이/가, 은/는, 이에요/예요를 고르는 문법으로 교체
+------------------------------------------------------------------------------
+-- {shopName}이 → {shopName:이/가}. 문법은 EventText, 검증은 EventDefinitionValidator(같은 패턴).
+-- 조사 쌍이 없는 옛 문법은 글자 그대로 렌더링되므로 관리자가 직접 만든 문구는 바뀌지 않는다.
+UPDATE reaction_templates
+SET body = replace(replace(replace(body,
+        '{shopName}이에요', '{shopName:이에요/예요}'),
+        '{shopName}이 ', '{shopName:이/가} '),
+        '{shopName}은 ', '{shopName:은/는} '),
+    rev = rev + 1, updated_at = now()
+WHERE body LIKE '%{shopName}이에요%' OR body LIKE '%{shopName}이 %' OR body LIKE '%{shopName}은 %';

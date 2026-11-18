@@ -78,6 +78,13 @@ class EventSeedIntegrationTest {
                 SELECT count(*) FROM turning_point_options o JOIN turning_points p ON p.id = o.turning_point_id
                 WHERE p.code = 'RENT_HIKE' AND o.on_success::text LIKE '%"임대료 +150만 원"%'
                 """, Integer.class));
+        assertEquals(0, jdbc.queryForObject("""
+                SELECT count(*) FROM reaction_templates WHERE body ~ '\\{shopName\\}(이|은)'
+                """, Integer.class));
+        assertEquals(11, jdbc.queryForObject("""
+                SELECT sum((SELECT count(*) FROM regexp_matches(body, '\\{shopName:[^}]+\\}', 'g')))
+                FROM reaction_templates
+                """, Integer.class));
     }
 
     private void validateDefinitionReader(Connection connection) {
