@@ -288,31 +288,33 @@ export function BoardComments({
   return (
     <section className="card" aria-label="댓글 영역">
       <h2>댓글 {count}</h2>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          closeEditor();
-          add();
-        }}
-      >
-        <label>
-          댓글 내용
-          <textarea
-            value={rootDraft}
-            required
-            maxLength={1000}
-            disabled={busy}
-            onChange={(e) => setRootDraft(e.target.value)}
-          />
-        </label>
-        <button
-          className="primary"
-          type="submit"
-          disabled={busy || !roots?.data || !rootDraft.trim()}
+      <MemberOnly>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            closeEditor();
+            add();
+          }}
         >
-          댓글 등록
-        </button>
-      </form>
+          <label>
+            댓글 내용
+            <textarea
+              value={rootDraft}
+              required
+              maxLength={1000}
+              disabled={busy}
+              onChange={(e) => setRootDraft(e.target.value)}
+            />
+          </label>
+          <button
+            className="primary"
+            type="submit"
+            disabled={busy || !roots?.data || !rootDraft.trim()}
+          >
+            댓글 등록
+          </button>
+        </form>
+      </MemberOnly>
       {!editor && <BoardFeedback error={error} onGuest={onGuest} />}
       {!roots && <p role="status">댓글을 불러오는 중…</p>}
       <BoardFeedback error={roots?.error} onGuest={onGuest} />

@@ -12,6 +12,7 @@ export function RecordFilters({
     [q, setQ] = useState(''),
     [areas, setAreas] = useState<Area[]>([]),
     [selected, setSelected] = useState(areaCode || ''),
+    [industry, setIndustry] = useState(serviceCode || ''),
     [error, setError] = useState('');
   useEffect(() => {
     void api.industries().then(setIndustries, () => setError('업종 목록을 불러오지 못했어요.'));
@@ -34,7 +35,7 @@ export function RecordFilters({
     <>
       <label>
         업종
-        <select name="serviceCode" defaultValue={serviceCode || ''}>
+        <select name="serviceCode" value={industry} onChange={(e) => setIndustry(e.target.value)}>
           <option value="">전체 업종</option>
           {industries.map((i) => (
             <option key={i.serviceCode} value={i.serviceCode}>
