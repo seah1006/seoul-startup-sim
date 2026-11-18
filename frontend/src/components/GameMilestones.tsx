@@ -1,3 +1,4 @@
+import {EndingBoardEntry} from './BoardEntry';
 import {useEffect,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {api,ApiError} from '../api/client';
@@ -14,7 +15,7 @@ export function EndingScreen({game}:{game:GameState}){
  useEffect(()=>{let active=true;api.summary(game.gameId).then(s=>{if(active)setSummary(s);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[game.gameId]);
  async function share(){if(!summary)return;try{await navigator.clipboard.writeText(new URL(summary.shareUrl,window.location.origin).href);setNotice('공유 링크를 복사했어요.');}catch{setNotice('자동 복사에 실패했어요. 아래 공유 페이지 링크를 복사해 주세요.');}}
  const titles={CLOSED:'가게의 문을 닫고, 다음 시작을 준비해요',SOLD:'가게를 매각하고 은퇴했어요',LONG_RUNNING:'오래 사랑받는 가게가 되었어요'};
- return <section className="card ending"><p className="eyebrow">YOUR STORY</p><h2>{titles[game.endingType||'LONG_RUNNING']}</h2>{summary?<><p>{summary.ownerName} 사장님의 {summary.shopName}</p><p>{summary.areaName} · {summary.serviceName}</p><div className="metrics"><div>생존 기간<strong>{summary.survivedQuarters}분기</strong></div><div>누적 순이익<strong>{money(summary.totalProfit)}</strong></div><div>최고 분기 순이익<strong>{money(summary.bestQuarterProfit)}</strong></div></div><div className="choices"><button onClick={()=>void share()}>공유하기</button><a className="button" href={summary.shareUrl}>공유 페이지</a><Link className="button primary" to="/new">새 창업</Link></div>{notice&&<p role="status">{notice}</p>}</>:<p role="status">{error||'창업 여정을 정리하고 있어요…'}</p>}</section>;
+ return <section className="card ending"><p className="eyebrow">YOUR STORY</p><h2>{titles[game.endingType||'LONG_RUNNING']}</h2>{summary?<><p>{summary.ownerName} 사장님의 {summary.shopName}</p><p>{summary.areaName} · {summary.serviceName}</p><div className="metrics"><div>생존 기간<strong>{summary.survivedQuarters}분기</strong></div><div>누적 순이익<strong>{money(summary.totalProfit)}</strong></div><div>최고 분기 순이익<strong>{money(summary.bestQuarterProfit)}</strong></div></div><div className="choices"><button onClick={()=>void share()}>공유하기</button><a className="button" href={summary.shareUrl}>공유 페이지</a><Link className="button primary" to="/new">새 창업</Link></div>{notice&&<p role="status">{notice}</p>}<EndingBoardEntry key={game.gameId} gameId={game.gameId}/></>:<p role="status">{error||'창업 여정을 정리하고 있어요…'}</p>}</section>;
 }
 export function SellButton({game,onGame}:{game:GameState;onGame:(g:GameState)=>void}){
  const [confirm,setConfirm]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');

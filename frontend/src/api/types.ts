@@ -22,3 +22,44 @@ export interface GameSummary {gameId:number;endingType:NonNullable<GameState['en
 export type RankingKind='ALL'|'INDUSTRY'|'AREA';
 export interface RankingEntry {gameId:number;rank:number;nickname:string;ownerName:string;shopName:string;areaName:string;serviceName:string;endingType:NonNullable<GameState['endingType']>;survivedQuarters:number;totalProfit:number}
 export interface Rankings {date:string;refreshedAt:string;kind:RankingKind;entries:RankingEntry[]}
+// API 계약 4장: 커뮤니티 게시판 (관리자 Thymeleaf 화면 제외).
+export const boardCategories = ['FREE', 'TIP', 'QNA', 'RECORD'] as const;
+export const boardSorts = ['latest', 'popular', 'views', 'comments'] as const;
+export const boardSearchTypes = ['title', 'content', 'titleContent', 'author'] as const;
+export type PostCategory = typeof boardCategories[number];
+export type PostSort = typeof boardSorts[number];
+export type PostSearchType = typeof boardSearchTypes[number];
+export type BoardErrorCode = 'VALIDATION_FAILED' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND'
+  | 'INTERNAL_ERROR' | 'RATE_LIMITED' | 'COMMENT_DEPTH_EXCEEDED' | 'POST_VERSION_CONFLICT'
+  | 'COMMENT_VERSION_CONFLICT' | 'RECORD_GAME_NOT_ENDED' | 'RECORD_ALREADY_POSTED' | 'ALREADY_REPORTED';
+
+export interface PageQuery { page?: number; size?: number }
+export interface PageResponse<T> { content: T[]; page: number; size: number; totalElements: number; totalPages: number }
+export interface PostSearchQuery extends PageQuery {
+  category?: PostCategory; sort?: PostSort; q?: string; searchType?: PostSearchType; serviceCode?: string; areaCode?: string;
+}
+export interface RecordSnapshot {
+  gameId: number; endingType: NonNullable<GameState['endingType']>; serviceCode: string; serviceName: string;
+  areaCode: string; areaName: string; survivedQuarters: number; totalProfit: number;
+  shopName: string; ownerName: string; shareUrl: string;
+}
+
+export interface PostListItem {
+  postId: number; category: PostCategory; title: string; authorNickname: string; createdAt: string; updatedAt: string;
+  viewCount: number; likeCount: number; commentCount: number; isPinned: boolean; record: RecordSnapshot | null;
+}
+export interface PostDetail extends PostListItem { content: string; version: number; likedByMe: boolean; isMine: boolean }
+export interface MyPostListItem extends PostListItem { status: 'ACTIVE' | 'HIDDEN'; version: number }
+export type CreatePostRequest = { title: string; content: string } & (
+  { category: Exclude<PostCategory, 'RECORD'>; gameId?: never } | { category: 'RECORD'; gameId: number }
+);
+export interface UpdatePostRequest { category: PostCategory; title: string; content: string; version: number }
+export interface RecordPostLink { postId: number; title: string; commentCount: number; postUrl: string }
+export interface CommentItem {
+  commentId: number; parentId: number | null; authorNickname: string | null; content: string; createdAt: string;
+  updatedAt: string | null; version: number | null; replyCount: number; isMine: boolean; isPlaceholder: boolean;
+}
+export interface CreateCommentRequest { content: string; parentId?: number | null }
+export interface UpdateCommentRequest { content: string; version: number }
+export interface CreateReportRequest { targetType: 'POST' | 'COMMENT'; targetId: number; reason: 'SPAM' | 'ABUSE' | 'ADULT' | 'ETC'; detail?: string }
+export interface ReportCreated { reportId: number; status: 'PENDING' }
