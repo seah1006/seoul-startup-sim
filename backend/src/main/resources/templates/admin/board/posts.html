@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="ko" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{admin/fragments :: head('게시글 관리')}"></head><body><header th:replace="~{admin/fragments :: nav}"></header><main><nav><a th:href="@{/admin/board/posts}">게시글</a> <a th:href="@{/admin/board/reports}">신고</a></nav><h1>게시글 관리</h1><p role="alert" th:if="${error}" th:text="${error}"></p>
+<form method="get" th:action="@{/admin/board/posts}">
+  <label>상태 <select name="status"><option value="">전체</option><option th:each="s : ${states}" th:text="${s}" th:value="${s}" th:selected="${s == selectedStatus}"></option></select></label>
+  <label>카테고리 <select name="category"><option value="">전체</option><option th:each="c : ${categories}" th:text="${c}" th:value="${c}" th:selected="${c == selectedCategory}"></option></select></label>
+  <label>제목·본문 <input name="q" th:value="${q}"></label><button>검색</button>
+</form>
+<table><thead><tr><th>번호</th><th>제목</th><th>분류</th><th>상태</th><th>고정</th></tr></thead><tbody>
+<tr th:each="p : ${posts}"><td th:text="${p.id}"></td><td><a th:href="@{/admin/board/posts/{id}(id=${p.id})}" th:text="${p.title}"></a></td><td th:text="${p.category}"></td><td th:text="${p.status}"></td><td th:text="${p.pinned ? '예' : '아니오'}"></td></tr>
+</tbody></table>
+<nav aria-label="페이지"><a th:if="${page > 0}" th:href="@{/admin/board/posts(page=${page - 1},status=${selectedStatus},category=${selectedCategory},q=${q})}">이전</a> <span th:text="${page + 1}"></span> <a th:if="${hasNext}" th:href="@{/admin/board/posts(page=${page + 1},status=${selectedStatus},category=${selectedCategory},q=${q})}">다음</a></nav></main></body></html>
