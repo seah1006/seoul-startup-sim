@@ -62,3 +62,4 @@
 - [3-4] 관리자 게시글 상태 변경 시 고정 해제. 숨김→복구와 고정→삭제 회귀 테스트 추가.
 - [2-1 게시판 범위] 사용자별 슬라이딩 60초 제한 + IP별 보조 제한(기본 글 10/댓글 30/신고 15). IP 설정과 프록시 신뢰 opt-in은 API 계약 4장 참조. 모든 admission에서 만료 식별자 정리. 경계 버스트·사용자 교체 IP 우회·프록시 opt-in·만료 정리 단위 테스트 추가. `/api/guest` 및 game/common은 미수정.
 - 범위: board 소스/테스트, 관리자 board 템플릿 및 문서만 수정. 마이그레이션, 메인 DB, push 미실행. DB 통합 검증은 격리 Testcontainers만 사용.
+- 최종 검증: `gradlew.bat --offline test --tests '*Board*' --no-daemon` 성공(22 tests), `gradlew.bat --offline clean check --no-daemon` 성공(2m 5s, 67 tests / failures 0 / errors 0 / skipped 0). `git diff --check` 통과.
