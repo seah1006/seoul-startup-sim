@@ -34,3 +34,24 @@
 - Testcontainers: `gradlew.bat --no-daemon test --offline --tests '*BoardInteractionIntegrationTest'` 재검증 5 tests, `--tests '*BoardModerationIntegrationTest'` 2 tests. 모두 실패·오류·스킵 0. 관리자 CSRF와 텍스트 이스케이프 포함.
 - 커밋: `38d5f5d` 신고/관리자, `d7f7fdb` 통합 테스트. 2단계 테스트는 기커밋(`c509582`, 줄바꿈 `6e6e4de`)으로 중복 커밋하지 않음.
 - 다음: 4단계 레이트 리밋·시드, 전체 검증·전용 DB EXPLAIN·curl 시연.
+## 4단계: 레이트 리밋·데모 시드 및 완료 검증
+- `d9b0789`: 사용자별 고정 창으로 글 3·댓글 10·신고 5회/분, 초과 429 `RATE_LIMITED`. 글 4번째 429 및 다른 사용자 분리 통합 테스트 포함.
+- `15c318f`: Flyway 밖의 수동 데모 시드. 5437 전용 Compose 프로젝트 `sss-task005a`에서 `docker compose -p sss-task005a exec -T db`의 psql로 `seed_board_demo.sql` 적재 성공(BEGIN/DO/COMMIT). FREE 5, QNA 5, TIP 5, RECORD 3, 대댓글 있는 신고 대상 및 PENDING 2건.
+- `gradlew.bat --no-daemon clean check --offline`: 성공(2m 47s), XML: tests=60, failures=0, errors=0, skipped=0. 네트워크 준비용 온라인 `clean check`는 이번 세션 미실행(의존성·이미지는 캐시 상태).
+- 전용 DB `SELECT name FROM pg_available_extensions WHERE name='pg_trgm'`: `pg_trgm` 1행. 제목 검색 계획 실측:
+  ```text
+  Limit  (cost=2.28..2.28 rows=1 width=17)
+    ->  Sort  (cost=2.28..2.28 rows=1 width=17)
+          Sort Key: is_pinned DESC, created_at DESC, id DESC
+          ->  Seq Scan on posts  (cost=0.00..2.27 rows=1 width=17)
+                Filter: ((title ~~* '%체크리스트%'::text) AND (status = 'ACTIVE'::text))
+  ```
+  `SET LOCAL enable_seqscan=off`의 제목 조건 단독 계획:
+  ```text
+  Bitmap Heap Scan on posts  (cost=25.91..29.92 rows=1 width=8)
+    Recheck Cond: (title ~~* '%체크리스트%'::text)
+    ->  Bitmap Index Scan on ix_posts_title_trgm  (cost=0.00..25.91 rows=1 width=0)
+          Index Cond: (title ~~* '%체크리스트%'::text)
+  ```
+- 8085 `curl.exe -i`: 목록 `HTTP/1.1 200`(18건, page size 10), 제목 `searchType=title&q=체크리스트` 검색 `HTTP/1.1 200`(1건), 공지 상세 `HTTP/1.1 200`, 글 작성 `HTTP/1.1 201`, 같은 버전 재수정 `HTTP/1.1 409 POST_VERSION_CONFLICT`, 좋아요 `HTTP/1.1 204`. 토큰 미기록.
+- `git grep --untracked -n 'game\.' -- backend/src/main/java/com/seah/startupsim/board`: BoardGuestAuth import 2줄뿐. 5433 미접속. V11 원본과 기존 마이그레이션/순서 설정 유지. push/merge 없음. RECORD 작성 및 연결 조회는 TASK-005B, 프록시 수정은 TASK-005C 범위로 여기서는 미구현.
