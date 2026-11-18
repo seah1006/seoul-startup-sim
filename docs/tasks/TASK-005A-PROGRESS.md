@@ -17,3 +17,6 @@
 ## 다음 단계
 - 2단계: 댓글·대댓글·좋아요와 공개 카운터 트랜잭션 및 동시성 테스트. `BoardExceptionHandler`의 `assignableTypes`에 새 REST 컨트롤러 추가.
 - 3단계: 신고·관리자 Thymeleaf. 4단계: 레이트 리밋·시드 및 완료 검증(`clean check`, 전용 DB의 EXPLAIN, curl 데모).
+
+## 2단계: 댓글·대댓글·좋아요
+- 2단계 시작. 메인 확인: 1단계 전체 check 통과(52 tests, 0 failures).
