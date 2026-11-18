@@ -235,8 +235,7 @@ class EventBalanceSimulationTest {
         for (var point : before.points()) {
             changed.put(point.code(), (ObjectNode) point.data().deepCopy());
         }
-        Matcher update = Pattern.compile("UPDATE turning_points SET (.*?) WHERE code = '([A-Z0-9_]+)';",
-                Pattern.DOTALL).matcher(sql);
+        Matcher update = Pattern.compile("UPDATE turning_points SET ([^;]*?) WHERE code = '([A-Z0-9_]+)';").matcher(sql);
         while (update.find()) {
             ObjectNode node = changed.get(update.group(2));
             String assignments = update.group(1);

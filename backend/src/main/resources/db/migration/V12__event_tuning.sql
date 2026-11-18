@@ -42,3 +42,14 @@ CROSS JOIN LATERAL (SELECT coalesce((SELECT max(k.created_at) FROM idempotency_k
                     AS ended_at) e
 WHERE g.status = 'ENDED' AND g.ending_type IN ('CLOSED', 'LONG_RUNNING')
   AND NOT EXISTS (SELECT 1 FROM game_records r WHERE r.game_id = g.id);
+
+------------------------------------------------------------------------------
+-- 3. 효과 라벨의 금액 단위: "임대료 +150만" → "임대료 +150만 원" (현금 요약 "-300만 원"과 같은 표기)
+------------------------------------------------------------------------------
+UPDATE turning_points SET rev = rev + 1, updated_at = now()
+WHERE id IN (SELECT turning_point_id FROM turning_point_options
+             WHERE on_success::text ~ '"label": "[^"]*[0-9]만"' OR on_fail::text ~ '"label": "[^"]*[0-9]만"');
+UPDATE turning_point_options
+SET on_success = regexp_replace(on_success::text, '("label": "[^"]*[0-9]만)"', '\1 원"', 'g')::jsonb,
+    on_fail = regexp_replace(on_fail::text, '("label": "[^"]*[0-9]만)"', '\1 원"', 'g')::jsonb
+WHERE on_success::text ~ '"label": "[^"]*[0-9]만"' OR on_fail::text ~ '"label": "[^"]*[0-9]만"';

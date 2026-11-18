@@ -1,5 +1,6 @@
 package com.seah.startupsim.game;
 
+import com.seah.startupsim.common.MoneyFormat;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -82,11 +83,18 @@ public class EventEffectService {
         }).toList();
     }
 
-    /** 보정 라벨에는 이미 수치가 들어 있으므로 요약 문장에는 라벨만 쓴다. */
+    /**
+     * 선택 전 화면의 효과 요약 문장. 보정 라벨에는 이미 수치가 들어 있으므로 라벨만 쓰고,
+     * 현금은 화면 금액 규칙({@link MoneyFormat})으로 "-300만 원"처럼 쓴다.
+     * 선택 결과의 {@link #describe} 값은 이벤트 골든이 고정하고 있어 기존 표기를 유지한다.
+     */
     public String summary(List<EventDsl.Effect> effects) {
         List<String> parts = effects.stream().filter(effect -> !(effect instanceof EventDsl.Flag))
-                .map(effect -> effect instanceof EventDsl.ModifierEffect modifier ? modifier.label()
-                        : join(describe(List.of(effect)).getFirst()))
+                .map(effect -> switch (effect) {
+                    case EventDsl.ModifierEffect modifier -> modifier.label();
+                    case EventDsl.Cash cash -> cash.memo() + " " + MoneyFormat.signedWon(cash.amount());
+                    default -> join(describe(List.of(effect)).getFirst());
+                })
                 .toList();
         return parts.isEmpty() ? "변화 없음" : String.join(", ", parts);
     }

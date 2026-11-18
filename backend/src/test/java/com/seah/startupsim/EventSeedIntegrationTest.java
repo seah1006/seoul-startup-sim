@@ -55,10 +55,29 @@ class EventSeedIntegrationTest {
             assertEquals(12, result.getInt(4));
             assertEquals(0, result.getInt(5));
             assertEquals(0, result.getInt(6));
+            validateTuning(connection);
             validateDefinitions(connection);
             validateDefinitionReader(connection);
             validateModifierWindow(connection);
         }
+    }
+
+    /** V12: 빈도 조정 값과 효과 라벨 금액 단위(만 원)가 적용됐는지 본다. */
+    private void validateTuning(Connection connection) {
+        var jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+        assertEquals(0.08, jdbc.queryForObject(
+                "SELECT base_probability FROM turning_points WHERE code = 'STAFF_TURNOVER'", Double.class));
+        assertEquals(List.of(8, 2), jdbc.queryForObject(
+                "SELECT ARRAY[cooldown_quarters, max_fires] FROM turning_points WHERE code = 'STAFF_TURNOVER'",
+                (row, index) -> List.of((Integer[]) row.getArray(1).getArray())));
+        assertEquals(0, jdbc.queryForObject("""
+                SELECT count(*) FROM turning_point_options
+                WHERE on_success::text ~ '"label": "[^"]*[0-9]만"' OR on_fail::text ~ '"label": "[^"]*[0-9]만"'
+                """, Integer.class));
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT count(*) FROM turning_point_options o JOIN turning_points p ON p.id = o.turning_point_id
+                WHERE p.code = 'RENT_HIKE' AND o.on_success::text LIKE '%"임대료 +150만 원"%'
+                """, Integer.class));
     }
 
     private void validateDefinitionReader(Connection connection) {
