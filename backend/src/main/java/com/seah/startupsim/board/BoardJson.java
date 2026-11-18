@@ -19,11 +19,11 @@ final class BoardJson {
         }
     }
 
-    static final class Version extends ValueDeserializer<Long> {
+    static final class IntegerValue extends ValueDeserializer<Long> {
         @Override
         public Long deserialize(JsonParser parser, DeserializationContext context) {
             if (!parser.hasToken(JsonToken.VALUE_NUMBER_INT)) {
-                return context.reportInputMismatch(Long.class, "정수 버전이 필요합니다.");
+                return context.reportInputMismatch(Long.class, "정수가 필요합니다.");
             }
             return parser.getLongValue();
         }

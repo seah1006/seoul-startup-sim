@@ -16,11 +16,7 @@ public record PostSearchQuery(PageRequest page, PostCategory category, Sort sort
 
     static PostSearchQuery of(Integer page, Integer size, PostCategory category, Sort sort,
             SearchType searchType, String q, String serviceCode, String areaCode) {
-        int pageNumber = page == null ? 0 : page;
-        int pageSize = size == null ? 20 : size;
-        if (pageNumber < 0 || pageSize < 1 || pageSize > 50) {
-            throw BoardException.invalid();
-        }
+        var pagination = BoardPagination.of(page, size);
         serviceCode = code(serviceCode);
         areaCode = code(areaCode);
         if (serviceCode != null || areaCode != null) {
@@ -33,7 +29,7 @@ public record PostSearchQuery(PageRequest page, PostCategory category, Sort sort
         if (q != null && (q.length() > 100 || q.indexOf(0) >= 0)) {
             throw BoardException.invalid();
         }
-        return new PostSearchQuery(PageRequest.of(pageNumber, pageSize), category,
+        return new PostSearchQuery(pagination, category,
                 sort == null ? Sort.latest : sort, searchType == null ? SearchType.titleContent : searchType,
                 q == null || q.isEmpty() ? null : q, serviceCode, areaCode);
     }

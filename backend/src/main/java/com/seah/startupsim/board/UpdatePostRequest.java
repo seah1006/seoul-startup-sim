@@ -10,7 +10,7 @@ import tools.jackson.databind.annotation.JsonDeserialize;
 public record UpdatePostRequest(@NotNull @JsonDeserialize(using = BoardJson.Category.class) PostCategory category,
         @NotBlank @Size(max = 100) @JsonDeserialize(using = BoardJson.Text.class) String title,
         @NotBlank @Size(max = 10000) @JsonDeserialize(using = BoardJson.Text.class) String content,
-        @NotNull @PositiveOrZero @JsonDeserialize(using = BoardJson.Version.class) Long version) {
+        @NotNull @PositiveOrZero @JsonDeserialize(using = BoardJson.IntegerValue.class) Long version) {
     public UpdatePostRequest {
         title = title == null ? null : title.strip();
         content = content == null ? null : content.strip();

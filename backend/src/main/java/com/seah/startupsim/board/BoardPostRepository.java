@@ -101,7 +101,22 @@ public class BoardPostRepository {
                 (rs, n) -> summary(rs).detail(rs, userId), userId, postId).stream().findFirst();
     }
 
-    boolean lockActiveForView(long postId) {
+    boolean isActive(long postId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM posts WHERE id = ? AND status = 'ACTIVE')
+                """, Boolean.class, postId));
+    }
+
+    void incrementComments(long postId) {
+        jdbc.update("UPDATE posts SET comment_count = comment_count + 1 WHERE id = ?", postId);
+    }
+
+    void decrementComments(long postId) {
+        jdbc.update("UPDATE posts SET comment_count = comment_count - 1 WHERE id = ? AND comment_count > 0", postId);
+    }
+
+    // Post first: serialize counter writes with moderation and avoid FK lock upgrades.
+    boolean lockActive(long postId) {
         return !jdbc.queryForList("""
                 SELECT id FROM posts WHERE id = ? AND status = 'ACTIVE' FOR NO KEY UPDATE
                 """, Long.class, postId).isEmpty();

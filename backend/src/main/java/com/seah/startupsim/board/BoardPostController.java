@@ -19,13 +19,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.HandlerMapping;
 
+import static com.seah.startupsim.board.BoardGuestAuth.USER_ID;
+
 @RestController
 @RequestMapping("/api/board")
 public class BoardPostController {
     private static final String POSTS = "/posts";
     private static final String POST = POSTS + "/{postId}";
     private static final String MINE = "/me/posts";
-    private static final String USER_ID = "boardUserId";
+
     private final BoardGuestAuth auth;
     private final BoardPostService posts;
 
@@ -39,10 +41,9 @@ public class BoardPostController {
     void authenticate(HttpServletRequest request,
             @RequestHeader(name = "X-Guest-Token", required = false) String token) {
         String pattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-        boolean read = "GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod());
+        boolean read = BoardGuestAuth.isRead(request);
         if (read && ("/api/board" + POSTS).equals(pattern)) return;
-        Long userId = read && ("/api/board" + POST).equals(pattern) ? auth.optional(token) : Long.valueOf(auth.required(token));
-        if (userId != null) request.setAttribute(USER_ID, userId);
+        auth.bind(request, token, read && ("/api/board" + POST).equals(pattern));
     }
 
     @GetMapping(POSTS)
