@@ -51,3 +51,9 @@ desktop.ini
 
 !frontend/.env.local.example
 *.tsbuildinfo
+
+!deploy/.env.serve.example
+
+/deploy/app.jar
+/deploy/frontend/
+*.dump
