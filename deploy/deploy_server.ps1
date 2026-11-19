@@ -9,7 +9,7 @@ try {
  try { Run { .\gradlew.bat bootJar --offline } } finally { Pop-Location }
  Push-Location "$root/frontend"
  $previousMock=$env:VITE_USE_MOCK
- try { $env:VITE_USE_MOCK='false'; Run { npm ci --offline }; Run { npm run build } }
+ try { $env:VITE_USE_MOCK='false'; Run { npm ci }; Run { npm run build } }
  finally { $env:VITE_USE_MOCK=$previousMock; Pop-Location }
  $jar=Get-ChildItem "$root/backend/build/libs/*.jar" | Where-Object Name -NotLike '*-plain.jar' | Select-Object -First 1
  if (!$jar) { throw 'bootJar missing' }
