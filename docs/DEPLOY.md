@@ -61,3 +61,5 @@ PostGIS 이미지 기본 tiger 스키마와 덤프가 중복되므로 `pg_restor
 PowerShell 배포/복원 스크립트 구문 분석: 각각 0오류. frontend npm ci --offline, VITE_USE_MOCK=false npm run build 통과. 서버 실제 setup/SSH/scp 및 Oracle 인증서 발급은 미검증.
 
 기존 종료 게임 /share/5 TLS 응답: 200.
+
+최종 검증: gradlew.bat clean check bootJar --offline BUILD SUCCESSFUL (4분36초), 219 tests / 0 failures / 0 skipped. 리허설 컨테이너/프로젝트 볼륨 삭제 완료. 메인 DB/WELF 컨테이너 유지 확인은 메인 담당자가 별도 재확인 가능.
