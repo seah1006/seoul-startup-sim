@@ -114,7 +114,10 @@ export async function request<T>(
     if (response.status === 401 && data.code !== 'INVALID_CREDENTIALS') {
       localStorage.removeItem(guestStorageKey);
       window.dispatchEvent(new Event('authchange'));
-      window.dispatchEvent(new Event('authrequired'));
+      // GET /auth/me는 로그인 상태를 확인하는 요청이다. 저장된 토큰이 무효면 지우기만 하고
+      // 공개 페이지(홈 등)에서 로그인 화면으로 보내지 않는다.
+      if (!(url === '/auth/me' && method === 'GET'))
+        window.dispatchEvent(new Event('authrequired'));
     }
     throw new ApiError(response.status, data.message, data.code);
   }
