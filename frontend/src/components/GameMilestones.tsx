@@ -194,7 +194,7 @@ export function SellButton({ game, onGame }: { game: GameState; onGame: (g: Game
     }
   }
   return (
-    <section>
+    <section className="sell-action">
       <button disabled={game.currentTurn < 4} onClick={() => setConfirm(true)}>
         가게 매각하고 은퇴
       </button>

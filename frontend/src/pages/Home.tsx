@@ -23,12 +23,7 @@ export default function Home() {
 
         <PopularBoardPosts />
       </section>
-      <p>
-        <small>
-          출처: 서울 열린데이터광장 상권분석서비스 · 공공데이터포털 소상공인 상가정보. 목 모드에서는
-          연습 데이터를 사용합니다.
-        </small>
-      </p>
+
     </>
   );
 }

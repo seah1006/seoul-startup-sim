@@ -1057,3 +1057,34 @@ footer {
 .receipt-lines > .group-start { border-top: 1px dashed var(--rule); margin-top: 14px; padding-top: 18px; }
 .receipt-lines > .profit-line { border-top: 1px dashed var(--rule); border-bottom: 0; margin-top: 14px; padding-top: 18px; font-size: 27px; }
 @media(max-width:700px) { .result.receipt { padding: 30px 18px 24px; } .receipt-heading { padding-inline: 28px; } .receipt-heading h2 { font-size: 25px; } .receipt .stamp { right: 8px; width: 48px; height: 48px; } .receipt-lines > .profit-line { font-size: 23px; } }
+
+.game-tabs { display: flex; gap: 20px; }
+.game-tabs button { border: 0; border-bottom: 2px solid transparent; padding: 8px 4px; background: transparent; }
+.game-tabs button[aria-pressed='true'] { border-bottom-color: var(--ink); font-weight: 800; }
+.operation-form label { grid-template-columns: minmax(0, 1fr) minmax(0, 320px); }
+.operation-form input, .operation-form select { max-width: 320px; }
+.operation-form input[type='number'] { text-align: right; }
+.operation-actions { display: flex; align-items: flex-start; gap: 12px; margin-top: 20px; }
+.operation-actions .primary { margin: 0; }
+.operation-actions .sell-action > button { padding: 15px 26px; }
+.sell-action p { margin-top: 8px; }
+.primary:disabled, .primary:disabled:hover { opacity: 1; background: var(--rule); border-color: var(--rule); color: var(--ink-2); }
+.hero { border-bottom: 0; margin-bottom: 0; }
+.candidate-table caption { text-align: left; color: var(--ink-2); margin-bottom: 8px; }
+.candidate-table th:not(:first-child), .candidate-table td:not(:first-child) { text-align: right; }
+.candidate-table tbody th, .candidate-table tbody td { border-bottom: 1px solid var(--rule); }
+.candidate-table tr > :first-child { border-left: 4px solid transparent; }
+.candidate-table .selected { outline: 0; }
+.candidate-table .selected > :first-child { border-left-color: var(--sign); }
+@media(max-width:700px) {
+ .operation-form label { grid-template-columns: minmax(0,1fr); }
+ .operation-form input, .operation-form select { width: 100%; }
+ .operation-actions { flex-direction: column; gap: 12px; }
+ .operation-actions > button, .operation-actions > .sell-action { width: 100%; }
+ .operation-actions .sell-action > button { width: 100%; }
+ .candidate-table { min-width: 0; table-layout: fixed; font-size: 12px; }
+ .candidate-table th, .candidate-table td { padding: 10px 3px; }
+ .candidate-table tr > :first-child { width: 74px; padding-left: 3px; }
+ .candidate-table button { padding: 6px 4px; width: 100%; font-size: 12px; }
+ .candidate-table tr > :last-child { display: none; }
+}

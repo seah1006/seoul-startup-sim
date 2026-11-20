@@ -62,9 +62,9 @@ export default function Game() {
             {game.shop.areaName} · {game.shop.serviceName} · 보유금 <NumericText value={money(game.cash)} />
           </p>
         </div>
-        <div className="choices">
-          <button onClick={() => setTab('play')}>운영</button>
-          <button onClick={() => setTab('history')}>기록</button>
+        <div className="game-tabs" aria-label="게임 화면">
+          <button aria-pressed={tab === 'play'} onClick={() => setTab('play')}>운영</button>
+          <button aria-pressed={tab === 'history'} onClick={() => setTab('history')}>기록</button>
         </div>
       </div>
       {error && (
@@ -94,6 +94,7 @@ export default function Game() {
         <section className="card">
           <h2>이번 분기는 어떻게 운영할까요?</h2>
           <form
+            id="operation-decision"
             className="operation-form"
             onSubmit={(e) => {
               e.preventDefault();
@@ -170,11 +171,13 @@ export default function Game() {
                 </select>
               </label>
             </div>
-            <button className="primary" disabled={busy}>
+          </form>
+          <div className="operation-actions">
+            <button type="submit" form="operation-decision" className="primary" disabled={busy}>
               {busy ? '분기를 결산하는 중…' : '결정 저장하고 다음 분기'}
             </button>
-          </form>
           <SellButton game={game} onGame={setGame} />
+          </div>
         </section>
       )}
     </>
