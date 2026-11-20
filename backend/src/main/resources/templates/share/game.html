@@ -19,9 +19,11 @@
 .card{position:relative;max-width:640px;margin:48px auto;padding:32px 24px;border-top:2px dashed var(--ink);border-bottom:2px dashed var(--ink)}
 .ending{margin:0;padding:0 80px 0 0;font-weight:800}.stamp{position:absolute;right:24px;top:24px;width:66px;height:66px;display:grid;place-items:center;border:3px double var(--sign);border-radius:50%;color:var(--sign);font-weight:800;transform:rotate(-13deg);opacity:.85}
 h1{margin:20px 0 4px;font-family:'Black Han Sans',sans-serif;font-weight:400;font-size:32px;overflow-wrap:anywhere}.meta{margin:0 0 24px;color:var(--ink-2)}
-dl{margin:0}dl>div{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule)}dt{color:var(--ink-2)}dd{margin:0;text-align:right;overflow-wrap:anywhere;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}.profit{border-top:2px solid var(--ink);font-weight:800;font-size:22px}.positive{color:var(--ok)}.negative{color:var(--sign)}
+dl{margin:0}dl>div{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule)}dt{color:var(--ink-2)}dd{margin:0;text-align:right;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}.profit{border-top:2px solid var(--ink);font-weight:800;font-size:22px}.positive{color:var(--ok)}.negative{color:var(--sign)}
 .note,.record-label,.record-count{font-size:13px;color:var(--ink-2)}.record{margin-top:24px;padding:16px 0;border-top:1px solid var(--rule)}.record-label{margin:0 0 4px}.record-link{font-weight:800;color:var(--ink);overflow-wrap:anywhere}.record-count{margin-left:8px}.cta{display:inline-block;min-height:44px;margin-top:16px;padding:12px 20px;border-radius:var(--radius);background:var(--sign);color:var(--sign-ink);text-decoration:none;font-weight:600}.cta:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 @media(max-width:700px){.card{margin:24px 16px;padding:24px 0}.stamp{right:4px}dl>div{gap:10px}.profit{font-size:18px}}
+.card{max-width:520px;background:var(--sign-ink);border:1px solid var(--rule);padding:36px 28px 28px;mask:linear-gradient(#000 0 0) center/100% calc(100% - 16px) no-repeat,conic-gradient(from 135deg at 50% 0,#000 90deg,transparent 0) top/16px 8px repeat-x,conic-gradient(from -45deg at 50% 100%,#000 90deg,transparent 0) bottom/16px 8px repeat-x}
+h1,.meta,.ending{text-align:center}.ending{padding:0 40px}.meta{padding-bottom:18px;border-bottom:1px dashed var(--rule)}.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums}dl>div{border:0;padding:8px 0}.profit{border-top:1px dashed var(--rule);margin-top:14px;padding-top:18px}.stamp{right:12px;width:54px;height:54px}.share-extras{max-width:520px;margin:0 auto 40px;padding:0 28px}.record{border-top:1px solid var(--rule)}@media(max-width:700px){.card{margin:24px 16px;padding:30px 18px 24px}.share-extras{margin:0 16px 30px;padding:0}.stamp{right:8px;width:48px;height:48px}}
 </style>
 </head>
 <body>
@@ -33,12 +35,14 @@ dl{margin:0}dl>div{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;padding
   <dl>
     <div><dt>사장님</dt><dd th:text="${page.ownerName}"></dd></div>
     <div><dt>플레이어</dt><dd th:text="${page.nickname}"></dd></div>
-    <div><dt>생존</dt><dd th:text="|${page.survivedQuarters}분기|"></dd></div>
+    <div><dt>생존</dt><dd><span class="num" th:text="${page.survivedQuarters}"></span>분기</dd></div>
 
-    <div><dt>최고 분기 순이익</dt><dd th:text="${@money.won(page.bestQuarterProfit)}"></dd></div>
-    <div><dt>매장 수</dt><dd th:text="|${page.shopCount}곳|"></dd></div>
-    <div class="profit" th:classappend="${page.totalProfit &gt;= 0 ? 'positive' : 'negative'}"><dt>누적 순이익</dt><dd th:text="${@money.won(page.totalProfit)}"></dd></div>
+    <div><dt>최고 분기 순이익</dt><dd><span th:each="part : ${@money.won(page.bestQuarterProfit).split('(?&lt;=\D)(?=\d)|(?&lt;=\d)(?=\D)')}" th:class="${part.matches('[0-9]+') ? 'num' : null}" th:text="${part}"></span></dd></div>
+    <div><dt>매장 수</dt><dd><span class="num" th:text="${page.shopCount}"></span>곳</dd></div>
+    <div class="profit" th:classappend="${page.totalProfit &gt;= 0 ? 'positive' : 'negative'}"><dt>누적 순이익</dt><dd><span th:each="part : ${@money.won(page.totalProfit).split('(?&lt;=\D)(?=\d)|(?&lt;=\d)(?=\D)')}" th:class="${part.matches('[0-9]+') ? 'num' : null}" th:text="${part}"></span></dd></div>
   </dl>
+</main>
+<div class="share-extras">
   <section class="record" th:if="${recordLink != null}">
     <p class="record-label">이 가게의 인증글</p>
     <a class="record-link" th:href="@{${recordLink.postUrl}}" th:text="${recordLink.title}">인증글 제목</a>
@@ -46,7 +50,7 @@ dl{margin:0}dl>div{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;padding
   </section>
   <p class="note">게임 속 가상 가게의 기록입니다. 매출은 서울시 상권분석서비스 자료를 바탕으로 서버가 계산했습니다. 게임 속 반응과 이벤트는 가상입니다.</p>
   <a class="cta" th:href="@{/}">나도 창업해 보기</a>
-</main>
+</div>
 </body>
 </html>
 

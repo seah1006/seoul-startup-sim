@@ -123,9 +123,11 @@ class ShareWebIntegrationTest {
         assertTrue(html.contains("<meta property=\"og:title\" content=\"&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&quot;망원 · 장수 가게\">"), html);
         assertTrue(html.contains("<meta property=\"og:description\" content=\"2분기 생존 · 누적 순이익 "
                 + MoneyFormat.won((Long) record.get("total_profit")) + "\">"), html);
-        assertTrue(html.contains("<dd>" + MoneyFormat.won((Long) record.get("total_profit")) + "</dd>"), html);
+        String plainAmounts = html.replaceAll("<span(?: class=\"num\")?>([^<]*)</span>", "$1");
+        assertTrue(html.contains("class=\"num\""), html);
+        assertTrue(plainAmounts.contains("<dd>" + MoneyFormat.won((Long) record.get("total_profit")) + "</dd>"), html);
         var best = jdbc.queryForObject("SELECT best_quarter_profit FROM game_records WHERE game_id = ?", Long.class, id);
-        assertTrue(html.contains("<dd>" + MoneyFormat.won(best) + "</dd>"), html);
+        assertTrue(plainAmounts.contains("<dd>" + MoneyFormat.won(best) + "</dd>"), html);
         assertTrue(html.contains("<meta property=\"og:image\" content=\"http://localhost/og/share-default.jpg\">"), html);
         assertTrue(html.contains("<meta property=\"og:url\" content=\"http://localhost/share/" + id + "\">"), html);
         assertFalse(html.contains(token));
