@@ -12,6 +12,7 @@ function AppShell() {
   return (
     <>
       <header>
+        <div className="site-container header-inner">
         <Link className="brand" to="/">
           서울 사장님
         </Link>
@@ -22,8 +23,9 @@ function AppShell() {
             {useMock ? '연습 모드 · 목 데이터' : '실제 데이터 모드'}
           </span>
         </nav>
+        </div>
       </header>
-      <main>
+      <main className="site-container">
         <Routes>
           <Route path="/login" element={<Login key="login" />} />
           <Route path="/signup" element={<Login key="signup" signup />} />
