@@ -13,17 +13,15 @@ export const money = (n: number) => {
 export const formatDistance = (m: number) =>
   m >= 1000 ? `${(Math.round(m / 100) / 10).toLocaleString('ko-KR')}km` : `${Math.round(m)}m`;
 export const quarterLabel = (q: string) => `${q.slice(0, 4)}년 ${q.slice(4)}분기`;
-export function ResultCard({ result: r }: { result: QuarterResult }) {
+export function ResultCard({ result: r, shopName = '가게 결산', areaName }: { result: QuarterResult; shopName?: string; areaName?: string }) {
   return (
-    <article className="card result">
-      <p>분기 결산 · {quarterLabel(r.quarter)}</p>
-      <h2 className="receipt-title">{quarterLabel(r.quarter)} 결산 영수증</h2>
+    <article className="result-sections">
+      <section className="result receipt" aria-label="분기 결산 영수증">
+      <div className="receipt-heading"><h2>{shopName}</h2><p>{quarterLabel(r.quarter)} 결산{areaName ? ` · ${areaName}` : ''}</p></div>
       <span className="stamp" aria-label={r.profit >= 0 ? '흑자' : '적자'}>
         {r.profit >= 0 ? '흑자' : '적자'}
       </span>
-      <p>
-        {r.headline.label} · <NumericText value={money(r.headline.amount)} />
-      </p>
+
       <dl className="receipt-lines">
         <div>
           <dt>매출</dt>
@@ -37,7 +35,7 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
           <dt>객단가</dt>
           <dd><NumericText value={money(r.avgTicket)} /></dd>
         </div>
-        <div>
+        <div className="group-start">
           <dt>임대료</dt>
           <dd><NumericText value={money(r.costs.rent)} /></dd>
         </div>
@@ -57,15 +55,13 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
           <dt>총비용</dt>
           <dd><NumericText value={money(r.costs.total)} /></dd>
         </div>
-        <div>
-          <dt>잔액</dt>
-          <dd><NumericText value={money(r.cashAfter)} /></dd>
-        </div>
         <div className={`profit-line ${r.profit >= 0 ? 'positive' : 'negative'}`}>
           <dt>순이익</dt>
           <dd><NumericText value={money(r.profit)} /></dd>
         </div>
+        <div className="group-start"><dt>잔액</dt><dd><NumericText value={money(r.cashAfter)} /></dd></div>
       </dl>
+      </section>
       <div className="detail">
         <h3>상권 내 같은 업종 순위</h3>
         <p>

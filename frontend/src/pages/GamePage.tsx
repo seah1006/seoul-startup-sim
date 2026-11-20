@@ -76,12 +76,12 @@ export default function Game() {
         <History turns={turns} />
       ) : result && game.status === 'ENDED' ? (
         <>
-          <ResultCard result={result} />
+          <ResultCard result={result} shopName={game.shop.shopName} areaName={game.shop.areaName} />
           <EndingScreen game={game} />
         </>
       ) : result ? (
         <>
-          <ResultCard result={result} />
+          <ResultCard result={result} shopName={game.shop.shopName} areaName={game.shop.areaName} />
           <button className="primary" onClick={() => setResult(null)}>
             다음 운영 계획
           </button>

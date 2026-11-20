@@ -1044,3 +1044,16 @@ footer {
 
 .num, input[type='number'] { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
 .stat-chips .num { padding: 0; border: 0; background: transparent; }
+
+/* 영수증 자체와 동네 소식은 서로 다른 읽기 영역이다. */
+.result-sections { max-width: 760px; margin: 0 auto 24px; }
+.result.receipt { position: relative; width: 100%; max-width: 520px; margin: 0 auto 32px; background: var(--sign-ink); border: 1px solid var(--rule); padding: 36px 28px 28px; mask: linear-gradient(#000 0 0) center / 100% calc(100% - 16px) no-repeat, conic-gradient(from 135deg at 50% 0, #000 90deg, transparent 0) top / 16px 8px repeat-x, conic-gradient(from -45deg at 50% 100%, #000 90deg, transparent 0) bottom / 16px 8px repeat-x; }
+.receipt-heading { text-align: center; padding: 8px 34px 18px; border-bottom: 1px dashed var(--rule); }
+.receipt-heading h2 { font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: 28px; margin: 0 0 10px; overflow-wrap: anywhere; }
+.receipt-heading p { color: var(--ink-2); font-size: 13px; margin: 0; }
+.receipt .stamp { top: 20px; right: 14px; width: 54px; height: 54px; }
+.receipt-lines { margin: 16px 0 0; }
+.receipt-lines > div { border: 0; padding: 7px 0; }
+.receipt-lines > .group-start { border-top: 1px dashed var(--rule); margin-top: 14px; padding-top: 18px; }
+.receipt-lines > .profit-line { border-top: 1px dashed var(--rule); border-bottom: 0; margin-top: 14px; padding-top: 18px; font-size: 27px; }
+@media(max-width:700px) { .result.receipt { padding: 30px 18px 24px; } .receipt-heading { padding-inline: 28px; } .receipt-heading h2 { font-size: 25px; } .receipt .stamp { right: 8px; width: 48px; height: 48px; } .receipt-lines > .profit-line { font-size: 23px; } }
