@@ -23,6 +23,19 @@ function loadSdk(key: string) {
     });
   return sdk;
 }
+// 고른 상권만 빨간 면으로 강조하고, 나머지 상권은 회색 경계선만 그린다(지도 전체가 붉게 덮이지 않게).
+function areaStyle(selected: boolean) {
+  const sign = getComputedStyle(document.documentElement).getPropertyValue('--sign').trim();
+  return selected
+    ? { strokeColor: sign, fillColor: sign, strokeWeight: 3, strokeOpacity: 1, fillOpacity: 0.16 }
+    : {
+        strokeColor: '#5b5a55',
+        fillColor: sign,
+        strokeWeight: 1,
+        strokeOpacity: 0.55,
+        fillOpacity: 0,
+      };
+}
 export function AreaMap({
   area,
   position,
@@ -48,7 +61,6 @@ export function AreaMap({
   const polygons = useRef<{ code: string; overlay: any }[]>([]);
   useEffect(() => {
     let disposed = false;
-    const sign = getComputedStyle(document.documentElement).getPropertyValue('--sign').trim();
     const key = import.meta.env.VITE_KAKAO_JS_KEY;
     if (!key) {
       setError('지도 키가 없어 연습 상권의 중심점으로 위치를 선택할 수 있어요.');
@@ -84,10 +96,7 @@ export function AreaMap({
                 const polygon = new k.Polygon({
                   map: map.current,
                   path: toKakaoPath(rings, (lat, lng) => new k.LatLng(lat, lng)),
-                  strokeWeight: 2,
-                  strokeColor: sign,
-                  fillColor: sign,
-                  fillOpacity: selected.current?.areaCode === f.properties.areaCode ? 0.12 : 0.04,
+                  ...areaStyle(selected.current?.areaCode === f.properties.areaCode),
                 });
                 k.event.addListener(polygon, 'click', (e: any) => {
                   callbacks.current.onArea({
@@ -129,8 +138,7 @@ export function AreaMap({
   useEffect(() => {
     for (const p of polygons.current)
       p.overlay.setOptions({
-        fillOpacity: p.code === area?.areaCode ? 0.12 : 0.04,
-        strokeWeight: p.code === area?.areaCode ? 4 : 2,
+        ...areaStyle(p.code === area?.areaCode),
       });
     if (ready && area)
       map.current.panTo(new window.kakao.maps.LatLng(area.centroid.lat, area.centroid.lng));
