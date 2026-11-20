@@ -73,3 +73,5 @@ PowerShell 배포/복원 스크립트 구문 분석: 각각 0오류. frontend np
 - 공개 응답(첫 호출, 캐시 전): DB health 200, bbox 지도 200 4.1초(두 번째부터 빨라짐), 상권 리포트 200 0.47초, 랭킹 200, 게시판 목록 200, 공유 `/share/5` 200, 관리자 로그인 화면 200
 - 주의: PowerShell 5/7 `-N '""'`로 ssh-keygen을 돌리면 빈 암호가 아니라 `""` 문자열이 암호가 된다. 키 생성은 `-N ''`
 - 카카오 지도: 카카오 개발자 콘솔(앱 1637619) Web 플랫폼 사이트 도메인에 공개 주소를 추가해야 지도가 뜬다
+- 2026-11-20 정리: PC에서 복원된 QA 계정·게스트·게임·게시글(사용자 생성 데이터)을 `truncate users restart identity cascade`로 비웠다. 상권·점포·매출 등 참조 데이터와 Flyway 이력은 그대로다. 같은 날 유동인구 표기 수정(8ee855d)을 `deploy_server.ps1`로 반영했다
+- 메인 PC DB 컨테이너는 Docker 재시작 때 꺼진 채로 남아 있어 `docker update --restart unless-stopped seoul-startup-sim-db-1`로 바꿨다
