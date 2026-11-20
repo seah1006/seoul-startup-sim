@@ -16,20 +16,21 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
   return (
     <article className="card result">
       <p>분기 결산 · {quarterLabel(r.quarter)}</p>
-      <h2>{quarterLabel(r.quarter)}가 끝났어요</h2>
-      <p>{r.headline.label}</p>
-      <strong className="headline">{money(r.headline.amount)}</strong>
-      <div className="metrics">
-        <div>
-          매출<strong>{money(r.revenue)}</strong>
-        </div>
-        <div>
-          방문객<strong>{r.visitors.toLocaleString()}명</strong>
-        </div>
-        <div>
-          객단가<strong>{money(r.avgTicket)}</strong>
-        </div>
-      </div>
+      <h2 className="receipt-title">{quarterLabel(r.quarter)} 결산 영수증</h2>
+      <span className="stamp" aria-label={r.profit >= 0 ? '흑자' : '적자'}>{r.profit >= 0 ? '흑자' : '적자'}</span>
+      <p>{r.headline.label} · {money(r.headline.amount)}</p>
+      <dl className="receipt-lines">
+        <div><dt>매출</dt><dd>{money(r.revenue)}</dd></div>
+        <div><dt>방문객</dt><dd>{r.visitors.toLocaleString()}명</dd></div>
+        <div><dt>객단가</dt><dd>{money(r.avgTicket)}</dd></div>
+        <div><dt>임대료</dt><dd>{money(r.costs.rent)}</dd></div>
+        <div><dt>재료비</dt><dd>{money(r.costs.ingredients)}</dd></div>
+        <div><dt>인건비</dt><dd>{money(r.costs.labor)}</dd></div>
+        <div><dt>마케팅</dt><dd>{money(r.costs.marketing)}</dd></div>
+        <div><dt>총비용</dt><dd>{money(r.costs.total)}</dd></div>
+        <div><dt>잔액</dt><dd>{money(r.cashAfter)}</dd></div>
+        <div className={`profit-line ${r.profit >= 0 ? 'positive' : 'negative'}`}><dt>순이익</dt><dd>{money(r.profit)}</dd></div>
+      </dl>
       <div className="detail">
         <h3>상권 내 같은 업종 순위</h3>
         <p>
@@ -49,17 +50,7 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
           개업 {r.areaNews.openings}곳 · 폐업 {r.areaNews.closings}곳
         </p>
         <small>출처: {r.areaNews.source.replace(/\b(20\d{2}[1-4])\b/g, quarterLabel)}</small>
-        <h3>비용과 잔액</h3>
-        <p>
-          총비용 {money(r.costs.total)} · 잔액 {money(r.cashAfter)}
-        </p>
-        <details>
-          <summary>비용 자세히</summary>
-          <p>
-            임대료 {money(r.costs.rent)} / 재료비 {money(r.costs.ingredients)} / 인건비{' '}
-            {money(r.costs.labor)} / 마케팅 {money(r.costs.marketing)}
-          </p>
-        </details>
+
       </div>
       {r.moment && (
         <section className="moment">

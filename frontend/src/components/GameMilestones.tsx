@@ -135,6 +135,7 @@ export function EndingScreen({ game }: { game: GameState }) {
       <h2>{titles[game.endingType || 'LONG_RUNNING']}</h2>
       {summary ? (
         <>
+          <span className="stamp">{summary.totalProfit >= 0 ? '흑자' : '적자'}</span>
           <p>
             {summary.ownerName} 사장님의 {summary.shopName}
           </p>
