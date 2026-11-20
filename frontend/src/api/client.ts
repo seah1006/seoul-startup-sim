@@ -108,7 +108,8 @@ export async function request<T>(
     });
   const response = url.startsWith('/auth/')
     ? await send(token)
-    : await sendWithGuestRecovery(send, token);
+    : // 게임 밖의 조회(GET)는 공개 데이터다. 저장된 토큰이 무효면 토큰 없이 다시 조회한다.
+      await sendWithGuestRecovery(send, token, method === 'GET' && !gameRequest);
   if (!response.ok) {
     const data = await response.json().catch(() => ({ message: '서버 연결에 실패했습니다.' }));
     if (response.status === 401 && data.code !== 'INVALID_CREDENTIALS') {
