@@ -63,3 +63,13 @@ PowerShell 배포/복원 스크립트 구문 분석: 각각 0오류. frontend np
 기존 종료 게임 /share/5 TLS 응답: 200.
 
 최종 검증: gradlew.bat clean check bootJar --offline BUILD SUCCESSFUL (4분36초), 219 tests / 0 failures / 0 skipped. 리허설 컨테이너/프로젝트 볼륨 삭제 완료. 메인 DB/WELF 컨테이너 유지 확인은 메인 담당자가 별도 재확인 가능.
+
+## 실제 공개 서버 (2026-11-20 배포)
+- 주소: https://sss-158-180-72-47.sslip.io (Caddy가 Let's Encrypt 인증서 자동 발급, 확인함)
+- 서버: Oracle Cloud Always Free `VM.Standard.E2.1.Micro`(춘천, Ubuntu 24.04 Minimal), 인스턴스 이름 `sss-web`, 공개 IP 158.180.72.47, 기존 `chatdart-vcn` 공개 서브넷(80/443 허용 보안 목록 공유)
+- 접속: `ssh -i ~/.ssh/sss_oracle ubuntu@158.180.72.47`, 작업 디렉터리 `~/sss`(`.env` 권한 600). 관리자·DB 비밀번호는 PC의 비밀번호 관리자에만 있다(저장소·문서에 없음)
+- 순서: 인스턴스 생성 → `server_setup.sh`(약 10분, 1/8 OCPU라 apt가 느림) → `.env` 전송 → 이미지 미리 받기 → `deploy_server.ps1 -StageOnly` → `load_data.ps1`(덤프 213MB, 서버 전송·복원 포함 약 13분) → 복원된 `auth_sessions` 삭제(PC 로그인 토큰 무효화)
+- 기동 직후 실측: 앱 160.6MiB, DB 66.9MiB, Caddy 20.0MiB, 호스트 사용 473MB/952MB, 스왑 200MB. 앱 기동 53초
+- 공개 응답(첫 호출, 캐시 전): DB health 200, bbox 지도 200 4.1초(두 번째부터 빨라짐), 상권 리포트 200 0.47초, 랭킹 200, 게시판 목록 200, 공유 `/share/5` 200, 관리자 로그인 화면 200
+- 주의: PowerShell 5/7 `-N '""'`로 ssh-keygen을 돌리면 빈 암호가 아니라 `""` 문자열이 암호가 된다. 키 생성은 `-N ''`
+- 카카오 지도: 카카오 개발자 콘솔(앱 1637619) Web 플랫폼 사이트 도메인에 공개 주소를 추가해야 지도가 뜬다
