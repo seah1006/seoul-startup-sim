@@ -134,6 +134,7 @@ export function RankingsScreen() {
         <label>
           조회 날짜 (최근 7일)
           <select
+            className="ranking-date"
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
@@ -146,7 +147,7 @@ export function RankingsScreen() {
             ))}
           </select>
         </label>
-        <div className="choices" role="tablist" aria-label="랭킹 종류">
+        <div className="choices underline-tabs" role="tablist" aria-label="랭킹 종류">
           {(['ALL', 'INDUSTRY', 'AREA'] as RankingKind[]).map((k, i) => (
             <button key={k} role="tab" aria-selected={kind === k} onClick={() => changeKind(k)}>
               {['전체', '업종별', '상권별'][i]}

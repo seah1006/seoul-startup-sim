@@ -125,11 +125,11 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
           </Link>
         )}
       </nav>
-      <nav className="choices board-tabs" aria-label="게시판 카테고리">
+      <nav className="choices board-tabs underline-tabs" aria-label="게시판 카테고리">
         {tabs.map((category) => (
           <Link
             key={category ?? 'all'}
-            className={`button${query.category === category ? ' selected' : ''}`}
+            className="button"
             aria-current={query.category === category ? 'page' : undefined}
             to={{ search: writeQuery({ ...query, category, page: 0 }).toString() }}
           >

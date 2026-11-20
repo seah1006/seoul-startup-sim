@@ -63,7 +63,7 @@ export default function Game() {
             <NumericText value={money(game.cash)} />
           </p>
         </div>
-        <div className="game-tabs" aria-label="게임 화면">
+        <div className="game-tabs underline-tabs" aria-label="게임 화면">
           <button aria-pressed={tab === 'play'} onClick={() => setTab('play')}>
             운영
           </button>

@@ -1253,3 +1253,9 @@ input[type='number'] {
 .board-toolbar .join-prompt p { margin: 0 auto 0 0; font-size: 14px; color: var(--ink-2); }
 .board-toolbar .button { height: 44px; min-height: 44px; max-height: 44px; flex: 0 0 auto; padding: 8px 14px; white-space: nowrap; }
 @media(max-width:700px) { .board-toolbar .join-prompt p { flex-basis: 100%; } .board-toolbar { justify-content: flex-start; gap: 10px 12px; } }
+
+.underline-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.underline-tabs > button, .underline-tabs > .button { display: inline-flex; align-items: center; min-height: 44px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 4px; background: transparent; color: var(--ink); }
+.underline-tabs > button:hover, .underline-tabs > .button:hover { background: transparent; border-bottom-color: var(--rule); }
+.underline-tabs > [aria-selected='true'], .underline-tabs > [aria-current='page'], .underline-tabs > [aria-pressed='true'] { background: transparent !important; border-color: transparent !important; border-bottom-color: var(--ink) !important; font-weight: 800; }
+.ranking-date { max-width: 240px; }
