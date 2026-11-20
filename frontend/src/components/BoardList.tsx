@@ -109,7 +109,7 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
   return (
     <section className="board" aria-labelledby="board-title">
       <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
-      <nav className="choices" aria-label="게시판 메뉴">
+      <nav className="board-toolbar" aria-label="게시판 메뉴">
         <MemberOnly>
           <Link className="button" to="/board/write">
             글 쓰기
