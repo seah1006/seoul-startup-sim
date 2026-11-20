@@ -7,7 +7,9 @@ import type { Background, GameState } from '../api/types';
 describe('결산 카드', () => {
   it('큰 금액을 만 원 단위로 표시한다', () => {
     render(<ResultCard result={sampleResult} />);
-    expect(screen.getByText('1,240만 원')).toBeInTheDocument();
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'DD' && el.textContent === '1,240만 원'),
+    ).toBeInTheDocument();
     expect(screen.getByText(/12곳 중/)).toBeInTheDocument();
   });
 });

@@ -30,7 +30,9 @@ export function BoardRecordCard({
         <dt>생존 분기</dt>
         <dd>{record.survivedQuarters}분기</dd>
         <dt>누적 순이익</dt>
-        <dd><NumericText value={money(record.totalProfit)} /></dd>
+        <dd>
+          <NumericText value={money(record.totalProfit)} />
+        </dd>
       </dl>
       {!preview &&
         (useMock ? (

@@ -66,7 +66,11 @@ it('전환점 선택 결과를 확인한 뒤 응답 version으로 계속한다',
   const onGame = vi.fn();
   render(<TurningPointCard game={g} onGame={onGame} />);
   fireEvent.click(await screen.findByRole('button', { name: '도전한다' }));
-  expect(await screen.findByText('보유금 +300만 원')).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      (_, el) => el?.tagName === 'SPAN' && el.textContent === '보유금 +300만 원',
+    ),
+  ).toBeInTheDocument();
   expect(choose).toHaveBeenCalledWith(g.gameId, 1);
   expect(onGame).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: '계속' }));
@@ -94,8 +98,14 @@ it('엔딩 요약과 새 창업을 표시한다', async () => {
       <EndingScreen game={g} />
     </MemoryRouter>,
   );
-  await waitFor(() => expect(screen.getByText('4분기')).toBeInTheDocument());
-  expect(screen.getByText('1억 원')).toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      screen.getByText((_, el) => el?.tagName === 'STRONG' && el.textContent === '4분기'),
+    ).toBeInTheDocument(),
+  );
+  expect(
+    screen.getByText((_, el) => el?.tagName === 'STRONG' && el.textContent === '1억 원'),
+  ).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '새 창업' })).toHaveAttribute('href', '/new');
 });
 it('날짜는 KST 오늘부터 7일이다', () => {

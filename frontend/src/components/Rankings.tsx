@@ -27,7 +27,9 @@ function RankingTable({ data }: { data: Rankings }) {
         <tbody>
           {data.entries.map((e) => (
             <tr key={e.gameId} className="rank-row">
-              <td className="rk-rank"><NumericText value={e.rank} />위</td>
+              <td className="rk-rank">
+                <NumericText value={e.rank} />위
+              </td>
               <td className="rk-owner">
                 {e.ownerName}
                 <br />
@@ -40,8 +42,13 @@ function RankingTable({ data }: { data: Rankings }) {
                 <br />
                 <small>{e.serviceName}</small>
               </td>
-              <td className="rk-survive"><NumericText value={e.survivedQuarters} />분기</td>
-              <td className="rk-profit"><NumericText value={money(e.totalProfit)} /></td>
+              <td className="rk-survive">
+                <NumericText value={e.survivedQuarters} />
+                분기
+              </td>
+              <td className="rk-profit">
+                <NumericText value={money(e.totalProfit)} />
+              </td>
             </tr>
           ))}
         </tbody>

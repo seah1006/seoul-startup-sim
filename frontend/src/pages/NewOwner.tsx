@@ -102,9 +102,13 @@ export default function NewOwner() {
                   </button>
                 </th>
                 {(Object.keys(statLabels) as Stat[]).map((stat) => (
-                  <td key={stat}><NumericText value={c.stats[stat]} /></td>
+                  <td key={stat}>
+                    <NumericText value={c.stats[stat]} />
+                  </td>
                 ))}
-                <td><NumericText value={c.total} /></td>
+                <td>
+                  <NumericText value={c.total} />
+                </td>
               </tr>
             ))}
           </tbody>

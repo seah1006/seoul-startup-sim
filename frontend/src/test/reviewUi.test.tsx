@@ -49,7 +49,11 @@ it.each([null, 0])('상권 누락값과 0을 구분한다: %s', async (value) =>
     expect((await screen.findAllByText(/자료 없음/)).length).toBeGreaterThanOrEqual(3);
   else {
     expect(await screen.findByText('서울 상권 중 상위 3%')).toBeInTheDocument();
-    expect(await screen.findByText(/0% \/ 0%/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        (_, el) => el?.tagName === 'DD' && /0% \/ 0%/.test(el.textContent ?? ''),
+      ),
+    ).toBeInTheDocument();
   }
 });
 it.each([

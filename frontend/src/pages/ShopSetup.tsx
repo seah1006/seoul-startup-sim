@@ -158,20 +158,34 @@ export default function ShopSetup({
               <div>
                 <dt>점포 / 프랜차이즈</dt>
                 <dd>
-                  <NumericText value={metric.storeCount} />곳 / <NumericText value={metric.franchiseCount} />곳
+                  <NumericText value={metric.storeCount} />곳 /{' '}
+                  <NumericText value={metric.franchiseCount} />곳
                 </dd>
               </div>
               <div>
                 <dt>개업률 / 폐업률</dt>
                 <dd>
-                  {metric.openingRatePct === null ? '자료 없음' : <NumericText value={`${metric.openingRatePct}%`} />} /{' '}
-                  {metric.closingRatePct === null ? '자료 없음' : <NumericText value={`${metric.closingRatePct}%`} />}
+                  {metric.openingRatePct === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={`${metric.openingRatePct}%`} />
+                  )}{' '}
+                  /{' '}
+                  {metric.closingRatePct === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={`${metric.closingRatePct}%`} />
+                  )}
                 </dd>
               </div>
               <div>
                 <dt>분기 매출</dt>
                 <dd>
-                  {metric.quarterSales === null ? '자료 없음' : <NumericText value={money(metric.quarterSales)} />}{' '}
+                  {metric.quarterSales === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={money(metric.quarterSales)} />
+                  )}{' '}
                   {metric.salesEstimated && <small>추정치</small>}
                 </dd>
               </div>
@@ -212,7 +226,9 @@ export default function ShopSetup({
                     .map((s) => (
                       <tr key={s.storeId}>
                         <td>{s.name}</td>
-                        <td className="numeric"><NumericText value={formatDistance(s.distanceM)} /></td>
+                        <td className="numeric">
+                          <NumericText value={formatDistance(s.distanceM)} />
+                        </td>
                       </tr>
                     ))}
                 </tbody>
