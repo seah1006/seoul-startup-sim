@@ -129,9 +129,16 @@ export default function ShopSetup({
           {report && (
             <>
               <p>
-                길단위인구 <b>{report.floatingPopulation?.toLocaleString() ?? '자료 없음'}</b>
+                유동인구{' '}
+                <b>
+                  {report.floatingPopulationTopPct != null
+                    ? `서울 상권 중 상위 ${report.floatingPopulationTopPct}%`
+                    : report.floatingPopulation != null
+                      ? '집계됨'
+                      : '자료 없음'}
+                </b>
               </p>
-              <small>분기 지표 · 단위 미확인</small>
+              <small>길단위인구 분기 집계를 서울 1,650개 상권과 비교한 값</small>
             </>
           )}
           <label>

@@ -119,7 +119,7 @@ export const sampleResult: QuarterResult = {
   reactions: [],
   dataNotes: [
     '목 데이터로 실행 중입니다. 실제 상권의 매출이나 순위를 의미하지 않습니다.',
-    '길단위인구는 단위 미확인으로 분기 지표만 표시합니다.',
+    '유동인구는 길단위인구 분기 집계를 서울 상권과 비교한 상위 비율로 표시합니다.',
   ],
 };
 const records: RecordSnapshot[] = [
@@ -316,6 +316,7 @@ export async function mockRequest<T>(
             name: a.name,
             quarter: query.get('quarter') || '20231',
             floatingPopulation: 433442,
+            floatingPopulationTopPct: 35,
             industries: industries.map((i) => ({
               ...i,
               storeCount: 42,

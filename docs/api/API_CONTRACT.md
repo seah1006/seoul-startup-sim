@@ -38,7 +38,8 @@
   ```json
   {
     "areaCode": "3110xxx", "name": "망원동 상권", "quarter": "20262",
-    "floatingPopulation": 433442,            // 길단위인구 합계 (단위 미확인: 화면에 '분기 지표'로만 표시)
+    "floatingPopulation": 433442,            // 길단위인구 분기 집계 (원본 단위 미공개, 화면에는 절대값 대신 아래 상위 비율 표시)
+  "floatingPopulationTopPct": 35,          // 같은 분기 서울 상권 중 길단위인구 상위 비율(1~100, 1이 가장 많음). 자료 없으면 null
     "industries": [
       { "serviceCode": "CS100010", "name": "커피-음료",
         "storeCount": 42, "franchiseCount": 9, "openingRatePct": 3, "closingRatePct": 2,

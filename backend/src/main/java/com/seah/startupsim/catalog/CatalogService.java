@@ -48,9 +48,14 @@ public class CatalogService {
                 WHERE t.area_code IS NOT NULL OR x.area_code IS NOT NULL ORDER BY i.service_code
                 """, quarter,code,code,quarter,code,quarter);
         List<Long> population = jdbc.queryForList("SELECT total_population FROM area_floating_pop_q_active WHERE area_code=? AND quarter=?",Long.class,code,quarter);
+        // 길단위인구는 원본 단위가 공식 문서에 없어(DATA_NOTES A-4) 절대값 대신 같은 분기 서울 상권 중 상위 비율로 보여준다
+        List<Integer> topPct = jdbc.queryForList("""
+                SELECT ceil(100.0 * (1 + (SELECT count(*) FROM area_floating_pop_q_active o WHERE o.quarter=p.quarter AND o.total_population > p.total_population)) / (SELECT count(*) FROM area_floating_pop_q_active o WHERE o.quarter=p.quarter))::int
+                FROM area_floating_pop_q_active p WHERE p.area_code=? AND p.quarter=?
+                """,Integer.class,code,quarter);
         Map<String,Object> result = new LinkedHashMap<>();
         result.put("areaCode",code); result.put("name",name); result.put("quarter",quarter);
-        result.put("floatingPopulation",population.isEmpty()?null:population.getFirst()); result.put("industries",industries);
+        result.put("floatingPopulation",population.isEmpty()?null:population.getFirst()); result.put("floatingPopulationTopPct",topPct.isEmpty()?null:topPct.getFirst()); result.put("industries",industries);
         return result;
     }
     public Map<String,Object> stores(String code, String serviceCode, double lng, double lat, int radius) {

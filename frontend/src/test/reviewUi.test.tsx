@@ -28,6 +28,7 @@ it.each([null, 0])('상권 누락값과 0을 구분한다: %s', async (value) =>
     name: areas[0].name,
     quarter: '20231',
     floatingPopulation: value,
+    floatingPopulationTopPct: value === null ? null : 3,
     industries: [
       {
         ...industries[9],
@@ -47,7 +48,7 @@ it.each([null, 0])('상권 누락값과 0을 구분한다: %s', async (value) =>
   if (value === null)
     expect((await screen.findAllByText(/자료 없음/)).length).toBeGreaterThanOrEqual(3);
   else {
-    expect(await screen.findByText('0')).toBeInTheDocument();
+    expect(await screen.findByText('서울 상권 중 상위 3%')).toBeInTheDocument();
     expect(await screen.findByText(/개업률 0% · 폐업률 0%/)).toBeInTheDocument();
   }
 });

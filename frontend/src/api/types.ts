@@ -96,6 +96,8 @@ export interface Report {
   name: string;
   quarter: string;
   floatingPopulation: number | null;
+  /** 같은 분기 서울 상권 중 길단위인구 상위 비율(1~100). 없으면 null */
+  floatingPopulationTopPct?: number | null;
   industries: (Industry & {
     storeCount: number;
     franchiseCount: number;
