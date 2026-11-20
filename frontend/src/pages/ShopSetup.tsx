@@ -81,7 +81,6 @@ export default function ShopSetup({
   }
   return (
     <>
-      
       <h1>첫 가게, 어느 동네가 좋을까요?</h1>
       <div className="grid map-layout">
         <section>
@@ -128,13 +127,18 @@ export default function ShopSetup({
           <h2>{area?.name || '동네를 선택해 주세요'}</h2>
           {report && (
             <>
-              <dl className="report-values"><div><dt>유동인구</dt><dd>
-                  {report.floatingPopulationTopPct != null
-                    ? `서울 상권 중 상위 ${report.floatingPopulationTopPct}%`
-                    : report.floatingPopulation != null
-                      ? '집계됨'
-                      : '자료 없음'}
-                </dd></div></dl>
+              <dl className="report-values">
+                <div>
+                  <dt>유동인구</dt>
+                  <dd>
+                    {report.floatingPopulationTopPct != null
+                      ? `서울 상권 중 상위 ${report.floatingPopulationTopPct}%`
+                      : report.floatingPopulation != null
+                        ? '집계됨'
+                        : '자료 없음'}
+                  </dd>
+                </div>
+              </dl>
               <small>길단위인구 분기 집계를 서울 1,650개 상권과 비교한 값</small>
             </>
           )}
@@ -150,9 +154,26 @@ export default function ShopSetup({
           </label>
           {metric && (
             <dl className="report-values">
-              <div><dt>점포 / 프랜차이즈</dt><dd>{metric.storeCount}곳 / {metric.franchiseCount}곳</dd></div>
-              <div><dt>개업률 / 폐업률</dt><dd>{metric.openingRatePct === null ? '자료 없음' : `${metric.openingRatePct}%`} / {metric.closingRatePct === null ? '자료 없음' : `${metric.closingRatePct}%`}</dd></div>
-              <div><dt>분기 매출</dt><dd>{metric.quarterSales === null ? '자료 없음' : money(metric.quarterSales)} {metric.salesEstimated && <small>추정치</small>}</dd></div>
+              <div>
+                <dt>점포 / 프랜차이즈</dt>
+                <dd>
+                  {metric.storeCount}곳 / {metric.franchiseCount}곳
+                </dd>
+              </div>
+              <div>
+                <dt>개업률 / 폐업률</dt>
+                <dd>
+                  {metric.openingRatePct === null ? '자료 없음' : `${metric.openingRatePct}%`} /{' '}
+                  {metric.closingRatePct === null ? '자료 없음' : `${metric.closingRatePct}%`}
+                </dd>
+              </div>
+              <div>
+                <dt>분기 매출</dt>
+                <dd>
+                  {metric.quarterSales === null ? '자료 없음' : money(metric.quarterSales)}{' '}
+                  {metric.salesEstimated && <small>추정치</small>}
+                </dd>
+              </div>
             </dl>
           )}
           <label>
@@ -175,7 +196,26 @@ export default function ShopSetup({
           {stores && (
             <>
               <h3>반경 300m 경쟁 점포 {stores.count}곳</h3>
-              <table><thead><tr><th scope="col">이름</th><th scope="col" className="numeric">거리</th></tr></thead><tbody>{[...stores.stores].sort((a,b) => a.distanceM - b.distanceM).map(s => <tr key={s.storeId}><td>{s.name}</td><td className="numeric">{formatDistance(s.distanceM)}</td></tr>)}</tbody></table>
+              <table className="competitor-table">
+                <thead>
+                  <tr>
+                    <th scope="col">이름</th>
+                    <th scope="col" className="numeric">
+                      거리
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...stores.stores]
+                    .sort((a, b) => a.distanceM - b.distanceM)
+                    .map((s) => (
+                      <tr key={s.storeId}>
+                        <td>{s.name}</td>
+                        <td className="numeric">{formatDistance(s.distanceM)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </>
           )}
           <small>

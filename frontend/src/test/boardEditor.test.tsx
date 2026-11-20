@@ -113,8 +113,8 @@ test('저장 중 이중 제출 차단, 서버 400 메시지와 429 안내', asyn
 test('홈 인기글은 인기순 3건을 요청하고 상단 메뉴가 게시판을 연다', async () => {
   const list = vi.spyOn(boardApi, 'posts');
   const home = open('/');
-  expect(await screen.findByRole('heading', { name: '커뮤니티 인기글' })).toBeInTheDocument();
-  const panel = screen.getByRole('heading', { name: '커뮤니티 인기글' }).closest('article')!;
+  expect(await screen.findByRole('heading', { name: '커뮤니티 글 목록' })).toBeInTheDocument();
+  const panel = screen.getByRole('heading', { name: '커뮤니티 글 목록' }).closest('article')!;
   expect(await within(panel).findAllByRole('listitem')).toHaveLength(3);
   expect(list).toHaveBeenCalledWith({ sort: 'popular', size: 3 }, expect.any(AbortSignal));
   fireEvent.click(

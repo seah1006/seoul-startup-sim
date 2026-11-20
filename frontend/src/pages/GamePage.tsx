@@ -91,7 +91,6 @@ export default function Game() {
         <TurningPointCard game={game} onGame={setGame} />
       ) : (
         <section className="card">
-          
           <h2>이번 분기는 어떻게 운영할까요?</h2>
           <form
             className="operation-form"

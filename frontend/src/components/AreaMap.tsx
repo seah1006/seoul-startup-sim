@@ -137,6 +137,7 @@ export function AreaMap({
   }, [ready, area]);
   useEffect(() => {
     if (!ready) return;
+    const sign = getComputedStyle(document.documentElement).getPropertyValue('--sign').trim();
     const k = window.kakao.maps;
     const markers: any[] = [];
     if (position) {

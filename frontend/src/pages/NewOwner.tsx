@@ -47,7 +47,6 @@ export default function NewOwner() {
   }
   return (
     <>
-      
       <h1>어떤 사장님이 될까요?</h1>
       <section className="card">
         <label>
@@ -79,14 +78,35 @@ export default function NewOwner() {
       <div className="table-scroll">
         <table className="candidate-table">
           <caption>사장님 후보 능력치</caption>
-          <thead><tr><th scope="col">후보 선택</th>{Object.values(statLabels).map(label => <th scope="col" key={label}>{label}</th>)}<th scope="col">합계</th></tr></thead>
-          <tbody>{list.map((c, i) => (
-            <tr key={c.candidateId} className={choice === c.candidateId ? 'selected' : ''}>
-              <th scope="row"><button aria-pressed={choice === c.candidateId} onClick={() => setChoice(c.candidateId)}>후보 0{i + 1}</button></th>
-              {(Object.keys(statLabels) as Stat[]).map(stat => <td key={stat}>{c.stats[stat]}</td>)}
-              <td>{c.total}</td>
+          <thead>
+            <tr>
+              <th scope="col">후보 선택</th>
+              {Object.values(statLabels).map((label) => (
+                <th scope="col" key={label}>
+                  {label}
+                </th>
+              ))}
+              <th scope="col">합계</th>
             </tr>
-          ))}</tbody>
+          </thead>
+          <tbody>
+            {list.map((c, i) => (
+              <tr key={c.candidateId} className={choice === c.candidateId ? 'selected' : ''}>
+                <th scope="row">
+                  <button
+                    aria-pressed={choice === c.candidateId}
+                    onClick={() => setChoice(c.candidateId)}
+                  >
+                    후보 0{i + 1}
+                  </button>
+                </th>
+                {(Object.keys(statLabels) as Stat[]).map((stat) => (
+                  <td key={stat}>{c.stats[stat]}</td>
+                ))}
+                <td>{c.total}</td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
       <section className="card">

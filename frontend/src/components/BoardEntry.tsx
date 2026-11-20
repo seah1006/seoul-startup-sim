@@ -21,7 +21,6 @@ export function PopularBoardPosts() {
   }, []);
   return (
     <article className="card">
-      
       <h2>커뮤니티 글 목록</h2>
       {state === 'error' ? (
         <p>인기글을 불러오지 못했습니다.</p>

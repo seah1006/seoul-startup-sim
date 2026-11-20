@@ -67,7 +67,6 @@ export function RankingPreview() {
   }, []);
   return (
     <article className="card">
-      
       <h2>오늘의 랭킹</h2>
       {data ? <RankingTable data={data} /> : <p>{error || '랭킹을 불러오는 중…'}</p>}
       <Link className="button" to="/rankings">
@@ -122,7 +121,6 @@ export function RankingsScreen() {
   }
   return (
     <>
-      
       <h1>서울 사장님 랭킹</h1>
       <section className="card">
         <label>
