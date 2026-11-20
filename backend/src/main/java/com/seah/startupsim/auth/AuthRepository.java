@@ -41,6 +41,15 @@ public class AuthRepository {
                 """, Long.class, nickname);
     }
 
+    /** 닉네임이 이미 쓰이고 있으면 트랜잭션을 깨뜨리지 않고 빈 결과를 돌려준다. */
+    public java.util.Optional<Long> createGuestIfNicknameFree(String nickname) {
+        return jdbc.queryForList("""
+                INSERT INTO users(nickname, role) VALUES (?, 'GUEST')
+                ON CONFLICT (nickname) WHERE deleted_at IS NULL DO NOTHING
+                RETURNING id
+                """, Long.class, nickname).stream().findFirst();
+    }
+
     public void createSession(long userId, String tokenHash, String kind, Timestamp now, Timestamp expires) {
         jdbc.update("""
                 INSERT INTO auth_sessions(user_id, token_hash, kind, created_at, last_used_at, expires_at)

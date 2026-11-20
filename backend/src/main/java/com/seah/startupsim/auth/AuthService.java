@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 /** 가입 전환과 세션 폐기를 사용자 단위 트랜잭션으로 묶는다. */
 @Service
 public class AuthService {
+    private static final java.security.SecureRandom GUEST_SUFFIX = new java.security.SecureRandom();
     private final AuthRepository repository;
     private final PasswordEncoder encoder;
     private final Clock clock;
@@ -67,6 +68,14 @@ public class AuthService {
 
     @Transactional
     public Guest createGuest() {
+        // 공유 페이지·랭킹에 그대로 보이므로 짧게(손님-6자리). 겹치면 몇 번 다시 뽑고, 끝내 겹치면 UUID로 물러난다.
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String nickname = "손님-" + HexFormat.of().toHexDigits(GUEST_SUFFIX.nextInt(0x1000000)).substring(2);
+            var id = repository.createGuestIfNicknameFree(nickname);
+            if (id.isPresent()) {
+                return new Guest(issue(id.get(), "GUEST"), id.get(), nickname);
+            }
+        }
         String nickname = "손님-" + UUID.randomUUID();
         long id = repository.createGuest(nickname);
         return new Guest(issue(id, "GUEST"), id, nickname);

@@ -94,6 +94,15 @@ class AuthWebIntegrationTest {
     }
 
     @Test
+    void guestNicknameIsShortAndUnique() {
+        var names = new java.util.HashSet<String>();
+        for (int i = 0; i < 20; i++) {
+            var guest = service.createGuest();
+            org.junit.jupiter.api.Assertions.assertTrue(guest.nickname().matches("손님-[0-9a-f]{6}"), guest.nickname());
+            org.junit.jupiter.api.Assertions.assertTrue(names.add(guest.nickname()));
+        }
+    }
+    @Test
     void fullAccountHttpLifecycleAndHeaderPriority() throws Exception {
         var guest = service.createGuest();
         String login = id();
