@@ -201,7 +201,9 @@ export default function ShopSetup({
             />
           </label>
           {area && (
-            <button onClick={() => setPosition(area.centroid)}>선택 상권 중심점에 위치 지정</button>
+            <button className="block-action" onClick={() => setPosition(area.centroid)}>
+              선택 상권 중심점에 위치 지정
+            </button>
           )}
           {position && (
             <p>
