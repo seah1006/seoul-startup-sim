@@ -15,7 +15,7 @@ export const quarterLabel = (q: string) => `${q.slice(0, 4)}년 ${q.slice(4)}분
 export function ResultCard({ result: r }: { result: QuarterResult }) {
   return (
     <article className="card result">
-      <p className="eyebrow">분기 결산 · {quarterLabel(r.quarter)}</p>
+      <p>분기 결산 · {quarterLabel(r.quarter)}</p>
       <h2>{quarterLabel(r.quarter)}가 끝났어요</h2>
       <p>{r.headline.label}</p>
       <strong className="headline">{money(r.headline.amount)}</strong>

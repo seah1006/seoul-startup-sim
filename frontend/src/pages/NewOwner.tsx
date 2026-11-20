@@ -47,7 +47,7 @@ export default function NewOwner() {
   }
   return (
     <>
-      <p className="eyebrow">1단계 · 사장님</p>
+      
       <h1>어떤 사장님이 될까요?</h1>
       <section className="card">
         <label>
@@ -125,7 +125,7 @@ export default function NewOwner() {
         </p>
       )}
       <button className="primary" disabled={!name.trim() || !list.length || busy} onClick={submit}>
-        {busy ? '준비 중…' : '확인하고 동네 찾기 →'}
+        {busy ? '준비 중…' : '확인하고 동네 찾기'}
       </button>
     </>
   );

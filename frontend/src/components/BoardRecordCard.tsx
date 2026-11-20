@@ -16,7 +16,7 @@ export function BoardRecordCard({
       className="board-record-card"
       aria-label={preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증 카드'}
     >
-      <p className="eyebrow">{preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증'}</p>
+      <p>{preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증'}</p>
       <h2>{record.shopName}</h2>
       <p>
         {record.ownerName} · {ending[record.endingType]}

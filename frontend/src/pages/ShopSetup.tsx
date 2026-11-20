@@ -81,7 +81,7 @@ export default function ShopSetup({
   }
   return (
     <>
-      <p className="eyebrow">2단계 · 동네 찾기</p>
+      
       <h1>첫 가게, 어느 동네가 좋을까요?</h1>
       <div className="grid map-layout">
         <section>
@@ -124,7 +124,7 @@ export default function ShopSetup({
           />
         </section>
         <section className="card">
-          <p className="eyebrow">상권 리포트 {useMock ? '· 목 데이터' : ''}</p>
+          <p>상권 리포트 {useMock ? '· 목 데이터' : ''}</p>
           <h2>{area?.name || '동네를 선택해 주세요'}</h2>
           {report && (
             <>

@@ -21,8 +21,8 @@ export function PopularBoardPosts() {
   }, []);
   return (
     <article className="card">
-      <p className="eyebrow">사장님 커뮤니티</p>
-      <h2>커뮤니티 인기글</h2>
+      
+      <h2>커뮤니티 글 목록</h2>
       {state === 'error' ? (
         <p>인기글을 불러오지 못했습니다.</p>
       ) : !state ? (

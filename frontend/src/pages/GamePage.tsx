@@ -53,7 +53,7 @@ export default function Game() {
     <>
       <div className="section-title">
         <div>
-          <p className="eyebrow">
+          <p>
             {quarterLabel(game.currentQuarter)} · {game.owner.name} 사장님
           </p>
           <h1>{game.shop.shopName}</h1>
@@ -82,7 +82,7 @@ export default function Game() {
         <>
           <ResultCard result={result} />
           <button className="primary" onClick={() => setResult(null)}>
-            다음 운영 계획 →
+            다음 운영 계획
           </button>
         </>
       ) : game.status === 'ENDED' ? (
@@ -91,7 +91,7 @@ export default function Game() {
         <TurningPointCard game={game} onGame={setGame} />
       ) : (
         <section className="card">
-          <p className="eyebrow">이번 분기 운영</p>
+          
           <h2>이번 분기는 어떻게 운영할까요?</h2>
           <form
             onSubmit={(e) => {
@@ -170,7 +170,7 @@ export default function Game() {
               </label>
             </div>
             <button className="primary" disabled={busy}>
-              {busy ? '분기를 결산하는 중…' : '결정 저장하고 다음 분기 →'}
+              {busy ? '분기를 결산하는 중…' : '결정 저장하고 다음 분기'}
             </button>
           </form>
           <SellButton game={game} onGame={setGame} />
