@@ -824,7 +824,6 @@ button:hover,
 .rk-survive,
 .stat-chips,
 input[type='number'] {
-  font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
 .numeric,
@@ -846,7 +845,6 @@ th {
 .candidate-table td:not(:first-child),
 .candidate-table th:not(:first-child) {
   text-align: right;
-  font-family: 'IBM Plex Mono', monospace;
 }
 .candidate-table .selected {
   outline: 1px solid var(--ink);
@@ -865,7 +863,6 @@ th {
 .report-values dd {
   margin: 0;
   text-align: right;
-  font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
 .map {
@@ -913,7 +910,6 @@ th {
 .receipt-lines dd {
   margin: 0;
   text-align: right;
-  font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
 .receipt-lines .profit-line {
@@ -933,7 +929,6 @@ th {
   gap: 16px;
 }
 .metrics strong {
-  font-family: 'IBM Plex Mono', monospace;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -1046,3 +1041,6 @@ footer {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+.num, input[type='number'] { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+.stat-chips .num { padding: 0; border: 0; background: transparent; }

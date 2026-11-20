@@ -1,3 +1,4 @@
+import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, useMock } from '../api/client';
@@ -101,9 +102,9 @@ export default function NewOwner() {
                   </button>
                 </th>
                 {(Object.keys(statLabels) as Stat[]).map((stat) => (
-                  <td key={stat}>{c.stats[stat]}</td>
+                  <td key={stat}><NumericText value={c.stats[stat]} /></td>
                 ))}
-                <td>{c.total}</td>
+                <td><NumericText value={c.total} /></td>
               </tr>
             ))}
           </tbody>

@@ -1,3 +1,4 @@
+import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, advanceWithRecovery } from '../api/client';
@@ -58,7 +59,7 @@ export default function Game() {
           </p>
           <h1>{game.shop.shopName}</h1>
           <p>
-            {game.shop.areaName} · {game.shop.serviceName} · 보유금 {money(game.cash)}
+            {game.shop.areaName} · {game.shop.serviceName} · 보유금 <NumericText value={money(game.cash)} />
           </p>
         </div>
         <div className="choices">

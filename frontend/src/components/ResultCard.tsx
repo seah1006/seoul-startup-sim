@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import type { QuarterResult } from '../api/types';
 import { statLabels } from '../api/types';
 export const money = (n: number) => {
@@ -21,48 +22,48 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
         {r.profit >= 0 ? '흑자' : '적자'}
       </span>
       <p>
-        {r.headline.label} · {money(r.headline.amount)}
+        {r.headline.label} · <NumericText value={money(r.headline.amount)} />
       </p>
       <dl className="receipt-lines">
         <div>
           <dt>매출</dt>
-          <dd>{money(r.revenue)}</dd>
+          <dd><NumericText value={money(r.revenue)} /></dd>
         </div>
         <div>
           <dt>방문객</dt>
-          <dd>{r.visitors.toLocaleString()}명</dd>
+          <dd><NumericText value={r.visitors.toLocaleString()} />명</dd>
         </div>
         <div>
           <dt>객단가</dt>
-          <dd>{money(r.avgTicket)}</dd>
+          <dd><NumericText value={money(r.avgTicket)} /></dd>
         </div>
         <div>
           <dt>임대료</dt>
-          <dd>{money(r.costs.rent)}</dd>
+          <dd><NumericText value={money(r.costs.rent)} /></dd>
         </div>
         <div>
           <dt>재료비</dt>
-          <dd>{money(r.costs.ingredients)}</dd>
+          <dd><NumericText value={money(r.costs.ingredients)} /></dd>
         </div>
         <div>
           <dt>인건비</dt>
-          <dd>{money(r.costs.labor)}</dd>
+          <dd><NumericText value={money(r.costs.labor)} /></dd>
         </div>
         <div>
           <dt>마케팅</dt>
-          <dd>{money(r.costs.marketing)}</dd>
+          <dd><NumericText value={money(r.costs.marketing)} /></dd>
         </div>
         <div>
           <dt>총비용</dt>
-          <dd>{money(r.costs.total)}</dd>
+          <dd><NumericText value={money(r.costs.total)} /></dd>
         </div>
         <div>
           <dt>잔액</dt>
-          <dd>{money(r.cashAfter)}</dd>
+          <dd><NumericText value={money(r.cashAfter)} /></dd>
         </div>
         <div className={`profit-line ${r.profit >= 0 ? 'positive' : 'negative'}`}>
           <dt>순이익</dt>
-          <dd>{money(r.profit)}</dd>
+          <dd><NumericText value={money(r.profit)} /></dd>
         </div>
       </dl>
       <div className="detail">
@@ -74,8 +75,7 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
         <div className="stat-chips">
           {r.statChanges.map((s) => (
             <span key={s.stat}>
-              {statLabels[s.stat]} {s.after} ({s.after - s.before >= 0 ? '+' : ''}
-              {s.after - s.before})
+              {statLabels[s.stat]} <NumericText value={s.after} /> (<NumericText value={`${s.after - s.before >= 0 ? '+' : ''}${s.after - s.before}`} />)
             </span>
           ))}
         </div>

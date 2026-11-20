@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import { EndingBoardEntry } from './BoardEntry';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -55,7 +56,7 @@ export function TurningPointCard({
           <div className="stat-chips">
             {result.effects.map((e) => (
               <span key={e.label}>
-                {e.label} {e.value}
+                {e.label} <NumericText value={e.value} />
               </span>
             ))}
           </div>
@@ -142,13 +143,13 @@ export function EndingScreen({ game }: { game: GameState }) {
           </p>
           <div className="metrics">
             <div>
-              생존 기간<strong>{summary.survivedQuarters}분기</strong>
+              생존 기간<strong><NumericText value={summary.survivedQuarters} />분기</strong>
             </div>
             <div>
-              누적 순이익<strong>{money(summary.totalProfit)}</strong>
+              누적 순이익<strong><NumericText value={money(summary.totalProfit)} /></strong>
             </div>
             <div>
-              최고 분기 순이익<strong>{money(summary.bestQuarterProfit)}</strong>
+              최고 분기 순이익<strong><NumericText value={money(summary.bestQuarterProfit)} /></strong>
             </div>
           </div>
           <div className="choices">

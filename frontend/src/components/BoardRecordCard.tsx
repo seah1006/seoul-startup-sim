@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import { useMock } from '../api/client';
 import type { GameSummary } from '../api/types';
 import { money } from './ResultCard';
@@ -29,7 +30,7 @@ export function BoardRecordCard({
         <dt>생존 분기</dt>
         <dd>{record.survivedQuarters}분기</dd>
         <dt>누적 순이익</dt>
-        <dd>{money(record.totalProfit)}</dd>
+        <dd><NumericText value={money(record.totalProfit)} /></dd>
       </dl>
       {!preview &&
         (useMock ? (
