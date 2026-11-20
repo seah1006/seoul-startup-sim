@@ -1,3 +1,4 @@
+import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, advanceWithRecovery } from '../api/client';
@@ -53,17 +54,22 @@ export default function Game() {
     <>
       <div className="section-title">
         <div>
-          <p className="eyebrow">
+          <p>
             {quarterLabel(game.currentQuarter)} · {game.owner.name} 사장님
           </p>
           <h1>{game.shop.shopName}</h1>
           <p>
-            {game.shop.areaName} · {game.shop.serviceName} · 보유금 {money(game.cash)}
+            {game.shop.areaName} · {game.shop.serviceName} · 보유금{' '}
+            <NumericText value={money(game.cash)} />
           </p>
         </div>
-        <div className="choices">
-          <button onClick={() => setTab('play')}>운영</button>
-          <button onClick={() => setTab('history')}>기록</button>
+        <div className="game-tabs underline-tabs" aria-label="게임 화면">
+          <button aria-pressed={tab === 'play'} onClick={() => setTab('play')}>
+            운영
+          </button>
+          <button aria-pressed={tab === 'history'} onClick={() => setTab('history')}>
+            기록
+          </button>
         </div>
       </div>
       {error && (
@@ -75,14 +81,14 @@ export default function Game() {
         <History turns={turns} />
       ) : result && game.status === 'ENDED' ? (
         <>
-          <ResultCard result={result} />
+          <ResultCard result={result} shopName={game.shop.shopName} areaName={game.shop.areaName} />
           <EndingScreen game={game} />
         </>
       ) : result ? (
         <>
-          <ResultCard result={result} />
+          <ResultCard result={result} shopName={game.shop.shopName} areaName={game.shop.areaName} />
           <button className="primary" onClick={() => setResult(null)}>
-            다음 운영 계획 →
+            다음 운영 계획
           </button>
         </>
       ) : game.status === 'ENDED' ? (
@@ -91,9 +97,10 @@ export default function Game() {
         <TurningPointCard game={game} onGame={setGame} />
       ) : (
         <section className="card">
-          <p className="eyebrow">이번 분기 운영</p>
           <h2>이번 분기는 어떻게 운영할까요?</h2>
           <form
+            id="operation-decision"
+            className="operation-form"
             onSubmit={(e) => {
               e.preventDefault();
               void next();
@@ -169,11 +176,13 @@ export default function Game() {
                 </select>
               </label>
             </div>
-            <button className="primary" disabled={busy}>
-              {busy ? '분기를 결산하는 중…' : '결정 저장하고 다음 분기 →'}
-            </button>
           </form>
-          <SellButton game={game} onGame={setGame} />
+          <div className="operation-actions">
+            <button type="submit" form="operation-decision" className="primary" disabled={busy}>
+              {busy ? '분기를 결산하는 중…' : '결정 저장하고 다음 분기'}
+            </button>
+            <SellButton game={game} onGame={setGame} />
+          </div>
         </section>
       )}
     </>

@@ -108,9 +108,8 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
   const page = query.page ?? 0;
   return (
     <section className="board" aria-labelledby="board-title">
-      <p className="eyebrow">사장님 커뮤니티</p>
       <h1 id="board-title">{mine ? '내 글' : '사장님 커뮤니티'}</h1>
-      <nav className="choices" aria-label="게시판 메뉴">
+      <nav className="board-toolbar" aria-label="게시판 메뉴">
         <MemberOnly>
           <Link className="button" to="/board/write">
             글 쓰기
@@ -126,11 +125,11 @@ export default function BoardList({ mine = false }: { mine?: boolean }) {
           </Link>
         )}
       </nav>
-      <nav className="choices board-tabs" aria-label="게시판 카테고리">
+      <nav className="choices board-tabs underline-tabs" aria-label="게시판 카테고리">
         {tabs.map((category) => (
           <Link
             key={category ?? 'all'}
-            className={`button${query.category === category ? ' selected' : ''}`}
+            className="button"
             aria-current={query.category === category ? 'page' : undefined}
             to={{ search: writeQuery({ ...query, category, page: 0 }).toString() }}
           >

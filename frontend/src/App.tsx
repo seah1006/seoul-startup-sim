@@ -12,16 +12,20 @@ function AppShell() {
   return (
     <>
       <header>
-        <Link className="brand" to="/">
-          서울 사장님<span>서울에서 시작하는 나의 가게</span>
-        </Link>
-        <nav className="header-links" aria-label="상단 메뉴">
-          <Link to="/board">커뮤니티</Link>
-          <AuthHeader />
-          <span className="badge">{useMock ? '연습 모드 · 목 데이터' : '실제 데이터 모드'}</span>
-        </nav>
+        <div className="site-container header-inner">
+          <Link className="brand" to="/">
+            서울 사장님
+          </Link>
+          <nav className="header-links" aria-label="상단 메뉴">
+            <Link to="/board">커뮤니티</Link>
+            <AuthHeader />
+            <span className={useMock ? 'badge mock-badge' : 'badge'}>
+              {useMock ? '연습 모드 · 목 데이터' : '실제 데이터 모드'}
+            </span>
+          </nav>
+        </div>
       </header>
-      <main>
+      <main className="site-container">
         <Routes>
           <Route path="/login" element={<Login key="login" />} />
           <Route path="/signup" element={<Login key="signup" signup />} />
@@ -68,7 +72,10 @@ function AppShell() {
           />
         </Routes>
       </main>
-      <footer>서울 사장님 · 실제 데이터와 게임 속 시뮬레이션을 구분해 표시합니다.</footer>
+      <footer>
+        출처: 서울 열린데이터광장 상권분석서비스 · 공공데이터포털 소상공인 상가정보. 게임 속 반응과
+        이벤트는 가상입니다.
+      </footer>
     </>
   );
 }

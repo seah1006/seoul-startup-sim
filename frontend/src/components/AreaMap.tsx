@@ -48,6 +48,7 @@ export function AreaMap({
   const polygons = useRef<{ code: string; overlay: any }[]>([]);
   useEffect(() => {
     let disposed = false;
+    const sign = getComputedStyle(document.documentElement).getPropertyValue('--sign').trim();
     const key = import.meta.env.VITE_KAKAO_JS_KEY;
     if (!key) {
       setError('지도 키가 없어 연습 상권의 중심점으로 위치를 선택할 수 있어요.');
@@ -84,9 +85,9 @@ export function AreaMap({
                   map: map.current,
                   path: toKakaoPath(rings, (lat, lng) => new k.LatLng(lat, lng)),
                   strokeWeight: 2,
-                  strokeColor: '#28735c',
-                  fillColor: '#80c2a5',
-                  fillOpacity: selected.current?.areaCode === f.properties.areaCode ? 0.55 : 0.3,
+                  strokeColor: sign,
+                  fillColor: sign,
+                  fillOpacity: selected.current?.areaCode === f.properties.areaCode ? 0.12 : 0.04,
                 });
                 k.event.addListener(polygon, 'click', (e: any) => {
                   callbacks.current.onArea({
@@ -128,7 +129,7 @@ export function AreaMap({
   useEffect(() => {
     for (const p of polygons.current)
       p.overlay.setOptions({
-        fillOpacity: p.code === area?.areaCode ? 0.55 : 0.3,
+        fillOpacity: p.code === area?.areaCode ? 0.12 : 0.04,
         strokeWeight: p.code === area?.areaCode ? 4 : 2,
       });
     if (ready && area)
@@ -136,6 +137,7 @@ export function AreaMap({
   }, [ready, area]);
   useEffect(() => {
     if (!ready) return;
+    const sign = getComputedStyle(document.documentElement).getPropertyValue('--sign').trim();
     const k = window.kakao.maps;
     const markers: any[] = [];
     if (position) {
@@ -151,9 +153,9 @@ export function AreaMap({
           map: map.current,
           center: new k.LatLng(position.lat, position.lng),
           radius: 300,
-          strokeColor: '#23654d',
+          strokeColor: sign,
           fillOpacity: 0.08,
-          fillColor: '#23654d',
+          fillColor: sign,
         }),
       );
     }

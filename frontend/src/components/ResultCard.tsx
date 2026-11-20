@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import type { QuarterResult } from '../api/types';
 import { statLabels } from '../api/types';
 export const money = (n: number) => {
@@ -12,24 +13,91 @@ export const money = (n: number) => {
 export const formatDistance = (m: number) =>
   m >= 1000 ? `${(Math.round(m / 100) / 10).toLocaleString('ko-KR')}km` : `${Math.round(m)}m`;
 export const quarterLabel = (q: string) => `${q.slice(0, 4)}년 ${q.slice(4)}분기`;
-export function ResultCard({ result: r }: { result: QuarterResult }) {
+export function ResultCard({
+  result: r,
+  shopName = '가게 결산',
+  areaName,
+}: {
+  result: QuarterResult;
+  shopName?: string;
+  areaName?: string;
+}) {
   return (
-    <article className="card result">
-      <p className="eyebrow">분기 결산 · {quarterLabel(r.quarter)}</p>
-      <h2>{quarterLabel(r.quarter)}가 끝났어요</h2>
-      <p>{r.headline.label}</p>
-      <strong className="headline">{money(r.headline.amount)}</strong>
-      <div className="metrics">
-        <div>
-          매출<strong>{money(r.revenue)}</strong>
+    <article className="result-sections">
+      <section className="result receipt" aria-label="분기 결산 영수증">
+        <div className="receipt-heading">
+          <h2>{shopName}</h2>
+          <p>
+            {quarterLabel(r.quarter)} 결산{areaName ? ` · ${areaName}` : ''}
+          </p>
         </div>
-        <div>
-          방문객<strong>{r.visitors.toLocaleString()}명</strong>
-        </div>
-        <div>
-          객단가<strong>{money(r.avgTicket)}</strong>
-        </div>
-      </div>
+        <span className="stamp" aria-label={r.profit >= 0 ? '흑자' : '적자'}>
+          {r.profit >= 0 ? '흑자' : '적자'}
+        </span>
+
+        <dl className="receipt-lines">
+          <div>
+            <dt>매출</dt>
+            <dd>
+              <NumericText value={money(r.revenue)} />
+            </dd>
+          </div>
+          <div>
+            <dt>방문객</dt>
+            <dd>
+              <NumericText value={r.visitors.toLocaleString()} />명
+            </dd>
+          </div>
+          <div>
+            <dt>객단가</dt>
+            <dd>
+              <NumericText value={money(r.avgTicket)} />
+            </dd>
+          </div>
+          <div className="group-start">
+            <dt>임대료</dt>
+            <dd>
+              <NumericText value={money(r.costs.rent)} />
+            </dd>
+          </div>
+          <div>
+            <dt>재료비</dt>
+            <dd>
+              <NumericText value={money(r.costs.ingredients)} />
+            </dd>
+          </div>
+          <div>
+            <dt>인건비</dt>
+            <dd>
+              <NumericText value={money(r.costs.labor)} />
+            </dd>
+          </div>
+          <div>
+            <dt>마케팅</dt>
+            <dd>
+              <NumericText value={money(r.costs.marketing)} />
+            </dd>
+          </div>
+          <div>
+            <dt>총비용</dt>
+            <dd>
+              <NumericText value={money(r.costs.total)} />
+            </dd>
+          </div>
+          <div className={`profit-line ${r.profit >= 0 ? 'positive' : 'negative'}`}>
+            <dt>순이익</dt>
+            <dd>
+              <NumericText value={money(r.profit)} />
+            </dd>
+          </div>
+          <div className="group-start">
+            <dt>잔액</dt>
+            <dd>
+              <NumericText value={money(r.cashAfter)} />
+            </dd>
+          </div>
+        </dl>
+      </section>
       <div className="detail">
         <h3>상권 내 같은 업종 순위</h3>
         <p>
@@ -39,8 +107,8 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
         <div className="stat-chips">
           {r.statChanges.map((s) => (
             <span key={s.stat}>
-              {statLabels[s.stat]} {s.after} ({s.after - s.before >= 0 ? '+' : ''}
-              {s.after - s.before})
+              {statLabels[s.stat]} <NumericText value={s.after} /> (
+              <NumericText value={`${s.after - s.before >= 0 ? '+' : ''}${s.after - s.before}`} />)
             </span>
           ))}
         </div>
@@ -49,17 +117,6 @@ export function ResultCard({ result: r }: { result: QuarterResult }) {
           개업 {r.areaNews.openings}곳 · 폐업 {r.areaNews.closings}곳
         </p>
         <small>출처: {r.areaNews.source.replace(/\b(20\d{2}[1-4])\b/g, quarterLabel)}</small>
-        <h3>비용과 잔액</h3>
-        <p>
-          총비용 {money(r.costs.total)} · 잔액 {money(r.cashAfter)}
-        </p>
-        <details>
-          <summary>비용 자세히</summary>
-          <p>
-            임대료 {money(r.costs.rent)} / 재료비 {money(r.costs.ingredients)} / 인건비{' '}
-            {money(r.costs.labor)} / 마케팅 {money(r.costs.marketing)}
-          </p>
-        </details>
       </div>
       {r.moment && (
         <section className="moment">

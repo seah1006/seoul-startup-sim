@@ -39,7 +39,7 @@ export function JoinPrompt({ next }: { next?: string }) {
   const l = useLocation();
   const target = encodeURIComponent(next || l.pathname + l.search);
   return (
-    <div className="notice">
+    <div className="notice join-prompt">
       <p>로그인이 필요해요</p>
       <Link className="button" to={'/login?next=' + target}>
         로그인하고 참여하기

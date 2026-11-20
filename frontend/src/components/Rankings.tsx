@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -26,7 +27,9 @@ function RankingTable({ data }: { data: Rankings }) {
         <tbody>
           {data.entries.map((e) => (
             <tr key={e.gameId} className="rank-row">
-              <td className="rk-rank">{e.rank}위</td>
+              <td className="rk-rank">
+                <NumericText value={e.rank} />위
+              </td>
               <td className="rk-owner">
                 {e.ownerName}
                 <br />
@@ -39,8 +42,13 @@ function RankingTable({ data }: { data: Rankings }) {
                 <br />
                 <small>{e.serviceName}</small>
               </td>
-              <td className="rk-survive">{e.survivedQuarters}분기</td>
-              <td className="rk-profit">{money(e.totalProfit)}</td>
+              <td className="rk-survive">
+                <NumericText value={e.survivedQuarters} />
+                분기
+              </td>
+              <td className="rk-profit">
+                <NumericText value={money(e.totalProfit)} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -67,11 +75,10 @@ export function RankingPreview() {
   }, []);
   return (
     <article className="card">
-      <p className="eyebrow">오늘의 사장님</p>
       <h2>오늘의 랭킹</h2>
       {data ? <RankingTable data={data} /> : <p>{error || '랭킹을 불러오는 중…'}</p>}
       <Link className="button" to="/rankings">
-        전체 랭킹 보기 →
+        전체 랭킹 보기
       </Link>
     </article>
   );
@@ -122,12 +129,12 @@ export function RankingsScreen() {
   }
   return (
     <>
-      <p className="eyebrow">오늘의 사장님 랭킹</p>
       <h1>서울 사장님 랭킹</h1>
       <section className="card">
         <label>
           조회 날짜 (최근 7일)
           <select
+            className="ranking-date"
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
@@ -140,7 +147,7 @@ export function RankingsScreen() {
             ))}
           </select>
         </label>
-        <div className="choices" role="tablist" aria-label="랭킹 종류">
+        <div className="choices underline-tabs" role="tablist" aria-label="랭킹 종류">
           {(['ALL', 'INDUSTRY', 'AREA'] as RankingKind[]).map((k, i) => (
             <button key={k} role="tab" aria-selected={kind === k} onClick={() => changeKind(k)}>
               {['전체', '업종별', '상권별'][i]}

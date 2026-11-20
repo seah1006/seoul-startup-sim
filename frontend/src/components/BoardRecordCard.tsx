@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import { useMock } from '../api/client';
 import type { GameSummary } from '../api/types';
 import { money } from './ResultCard';
@@ -16,7 +17,7 @@ export function BoardRecordCard({
       className="board-record-card"
       aria-label={preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증 카드'}
     >
-      <p className="eyebrow">{preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증'}</p>
+      <p>{preview ? '엔딩 인증 카드 미리보기' : '엔딩 인증'}</p>
       <h2>{record.shopName}</h2>
       <p>
         {record.ownerName} · {ending[record.endingType]}
@@ -29,7 +30,9 @@ export function BoardRecordCard({
         <dt>생존 분기</dt>
         <dd>{record.survivedQuarters}분기</dd>
         <dt>누적 순이익</dt>
-        <dd>{money(record.totalProfit)}</dd>
+        <dd>
+          <NumericText value={money(record.totalProfit)} />
+        </dd>
       </dl>
       {!preview &&
         (useMock ? (

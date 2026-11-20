@@ -1,3 +1,4 @@
+import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { api, useMock } from '../api/client';
 import type { Area, GameState, Industry, Report, Stores } from '../api/types';
@@ -81,7 +82,6 @@ export default function ShopSetup({
   }
   return (
     <>
-      <p className="eyebrow">2단계 · 동네 찾기</p>
       <h1>첫 가게, 어느 동네가 좋을까요?</h1>
       <div className="grid map-layout">
         <section>
@@ -124,20 +124,22 @@ export default function ShopSetup({
           />
         </section>
         <section className="card">
-          <p className="eyebrow">상권 리포트 {useMock ? '· 목 데이터' : ''}</p>
+          <p>상권 리포트 {useMock ? '· 목 데이터' : ''}</p>
           <h2>{area?.name || '동네를 선택해 주세요'}</h2>
           {report && (
             <>
-              <p>
-                유동인구{' '}
-                <b>
-                  {report.floatingPopulationTopPct != null
-                    ? `서울 상권 중 상위 ${report.floatingPopulationTopPct}%`
-                    : report.floatingPopulation != null
-                      ? '집계됨'
-                      : '자료 없음'}
-                </b>
-              </p>
+              <dl className="report-values">
+                <div>
+                  <dt>유동인구</dt>
+                  <dd>
+                    {report.floatingPopulationTopPct != null
+                      ? `서울 상권 중 상위 ${report.floatingPopulationTopPct}%`
+                      : report.floatingPopulation != null
+                        ? '집계됨'
+                        : '자료 없음'}
+                  </dd>
+                </div>
+              </dl>
               <small>길단위인구 분기 집계를 서울 1,650개 상권과 비교한 값</small>
             </>
           )}
@@ -152,20 +154,42 @@ export default function ShopSetup({
             </select>
           </label>
           {metric && (
-            <div className="report-values">
-              <p>
-                점포 {metric.storeCount}곳 · 프랜차이즈 {metric.franchiseCount}곳
-              </p>
-              <p>
-                개업률 {metric.openingRatePct === null ? '자료 없음' : `${metric.openingRatePct}%`}{' '}
-                · 폐업률{' '}
-                {metric.closingRatePct === null ? '자료 없음' : `${metric.closingRatePct}%`}
-              </p>
-              <p>
-                분기 매출 {metric.quarterSales === null ? '자료 없음' : money(metric.quarterSales)}{' '}
-                {metric.salesEstimated && <small>추정치</small>}
-              </p>
-            </div>
+            <dl className="report-values">
+              <div>
+                <dt>점포 / 프랜차이즈</dt>
+                <dd>
+                  <NumericText value={metric.storeCount} />곳 /{' '}
+                  <NumericText value={metric.franchiseCount} />곳
+                </dd>
+              </div>
+              <div>
+                <dt>개업률 / 폐업률</dt>
+                <dd>
+                  {metric.openingRatePct === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={`${metric.openingRatePct}%`} />
+                  )}{' '}
+                  /{' '}
+                  {metric.closingRatePct === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={`${metric.closingRatePct}%`} />
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>분기 매출</dt>
+                <dd>
+                  {metric.quarterSales === null ? (
+                    '자료 없음'
+                  ) : (
+                    <NumericText value={money(metric.quarterSales)} />
+                  )}{' '}
+                  {metric.salesEstimated && <small>추정치</small>}
+                </dd>
+              </div>
+            </dl>
           )}
           <label>
             가게 이름
@@ -187,11 +211,28 @@ export default function ShopSetup({
           {stores && (
             <>
               <h3>반경 300m 경쟁 점포 {stores.count}곳</h3>
-              {stores.stores.map((s) => (
-                <p key={s.storeId}>
-                  {s.name} · {formatDistance(s.distanceM)}
-                </p>
-              ))}
+              <table className="competitor-table">
+                <thead>
+                  <tr>
+                    <th scope="col">이름</th>
+                    <th scope="col" className="numeric">
+                      거리
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...stores.stores]
+                    .sort((a, b) => a.distanceM - b.distanceM)
+                    .map((s) => (
+                      <tr key={s.storeId}>
+                        <td>{s.name}</td>
+                        <td className="numeric">
+                          <NumericText value={formatDistance(s.distanceM)} />
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </>
           )}
           <small>

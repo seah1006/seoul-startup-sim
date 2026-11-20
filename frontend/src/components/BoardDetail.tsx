@@ -104,7 +104,7 @@ function PostView({ postId }: { postId: number }) {
       {post && !loadError && (
         <>
           <article className="card">
-            <p className="eyebrow">
+            <p>
               {category[post.category]}
               {post.isPinned ? ' · 고정' : ''}
             </p>

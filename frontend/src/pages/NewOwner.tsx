@@ -1,3 +1,4 @@
+import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, useMock } from '../api/client';
@@ -47,7 +48,6 @@ export default function NewOwner() {
   }
   return (
     <>
-      <p className="eyebrow">1단계 · 사장님</p>
       <h1>어떤 사장님이 될까요?</h1>
       <section className="card">
         <label>
@@ -76,26 +76,43 @@ export default function NewOwner() {
         <h2>같은 가능성, 다른 강점</h2>
         <button onClick={() => setSeed((s) => s + 1)}>다른 후보 보기</button>
       </div>
-      <div className="grid three">
-        {list.map((c, i) => (
-          <button
-            aria-pressed={choice === c.candidateId}
-            className={`card candidate ${choice === c.candidateId ? 'selected' : ''}`}
-            onClick={() => setChoice(c.candidateId)}
-            key={c.candidateId}
-          >
-            <h3>
-              후보 0{i + 1} <small>합계 {c.total}</small>
-            </h3>
-            {Object.entries(c.stats).map(([s, v]) => (
-              <div className="stat" key={s}>
-                <span>{statLabels[s as Stat]}</span>
-                <meter min="0" max="100" value={v} />
-                <b>{v}</b>
-              </div>
+      <div className="table-scroll">
+        <table className="candidate-table">
+          <caption>사장님 후보 능력치</caption>
+          <thead>
+            <tr>
+              <th scope="col">후보 선택</th>
+              {Object.values(statLabels).map((label) => (
+                <th scope="col" key={label}>
+                  {label}
+                </th>
+              ))}
+              <th scope="col">합계</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((c, i) => (
+              <tr key={c.candidateId} className={choice === c.candidateId ? 'selected' : ''}>
+                <th scope="row">
+                  <button
+                    aria-pressed={choice === c.candidateId}
+                    onClick={() => setChoice(c.candidateId)}
+                  >
+                    후보 0{i + 1}
+                  </button>
+                </th>
+                {(Object.keys(statLabels) as Stat[]).map((stat) => (
+                  <td key={stat}>
+                    <NumericText value={c.stats[stat]} />
+                  </td>
+                ))}
+                <td>
+                  <NumericText value={c.total} />
+                </td>
+              </tr>
             ))}
-          </button>
-        ))}
+          </tbody>
+        </table>
       </div>
       <section className="card">
         <h2>
@@ -125,7 +142,7 @@ export default function NewOwner() {
         </p>
       )}
       <button className="primary" disabled={!name.trim() || !list.length || busy} onClick={submit}>
-        {busy ? '준비 중…' : '확인하고 동네 찾기 →'}
+        {busy ? '준비 중…' : '확인하고 동네 찾기'}
       </button>
     </>
   );

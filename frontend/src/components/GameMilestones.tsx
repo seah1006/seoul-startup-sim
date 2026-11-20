@@ -1,3 +1,4 @@
+import { NumericText } from './NumericText';
 import { EndingBoardEntry } from './BoardEntry';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,7 +47,6 @@ export function TurningPointCard({
   }
   return (
     <section className="card turning-point" aria-label="전환점">
-      <p className="eyebrow">전환점</p>
       {result ? (
         <>
           <h2>{result.success ? '선택이 좋은 결실을 맺었어요' : '새로운 경험이 되었어요'}</h2>
@@ -56,7 +56,7 @@ export function TurningPointCard({
           <div className="stat-chips">
             {result.effects.map((e) => (
               <span key={e.label}>
-                {e.label} {e.value}
+                {e.label} <NumericText value={e.value} />
               </span>
             ))}
           </div>
@@ -131,10 +131,10 @@ export function EndingScreen({ game }: { game: GameState }) {
   };
   return (
     <section className="card ending">
-      <p className="eyebrow">나의 창업 이야기</p>
       <h2>{titles[game.endingType || 'LONG_RUNNING']}</h2>
       {summary ? (
         <>
+          <span className="stamp">{summary.totalProfit >= 0 ? '흑자' : '적자'}</span>
           <p>
             {summary.ownerName} 사장님의 {summary.shopName}
           </p>
@@ -143,13 +143,23 @@ export function EndingScreen({ game }: { game: GameState }) {
           </p>
           <div className="metrics">
             <div>
-              생존 기간<strong>{summary.survivedQuarters}분기</strong>
+              생존 기간
+              <strong>
+                <NumericText value={summary.survivedQuarters} />
+                분기
+              </strong>
             </div>
             <div>
-              누적 순이익<strong>{money(summary.totalProfit)}</strong>
+              누적 순이익
+              <strong>
+                <NumericText value={money(summary.totalProfit)} />
+              </strong>
             </div>
             <div>
-              최고 분기 순이익<strong>{money(summary.bestQuarterProfit)}</strong>
+              최고 분기 순이익
+              <strong>
+                <NumericText value={money(summary.bestQuarterProfit)} />
+              </strong>
             </div>
           </div>
           <div className="choices">
@@ -194,7 +204,7 @@ export function SellButton({ game, onGame }: { game: GameState; onGame: (g: Game
     }
   }
   return (
-    <section>
+    <section className="sell-action">
       <button disabled={game.currentTurn < 4} onClick={() => setConfirm(true)}>
         가게 매각하고 은퇴
       </button>

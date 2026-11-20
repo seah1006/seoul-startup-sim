@@ -15,7 +15,7 @@ export default function History({ turns }: { turns: QuarterResult[] }) {
             role="img"
             aria-label="분기별 순이익 차트"
           >
-            <line x1="0" y1="120" x2="100%" y2="120" stroke="#bcc7bf" />
+            <line x1="0" y1="120" x2="100%" y2="120" stroke="var(--rule)" />
             {turns.map((r, i) => {
               const height = (Math.abs(r.profit) / max) * 85;
               return (
@@ -28,7 +28,7 @@ export default function History({ turns }: { turns: QuarterResult[] }) {
                     y={r.profit >= 0 ? 120 - height : 120}
                     width="35"
                     height={height}
-                    fill={r.profit >= 0 ? '#27634c' : '#ba6557'}
+                    fill={r.profit >= 0 ? 'var(--ok)' : 'var(--sign)'}
                     rx="3"
                   />
                   <text x={i * 70 + 32} y="225" textAnchor="middle" fontSize="12">

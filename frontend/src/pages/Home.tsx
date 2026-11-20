@@ -7,39 +7,20 @@ export default function Home() {
   return (
     <>
       <section className="hero">
-        <p className="eyebrow">서울 창업 시뮬레이터</p>
-        <h1>
-          당신의 가게가
-          <br />
-          서울의 이야기가 되도록.
-        </h1>
-        <p>실제 서울 상권 데이터를 읽고, 나만의 창업 커리어를 만들어 보세요.</p>
+        <h1>서울 골목에 가게 하나 차려 보기</h1>
+        <p>서울시 상권 1,650곳의 실제 매출·점포·유동인구로 분기마다 결산합니다.</p>
         <Link className="button" to="/new">
-          새 창업 시작 <span>↗</span>
+          창업 시작
         </Link>
         {saved && (
           <Link className="continue" to={`/games/${saved}`}>
-            이전 창업 이어하기 →
+            이어서 하기
           </Link>
         )}
-        <div className="hero-bottom">
-          <span>01 사장님 만들기</span>
-          <span>02 동네 찾기</span>
-          <span>03 분기마다 성장하기</span>
-        </div>
       </section>
-      <section className="grid two">
+      <section className="grid home-columns">
         <RankingPreview />
-        <article className="card">
-          <p className="eyebrow">진짜 데이터, 나만의 이야기</p>
-          <h2>현실의 동네, 나만의 선택</h2>
-          <p>
-            서울 열린데이터광장 · 서울시 상권분석서비스
-            <br />
-            공공데이터포털 · 소상공인 상가정보
-          </p>
-          <small>목 모드에서는 명확히 표시한 연습 데이터만 사용합니다.</small>
-        </article>
+
         <PopularBoardPosts />
       </section>
     </>
