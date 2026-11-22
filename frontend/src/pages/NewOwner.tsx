@@ -3,9 +3,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, useMock } from '../api/client';
 import { backgrounds, statLabels } from '../api/types';
-import type { Background, Candidate, Stat } from '../api/types';
+import type { Background, Candidate, Stat, Mission, MissionCode } from '../api/types';
 export default function NewOwner() {
   const nav = useNavigate();
+  const [missions, setMissions] = useState<Mission[]>([]);
+  const [missionCode, setMissionCode] = useState<MissionCode>('SURVIVE_3Y');
+  useEffect(() => { api.missions().then(setMissions).catch(e => setError(e.message)); }, []);
   const [name, setName] = useState('');
   const [background, setBackground] = useState<Background>('OFFICE_WORKER');
   const [seed, setSeed] = useState(123);
@@ -37,6 +40,7 @@ export default function NewOwner() {
         candidateId: choice,
         candidateSeed: seed,
         focusStats: focus,
+        missionCode,
       });
       localStorage.setItem(useMock ? 'sss-last-mock' : 'sss-last-real', String(g.gameId));
       nav(`/games/${g.gameId}`);
@@ -134,6 +138,12 @@ export default function NewOwner() {
               {l}
             </button>
           ))}
+        </div>
+      </section>
+      <section className="card" aria-labelledby="mission-heading">
+        <h2 id="mission-heading">이번 창업의 목표</h2>
+        <div className="mission-list">
+          {missions.map(m => <button key={m.code} aria-pressed={missionCode === m.code} className={missionCode === m.code ? 'selected' : ''} onClick={() => setMissionCode(m.code)}><strong><NumericText value={m.title} /></strong><span><NumericText value={m.description} /></span><small><NumericText value={m.targetLabel} /></small></button>)}
         </div>
       </section>
       {error && (
