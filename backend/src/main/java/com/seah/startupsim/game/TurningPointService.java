@@ -11,10 +11,16 @@ import tools.jackson.databind.ObjectMapper;
 public class TurningPointService {
     public record FrozenOption(long optionId, int orderNo, String label, double probability, int successRatePct,
             String onSuccess, String onFail, JsonNode successEffects, JsonNode failEffects, String successText, String failText) {}
-    public record FrozenPoint(String code, String title, String description, List<FrozenOption> options) {}
+    public record FrozenPoint(String code, String title, String description, List<FrozenOption> options,
+            String tier, String source, String dataNote) {
+        public FrozenPoint(String code, String title, String description, List<FrozenOption> options) {
+            this(code, title, description, options, "MAJOR", "STORY", null);
+        }
+    }
     public record Pending(long id, int turn, FrozenPoint payload) {}
     public record OptionView(long optionId, String label, int successRatePct, String onSuccess, String onFail) {}
-    public record View(long gameTurningPointId, String code, String title, String description, List<OptionView> options) {}
+    public record View(long gameTurningPointId, String code, String title, String description, List<OptionView> options,
+            String tier, String source, String dataNote) {}
     public record Chosen(boolean success, String resultText, List<EventEffectService.EffectView> effects, GameResponses.State game) {}
 
     private final GameRepository games;
@@ -50,7 +56,8 @@ public class TurningPointService {
         }
         FrozenPoint point = pending.payload();
         return new View(pending.id(), point.code(), point.title(), point.description(), point.options().stream()
-                .map(option -> new OptionView(option.optionId(), option.label(), option.successRatePct(), option.onSuccess(), option.onFail())).toList());
+                .map(option -> new OptionView(option.optionId(), option.label(), option.successRatePct(), option.onSuccess(), option.onFail())).toList(),
+                point.tier() == null ? "MAJOR" : point.tier(), point.source() == null ? "STORY" : point.source(), point.dataNote());
     }
 
     @Transactional

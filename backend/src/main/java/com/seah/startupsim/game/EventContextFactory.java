@@ -80,6 +80,7 @@ public class EventContextFactory {
                         values.put("area.salesTrendPct", current.doubleValue() / previous.doubleValue() - 1);
                     }
                 }, GameRepository.quarter(context.quarter(), -4), shop.areaCode(), shop.serviceCode(), context.quarter(), id, id);
+        dataVariables(id, shop, context.quarter(), values);
         jdbc.query("SELECT flag FROM game_flags WHERE game_id = ?", row -> {
             values.put("flag." + row.getString(1), true);
         }, id);
@@ -94,6 +95,50 @@ public class EventContextFactory {
         return values;
     }
 
+    /** 원본 두 분기가 모두 게임 pins에 있을 때만 실제 변화율을 제공한다. 추정 경로는 사용하지 않는다. */
+    void dataVariables(long gameId, Shop shop, String quarter, Map<String, Object> values) {
+        values.put("area.quarterLabel", quarter.substring(0, 4) + "년 " + quarter.substring(4) + "분기");
+        String previous = GameRepository.quarter(quarter, -1);
+        jdbc.query("""
+                SELECT c.store_count - p.store_count AS store_delta,
+                       c.franchise_count - p.franchise_count AS franchise_delta,
+                       c.opening_count, c.closing_count, c.opening_rate, c.closing_rate
+                FROM area_stores_q c LEFT JOIN area_stores_q p
+                  ON p.area_code = c.area_code AND p.service_code = c.service_code AND p.quarter = ?
+                 AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = p.version_id)
+                WHERE c.area_code = ? AND c.service_code = ? AND c.quarter = ?
+                  AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = c.version_id)
+                """, row -> {
+                    put(values, "area.storeChange", row.getObject("store_delta"));
+                    put(values, "area.franchiseChange", row.getObject("franchise_delta"));
+                    put(values, "area.openings", row.getObject("opening_count"));
+                    put(values, "area.closings", row.getObject("closing_count"));
+                    put(values, "area.openingRatePct", row.getObject("opening_rate"));
+                    put(values, "area.closingRatePct", row.getObject("closing_rate"));
+                }, previous, gameId, shop.areaCode(), shop.serviceCode(), quarter, gameId);
+        jdbc.query("""
+                SELECT c.sales_amount, p.sales_amount FROM area_sales_q c JOIN area_sales_q p
+                  ON p.area_code = c.area_code AND p.service_code = c.service_code AND p.quarter = ?
+                WHERE c.area_code = ? AND c.service_code = ? AND c.quarter = ?
+                  AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = c.version_id)
+                  AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = p.version_id)
+                """, row -> { change(values, "area.salesChangePct", (Number) row.getObject(1), (Number) row.getObject(2)); },
+                previous, shop.areaCode(), shop.serviceCode(), quarter, gameId, gameId);
+        jdbc.query("""
+                SELECT c.total_population, p.total_population FROM area_floating_pop_q c JOIN area_floating_pop_q p
+                  ON p.area_code = c.area_code AND p.quarter = ?
+                WHERE c.area_code = ? AND c.quarter = ?
+                  AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = c.version_id)
+                  AND EXISTS (SELECT 1 FROM game_data_pins g WHERE g.game_id = ? AND g.version_id = p.version_id)
+                """, row -> { change(values, "area.floatingPopChangePct", (Number) row.getObject(1), (Number) row.getObject(2)); },
+                previous, shop.areaCode(), quarter, gameId, gameId);
+    }
+
+    static void change(Map<String, Object> values, String name, Number current, Number previous) {
+        if (current != null && previous != null && previous.doubleValue() > 0 && current.doubleValue() >= 0) {
+            values.put(name, (current.doubleValue() / previous.doubleValue() - 1) * 100);
+        }
+    }
     /** 반응 전용 버킷과 마지막 해결 전환점을 기본 변수 위에 더한다. 직전 분기가 없으면 보합 기준이다. */
     public Map<String, Object> reactionVariables(GameContext context, QuarterOutcome outcome, Map<String, Object> base) {
         long id = context.gameId();

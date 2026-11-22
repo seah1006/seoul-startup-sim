@@ -123,6 +123,52 @@ class EventFlowIntegrationTest {
         return quarters;
     }
 
+    @Test
+    void dataVariablesUsePinnedQuartersAndNeverFallback() {
+        long id = game(123);
+        var values = new java.util.HashMap<String, Object>();
+        var factory = new EventContextFactory(repository, null, jdbc);
+        factory.dataVariables(id, repository.shop(id), "20232", values);
+        assertEquals("2023년 2분기", values.get("area.quarterLabel"));
+        assertEquals(1L, ((Number) values.get("area.storeChange")).longValue());
+        assertEquals(2L, ((Number) values.get("area.openings")).longValue());
+        assertEquals(6.666666, ((Number) values.get("area.salesChangePct")).doubleValue(), 0.00001);
+        assertFalse(values.containsKey("area.floatingPopChangePct"));
+        jdbc.update("DELETE FROM game_data_pins WHERE game_id = ?", id);
+        values.clear();
+        factory.dataVariables(id, repository.shop(id), "20232", values);
+        assertEquals(Map.of("area.quarterLabel", "2023년 2분기"), values);
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void minorDataPointFreezesActualTextAndSource() {
+        long id = game(456);
+        Long definitionId = jdbc.queryForObject("SELECT min(id) FROM turning_points", Long.class);
+        jdbc.update("UPDATE turning_points SET enabled = (id = ?)", definitionId);
+        jdbc.update("""
+                UPDATE turning_points SET tier = 'MINOR', source = 'DATA', condition_expr = '{}', min_turn = 0,
+                    base_probability = 1, prob_min = 0, prob_max = 1,
+                    description = '{area.quarterLabel} 같은 업종 개업 {area.openings}곳'
+                WHERE id = ?
+                """, definitionId);
+        jdbc.update("""
+                UPDATE games SET settings = settings ||
+                    '{"event.fire.minTurn":0,"event.minor.enabled":1,"event.minor.rate":1}'::jsonb WHERE id = ?
+                """, id);
+        var state = repository.state(id, user);
+        games.decision(id, user, 0, new GameTypes.Decision(GameTypes.Price.NORMAL, 10, 1, 0, GameTypes.Activity.REST));
+        var settled = advance.advance(id, user, "minor-data", state.version());
+        assertTrue(settled.game().pendingTurningPoint());
+        var view = points.view(id, user);
+        assertEquals("MINOR", view.tier());
+        assertEquals("DATA", view.source());
+        assertEquals("서울시 상권분석서비스 2023년 1분기 실제 값", view.dataNote());
+        assertEquals("2023년 1분기 같은 업종 개업 +1곳", view.description());
+        jdbc.update("UPDATE area_stores_q SET opening_count = 999 WHERE version_id = 100");
+        assertEquals(view.description(), points.view(id, user).description());
+    }
+
     private int shopCount(long id) {
         return jdbc.queryForObject("SELECT shop_count FROM games WHERE id = ?", Integer.class, id);
     }

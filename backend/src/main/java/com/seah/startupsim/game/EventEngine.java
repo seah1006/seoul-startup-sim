@@ -101,7 +101,7 @@ public class EventEngine implements TurnEventHook {
         int picked = candidates.size() == 1 ? 0 : (int) (EventRandom.stream(context.seed(), context.turn(),
                 EventRandom.Purpose.TURNING_POINT_PICK, "").nextDouble() * candidates.size());
         var definition = candidates.get(picked);
-        String payload = json.writeValueAsString(freeze(definition, stats));
+        String payload = json.writeValueAsString(freeze(definition, stats, games.shop(context.gameId()), variables));
         games.jdbc().update("""
                 INSERT INTO game_turning_points (game_id, turn, turning_point_id, definition_rev, payload)
                 VALUES (?, ?, ?, ?, ?::jsonb)
@@ -198,20 +198,22 @@ public class EventEngine implements TurnEventHook {
 
     /** 화면 문구·성공률·효과 원본을 함께 고정해 이후 관리자 수정이 대기 중 선택을 바꾸지 못하게 한다. */
     private TurningPointService.FrozenPoint freeze(EventDefinitionRepository.Definition definition,
-            Map<String, Integer> stats) {
+            Map<String, Integer> stats, Shop shop, Map<String, Object> variables) {
         var ids = definitions.optionIds(definition.id());
         List<TurningPointService.FrozenOption> options = new ArrayList<>();
         for (JsonNode option : definition.data().get("options")) {
             int order = option.get("orderNo").intValue();
             double probability = validator.formula(option.get("successFormula")).probability(stats);
-            options.add(new TurningPointService.FrozenOption(ids.get(order), order, option.get("label").asString(),
+            options.add(new TurningPointService.FrozenOption(ids.get(order), order, EventText.render(option.get("label").asString(), shop, variables),
                     probability, (int) Math.round(probability * 100),
                     effects.summary(validator.effects(option.get("onSuccess"), false, "onSuccess")),
                     effects.summary(validator.effects(option.get("onFail"), false, "onFail")),
-                    option.get("onSuccess"), option.get("onFail"), option.get("successText").asString(),
-                    option.get("failText").asString()));
+                    option.get("onSuccess"), option.get("onFail"), EventText.render(option.get("successText").asString(), shop, variables),
+                    EventText.render(option.get("failText").asString(), shop, variables)));
         }
-        return new TurningPointService.FrozenPoint(definition.code(), definition.data().get("title").asString(),
-                definition.data().get("description").asString(), List.copyOf(options));
+        return new TurningPointService.FrozenPoint(definition.code(), EventText.render(definition.data().get("title").asString(), shop, variables),
+                EventText.render(definition.data().get("description").asString(), shop, variables), List.copyOf(options),
+                tier(definition), source(definition), source(definition).equals("DATA")
+                    ? "서울시 상권분석서비스 " + variables.get("area.quarterLabel") + " 실제 값" : null);
     }
 }
