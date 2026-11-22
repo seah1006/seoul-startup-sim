@@ -1,4 +1,5 @@
 import type {
+  Mission,
   GameSummary,
   Rankings,
   RankingKind,
@@ -140,6 +141,7 @@ export async function advanceWithRecovery(game: GameState, onRefresh: (game: Gam
   }
 }
 export const api = {
+  missions: () => request<Mission[]>('/missions'),
   guest,
   turningPoint: (id: number) => request<TurningPoint | null>(`/games/${id}/turning-point`),
   choose: (id: number, optionId: number) =>
