@@ -29,6 +29,17 @@ class MinorEventEngineTest {
         org.junit.jupiter.api.Assertions.assertThrows(GameException.class,
                 () -> games.settingNumber("initialCapital", "true"));
     }
+    @Test void globalMajorGapDoesNotEraseDefinitionCooldown() {
+        var definition = point("MIN_STORY", "STORY");
+        Map<String, Object> history = new HashMap<>();
+        history.put("history.majorQuartersSince", 999);
+        history.put("history.quartersSince.MIN_STORY", 1);
+        assertThat(engine.judge(context, history, Map.of(), List.of(definition), 1).get("MIN_STORY")).isFalse();
+        history.put("history.quartersSince.MIN_STORY", 3);
+        assertThat(engine.judge(context, history, Map.of(), List.of(definition), 1).get("MIN_STORY")).isTrue();
+        history.put("history.majorQuartersSince", 1);
+        assertThat(engine.judge(context, history, Map.of(), List.of(definition), 1).get("MIN_STORY")).isFalse();
+    }
     @Test void missingSettingDisablesMinor() {
         assertThat(engine.pickMinor(context, new HashMap<>(), Map.of(), List.of(point("MIN_STORY", "STORY")), Map.of())).isNull();
     }
@@ -56,4 +67,3 @@ class MinorEventEngineTest {
                 .isEqualTo(engine.pickMinor(context, new HashMap<>(), Map.of(), List.of(second, first), enabled()));
     }
 }
-

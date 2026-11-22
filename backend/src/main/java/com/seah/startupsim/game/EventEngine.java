@@ -75,10 +75,6 @@ public class EventEngine implements TurnEventHook {
         var majorVariables = new LinkedHashMap<>(variables);
         points.stream().filter(point -> tier(point).equals("MINOR"))
                 .forEach(point -> majorVariables.remove("history.quartersSince." + point.code()));
-        if (variables.containsKey("history.majorQuartersSince")) {
-            majorVariables.keySet().removeIf(key -> key.startsWith("history.quartersSince."));
-            majorVariables.put("history.quartersSince.MAJOR", variables.get("history.majorQuartersSince"));
-        }
         var majors = points.stream().filter(point -> tier(point).equals("MAJOR"))
                 .filter(point -> context.turn() >= settings.getOrDefault("event.fire.minTurn", 1d)).toList();
         Map<String, Boolean> judged = judge(context, majorVariables, stats, majors,
@@ -127,6 +123,7 @@ public class EventEngine implements TurnEventHook {
         int sinceAny = variables.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("history.quartersSince."))
                 .mapToInt(entry -> ((Number) entry.getValue()).intValue()).min().orElse(Integer.MAX_VALUE);
+        if (variables.get("history.majorQuartersSince") instanceof Number majorSince) sinceAny = majorSince.intValue();
         boolean gapPassed = globalGap <= 0 || sinceAny > globalGap;
         Map<String, Boolean> judged = new LinkedHashMap<>();
         for (var point : points) {
