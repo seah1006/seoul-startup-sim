@@ -145,7 +145,7 @@ it('시작 목표의 금액과 순위 누락값을 장부 형식으로 표시한
     ...base,
     missionCode: 'AREA_TOP3',
   });
-  expect(rank.mission.progress.label).toBe('순위 없음 / 3위 이내');
+  expect(rank.mission.progress.label).toBe('순위 없음 / 5위 이내');
   profit.mission.progress.label = '1,383만 원 / 1억 원';
   const { container } = render(<MissionProgress mission={profit.mission} />);
   expect(screen.getByText('목표 · 누적 순이익 1억')).toBeInTheDocument();

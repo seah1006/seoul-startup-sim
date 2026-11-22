@@ -32,9 +32,9 @@ export const missions: Mission[] = [
   },
   {
     code: 'AREA_TOP3',
-    title: '동네 3위 안',
-    description: '같은 업종 순위 3위 안에 도달하세요.',
-    targetLabel: '3위 이내',
+    title: '동네 5위 안',
+    description: '상권 내 같은 업종 5위 안에 들어보세요.',
+    targetLabel: '5위 이내',
   },
   {
     code: 'BLACK_4',
@@ -54,7 +54,7 @@ function missionLabel(code: MissionState['code'], current: number | null): strin
     case 'PROFIT_100M':
       return money(current ?? 0) + ' / 1억 원';
     case 'AREA_TOP3':
-      return (current ? current + '위' : '순위 없음') + ' / 3위 이내';
+      return (current ? current + '위' : '순위 없음') + ' / 5위 이내';
     case 'SURVIVE_3Y':
       return (current ?? 0) + '분기 / 12분기';
     case 'BLACK_4':
@@ -703,7 +703,7 @@ export async function mockRequest<T>(
           mission.progress.label = missionLabel(mission.code, current);
           if (
             !mission.achieved &&
-            (mission.code === 'AREA_TOP3' ? current <= 3 : current >= mission.progress.target)
+            (mission.code === 'AREA_TOP3' ? current <= 5 : current >= mission.progress.target)
           ) {
             mission.achieved = true;
             mission.achievedTurn = r.turn;
