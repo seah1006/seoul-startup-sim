@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class AdminEventService {
     /** 목록 한 줄. 이름 칸은 전환점·순간은 제목, 반응은 작성자다. */
-    public record Row(long id, String code, String name, boolean enabled, int rev, long recentFires) {}
+    public record Row(long id, String code, String name, boolean enabled, int rev, long recentFires, String tier, String source) {}
 
     /** 저장 거부 사유. 메시지에는 검증기가 만든 JSON 경로가 들어 있다. */
     public static class InvalidDefinition extends RuntimeException {
@@ -42,7 +42,8 @@ public class AdminEventService {
             JsonNode data = definition.data();
             String name = data.has("title") ? data.get("title").asString() : data.get("author").asString();
             return new Row(definition.id(), definition.code(), name, data.get("enabled").booleanValue(),
-                    definition.rev(), fires.getOrDefault(definition.id(), 0L));
+                    definition.rev(), fires.getOrDefault(definition.id(), 0L),
+                    data.has("tier") ? data.get("tier").asString() : null, data.has("source") ? data.get("source").asString() : null);
         }).toList();
     }
 

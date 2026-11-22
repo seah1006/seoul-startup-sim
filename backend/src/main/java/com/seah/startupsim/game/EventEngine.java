@@ -76,6 +76,10 @@ public class EventEngine implements TurnEventHook {
         var majorVariables = new LinkedHashMap<>(variables);
         points.stream().filter(point -> tier(point).equals("MINOR"))
                 .forEach(point -> majorVariables.remove("history.quartersSince." + point.code()));
+        if (variables.containsKey("history.majorQuartersSince")) {
+            majorVariables.keySet().removeIf(key -> key.startsWith("history.quartersSince."));
+            majorVariables.put("history.quartersSince.MAJOR", variables.get("history.majorQuartersSince"));
+        }
         var majors = points.stream().filter(point -> tier(point).equals("MAJOR")).toList();
         Map<String, Boolean> judged = judge(context, majorVariables, stats, majors,
                 settings.getOrDefault("event.fire.globalGap", 0d));
@@ -159,6 +163,7 @@ public class EventEngine implements TurnEventHook {
                     .nextDouble() >= settings.getOrDefault("event.minor.rate", 0.9)) return null;
         int dataFires = points.stream().filter(point -> source(point).equals("DATA"))
                 .mapToInt(point -> ((Number) variables.getOrDefault("history.timesFired." + point.code(), 0)).intValue()).sum();
+        dataFires = ((Number) variables.getOrDefault("history.dataFires", dataFires)).intValue();
         var eligible = new ArrayList<EventDefinitionRepository.Definition>();
         for (var point : points) {
             if (!tier(point).equals("MINOR")) continue;

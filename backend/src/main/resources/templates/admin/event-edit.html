@@ -7,6 +7,7 @@
     <h1 th:text="|${title} 편집 #${id}|">편집</h1>
     <p><a th:href="@{/admin/{path}(path=${path})}">목록으로</a></p>
     <p>조건식·확률·효과는 화이트리스트 DSL만 허용합니다. 저장할 때 부팅 검사와 같은 검증기를 통과해야 하며, code는 바꿀 수 없습니다.</p>
+    <p th:if="${path == 'turning-points'}">JSON의 tier(MAJOR/MINOR), source(STORY/DATA)를 수정할 수 있습니다. 기존 대기 사건의 등급·출처는 바뀌지 않습니다.</p>
     <p role="alert" class="error" th:if="${error}" th:text="|저장하지 않았습니다. ${error}|"></p>
     <form method="post" th:action="@{/admin/{path}/{id}(path=${path},id=${id})}">
         <textarea name="definition" rows="32" cols="100" spellcheck="false" th:text="${definition}"></textarea>

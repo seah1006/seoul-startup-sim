@@ -59,6 +59,7 @@ class EventFlowIntegrationTest {
     @Autowired EventDefinitionRepository definitions;
     @Autowired EventDefinitionValidator validator;
     @Autowired ObjectMapper json;
+    @Autowired EventContextFactory eventContexts;
     long user;
 
     @BeforeEach
@@ -168,6 +169,10 @@ class EventFlowIntegrationTest {
         assertEquals("2023년 1분기 같은 업종 개업 +1곳", view.description());
         jdbc.update("UPDATE area_stores_q SET opening_count = 999 WHERE version_id = 100");
         assertEquals(view.description(), points.view(id, user).description());
+        jdbc.update("UPDATE turning_points SET enabled = false, tier = 'MAJOR', source = 'STORY' WHERE id = ?", definitionId);
+        var history = eventContexts.variables(new GameContext(id, user, 456, 0, "20231", null), settled.result());
+        assertEquals(1, history.get("history.dataFires"));
+        assertEquals(999, history.get("history.majorQuartersSince"));
     }
 
     @Test
@@ -210,6 +215,21 @@ class EventFlowIntegrationTest {
         assertTrue(settled.game().mission().achieved());
         assertEquals(0, settled.game().mission().achievedTurn());
         assertEquals(settled, advance.advance(id, user, "mission-settle", state.version()));
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void adminTierAndSourcePersistAndInvalidEnumsAreRejected() {
+        var definition = definitions.turningPoints().getFirst();
+        var data = (tools.jackson.databind.node.ObjectNode) definition.data().deepCopy();
+        data.put("tier", "MINOR"); data.put("source", "DATA");
+        validator.turningPoint(data);
+        definitions.update(EventDefinitionRepository.Kind.TURNING_POINT, definition.id(), data);
+        var saved = definitions.raw(EventDefinitionRepository.Kind.TURNING_POINT, definition.id());
+        assertEquals("MINOR", saved.data().get("tier").asString());
+        assertEquals("DATA", saved.data().get("source").asString());
+        data.put("tier", "INVALID");
+        org.junit.jupiter.api.Assertions.assertThrows(GameException.class, () -> validator.turningPoint(data));
     }
 
     private int shopCount(long id) {

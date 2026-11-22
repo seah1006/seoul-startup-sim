@@ -92,6 +92,14 @@ public class EventContextFactory {
                     values.put("history.timesFired." + row.getString("code"), row.getInt("times"));
                     values.put("history.quartersSince." + row.getString("code"), context.turn() - row.getInt("last_turn"));
                 }, id);
+        jdbc.query("""
+                SELECT min(? - turn) FILTER (WHERE coalesce(payload->>'tier','MAJOR') = 'MAJOR') AS major_since,
+                       count(*) FILTER (WHERE payload->>'source' = 'DATA') AS data_fires
+                FROM game_turning_points WHERE game_id = ?
+                """, row -> {
+                    values.put("history.majorQuartersSince", row.getObject("major_since") == null ? 999 : row.getInt("major_since"));
+                    values.put("history.dataFires", row.getInt("data_fires"));
+                }, context.turn(), id);
         return values;
     }
 

@@ -171,14 +171,16 @@ public class EventDefinitionRepository {
         jdbc.update("""
                 UPDATE turning_points SET title = ?, description = ?, condition_expr = ?::jsonb, base_probability = ?,
                     stat_bonus = ?::jsonb, prob_min = ?, prob_max = ?, cooldown_quarters = ?, max_fires = ?,
-                    min_turn = ?, priority = ?, enabled = ?, rev = rev + 1, updated_at = now() WHERE id = ?
+                    min_turn = ?, priority = ?, enabled = ?, tier = ?, source = ?, rev = rev + 1, updated_at = now() WHERE id = ?
                 """, data.get("title").asString(), data.has("description") ? data.get("description").asString() : "",
                 json.writeValueAsString(data.get("conditionExpr")), data.get("baseProbability").doubleValue(),
                 data.has("statBonus") ? json.writeValueAsString(data.get("statBonus")) : "[]",
                 data.has("probMin") ? data.get("probMin").doubleValue() : 0,
                 data.has("probMax") ? data.get("probMax").doubleValue() : 1,
                 integer(data, "cooldownQuarters", 4), integer(data, "maxFires", 1), integer(data, "minTurn", 0),
-                integer(data, "priority", 50), enabled, id);
+                integer(data, "priority", 50), enabled,
+                data.has("tier") ? data.get("tier").asString() : raw(Kind.TURNING_POINT, id).data().get("tier").asString(),
+                data.has("source") ? data.get("source").asString() : raw(Kind.TURNING_POINT, id).data().get("source").asString(), id);
         List<Integer> orders = new ArrayList<>();
         for (JsonNode option : data.get("options")) {
             orders.add(option.get("orderNo").intValue());
