@@ -14,7 +14,7 @@ function AppShell() {
       <header>
         <div className="site-container header-inner">
           <Link className="brand" to="/">
-            서울 사장님
+            골목장부
           </Link>
           <nav className="header-links" aria-label="상단 메뉴">
             <Link to="/board">커뮤니티</Link>

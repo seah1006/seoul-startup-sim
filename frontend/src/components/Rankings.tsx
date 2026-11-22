@@ -129,7 +129,7 @@ export function RankingsScreen() {
   }
   return (
     <>
-      <h1>서울 사장님 랭킹</h1>
+      <h1>골목장부 랭킹</h1>
       <section className="card">
         <label>
           조회 날짜 (최근 7일)
