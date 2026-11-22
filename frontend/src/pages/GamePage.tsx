@@ -58,11 +58,11 @@ export default function Game() {
             {quarterLabel(game.currentQuarter)} · {game.owner.name} 사장님
           </p>
           <h1>{game.shop.shopName}</h1>
-          <MissionProgress mission={game.mission} />
           <p>
             {game.shop.areaName} · {game.shop.serviceName} · 보유금{' '}
             <NumericText value={money(game.cash)} />
           </p>
+          <MissionProgress mission={game.mission} />
         </div>
         <div className="game-tabs underline-tabs" aria-label="게임 화면">
           <button aria-pressed={tab === 'play'} onClick={() => setTab('play')}>
@@ -205,7 +205,10 @@ export function MissionProgress({ mission }: { mission: MissionState }) {
   return (
     <div className="mission-progress" aria-label="목표 진행">
       <p>
-        목표 · <NumericText value={mission.title} /> <NumericText value={label} />{' '}
+        <span>목표 · {mission.title}</span>
+        <span>
+          <NumericText value={label} />
+        </span>
         {mission.achieved && <strong className="mission-seal">달성</strong>}
       </p>
       <div

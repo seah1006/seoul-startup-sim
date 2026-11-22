@@ -1454,28 +1454,43 @@ meter::-moz-meter-bar {
 .minor-event {
   max-width: 800px;
 }
-.minor-options {
+.event-label {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
+  font-size: 13px;
+  color: var(--ink-2);
 }
-.minor-options > article {
-  flex: 1 1 190px;
-  min-width: 0;
-  padding: 12px 0;
-  border: 0;
-  border-top: 1px solid var(--rule);
+.minor-event {
+  padding-block: 16px;
 }
-.minor-options h3 {
-  margin-top: 0;
+.minor-event h3 {
+  font-size: 18px;
+  margin: 12px 0 8px;
 }
-.minor-options label {
+.minor-event > p {
+  margin-block: 8px;
+}
+.minor-options {
   display: block;
+  margin-top: 12px;
 }
-.minor-options button {
+.minor-option-row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--rule);
+  padding: 8px 0;
+}
+.minor-option-row button {
   min-height: 44px;
-  max-width: 100%;
+  text-align: left;
   white-space: normal;
+}
+.minor-option-row small {
+  color: var(--ink-2);
+  line-height: 1.6;
 }
 .data-tag {
   display: inline-block;
@@ -1498,8 +1513,9 @@ meter::-moz-meter-bar {
     grid-column: 1 / -1;
     text-align: left;
   }
-  .minor-options > article {
-    flex-basis: 100%;
+  .minor-option-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 }
 

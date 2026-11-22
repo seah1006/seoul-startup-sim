@@ -1,3 +1,4 @@
+import { money } from '../../components/ResultCard';
 import type { Mission, MissionState } from '../types';
 import type {
   Area,
@@ -48,6 +49,55 @@ export const missions: Mission[] = [
     targetLabel: '2개 매장',
   },
 ];
+function missionLabel(code: MissionState['code'], current: number | null): string {
+  switch (code) {
+    case 'PROFIT_100M':
+      return money(current ?? 0) + ' / 1억 원';
+    case 'AREA_TOP3':
+      return (current ? current + '위' : '순위 없음') + ' / 3위 이내';
+    case 'SURVIVE_3Y':
+      return (current ?? 0) + '분기 / 12분기';
+    case 'BLACK_4':
+      return (current ?? 0) + '분기 / 4분기 연속';
+    case 'SECOND_SHOP':
+      return (current ?? 0) + '개 / 2개 매장';
+  }
+}
+function mockPoint(turn: number): TurningPoint {
+  const major = turn % 4 === 2;
+  const data = !major && turn % 3 === 1;
+  const sales = data && turn % 2 === 0;
+  const labels = data
+    ? sales
+      ? ['가격 인하', '메뉴 정비', '버티기']
+      : ['차별화 마케팅', '단골 이벤트', '그대로']
+    : ['행사에 참여한다', '가게 운영에 집중한다'];
+  return {
+    gameTurningPointId: turn,
+    code: data ? (sales ? 'SALES_DOWN' : 'NEW_STORES') : 'LOCAL_EVENT',
+    tier: major ? 'MAJOR' : 'MINOR',
+    source: data ? 'DATA' : 'STORY',
+    dataNote: data ? '연습용 가상 상권 데이터입니다. 실제 서울시 통계가 아닙니다.' : null,
+    title: data
+      ? sales
+        ? '같은 업종 매출이 줄었습니다'
+        : '같은 업종 가게가 새로 열었습니다'
+      : '동네 행사 참여 제안',
+    description: data
+      ? sales
+        ? '이 상권의 매출이 12% 줄었습니다. 하락분은 결산에 반영되어 있으며, 선택은 대응 효과만 더합니다.'
+        : '같은 업종 가게가 3곳 열렸습니다. 우리 가게의 대응을 골라 주세요.'
+      : '이웃에게 가게를 알릴 기회가 찾아왔습니다.',
+    options: labels.map((label, index) => ({
+      optionId: index + 1,
+      label,
+      successRatePct: index === 0 ? 70 : 100,
+      onSuccess:
+        index === 0 ? '보유금 +300만 원' : data && index === 1 ? '보유금 +100만 원' : '변화 없음',
+      onFail: index === 0 ? '보유금 -100만 원' : '변화 없음',
+    })),
+  };
+}
 function initialMission(code = 'SURVIVE_3Y'): MissionState {
   const definition = missions.find((m) => m.code === code);
   if (!definition)
@@ -66,7 +116,7 @@ function initialMission(code = 'SURVIVE_3Y'): MissionState {
       current: index === 2 ? null : 0,
       target: [12, 100000000, 3, 4, 2][index],
       unit: (['QUARTER', 'KRW', 'RANK', 'STREAK', 'SHOP'] as const)[index],
-      label: '아직 시작하지 않았습니다.',
+      label: missionLabel(definition.code, index === 2 ? null : 0),
     },
   };
 }
@@ -272,7 +322,13 @@ export async function mockRequest<T>(
   key?: string,
 ): Promise<T> {
   const db = load();
-  for (const row of Object.values(db)) row.game.mission ||= initialMission();
+  for (const row of Object.values(db)) {
+    row.game.mission ||= initialMission();
+    row.game.mission.progress.label = missionLabel(
+      row.game.mission.code,
+      row.game.mission.progress.current,
+    );
+  }
   if (url === '/missions') return structuredClone(missions) as T;
   const path = url.split('?')[0];
   const query = new URLSearchParams(url.split('?')[1]);
@@ -474,25 +530,19 @@ export async function mockRequest<T>(
           if (!row.game.pendingTurningPoint)
             throw Object.assign(new Error('대기 중인 전환점이 없습니다.'), { status: 409 });
           const optionId = (body as { optionId: number }).optionId;
-          if (![1, 2].includes(optionId)) throw new Error('선택지를 확인해 주세요.');
-          const success = optionId === 2 || row.game.currentTurn % 4 === 2;
+          const point = mockPoint(row.game.currentTurn);
+          const option = point.options.find((o) => o.optionId === optionId);
+          if (!option) throw new Error('선택지를 확인해 주세요.');
+          const success = optionId !== 1 || row.game.currentTurn % 4 === 2;
           row.game.pendingTurningPoint = false;
           row.game.version++;
           if (optionId === 1) row.game.cash += success ? 3000000 : -1000000;
+          if (point.source === 'DATA' && optionId === 2) row.game.cash += 1000000;
           result = {
             success,
             resultText:
-              optionId === 2
-                ? '독립 가게의 길을 이어갑니다.'
-                : success
-                  ? '동네 행사 참여가 좋은 반응을 얻었어요.'
-                  : '행사 준비 비용이 예상보다 컸어요.',
-            effects: [
-              {
-                label: '보유금',
-                value: optionId === 2 ? '변화 없음' : success ? '+300만 원' : '-100만 원',
-              },
-            ],
+              option.label + ' 선택의 결과입니다. ' + (success ? option.onSuccess : option.onFail),
+            effects: [{ label: '대응 효과', value: success ? option.onSuccess : option.onFail }],
             game: row.game,
           };
         },
@@ -500,52 +550,7 @@ export async function mockRequest<T>(
       {
         matches: () => path.endsWith('/turning-point'),
         handle: function handleGameRoute1() {
-          result = row.game.pendingTurningPoint
-            ? ({
-                gameTurningPointId: row.game.currentTurn,
-                tier: row.game.currentTurn % 4 === 2 ? 'MAJOR' : 'MINOR',
-                source:
-                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
-                    ? 'DATA'
-                    : 'STORY',
-                dataNote:
-                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
-                    ? '연습용 가상 상권 데이터입니다. 실제 서울시 통계가 아닙니다.'
-                    : null,
-                code:
-                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
-                    ? 'NEW_STORES'
-                    : row.game.currentTurn % 3 === 0
-                      ? 'GROUP_ORDER'
-                      : 'LOCAL_EVENT',
-                title:
-                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
-                    ? '같은 업종 가게가 새로 열었습니다'
-                    : row.game.currentTurn % 3 === 0
-                      ? '단체 주문 문의가 왔습니다'
-                      : '동네 행사 참여 제안',
-                description:
-                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
-                    ? '새 가게가 3곳 열렸습니다. 단골에게 가게를 알릴 방법을 골라 주세요. 연습용 수치입니다.'
-                    : '이웃에게 가게를 알릴 기회가 찾아왔어요.',
-                options: [
-                  {
-                    optionId: 1,
-                    label: '행사에 참여한다',
-                    successRatePct: 70,
-                    onSuccess: '보유금 +300만 원',
-                    onFail: '보유금 -100만 원',
-                  },
-                  {
-                    optionId: 2,
-                    label: '가게 운영에 집중한다',
-                    successRatePct: 100,
-                    onSuccess: '변화 없음',
-                    onFail: '-',
-                  },
-                ],
-              } satisfies TurningPoint)
-            : null;
+          result = row.game.pendingTurningPoint ? mockPoint(row.game.currentTurn) : null;
         },
       },
       {
@@ -695,13 +700,7 @@ export async function mockRequest<T>(
                     ? streak
                     : 1;
           mission.progress.current = current;
-          mission.progress.label =
-            mission.code === 'PROFIT_100M'
-              ? current.toLocaleString('ko-KR') + '원 / 1억 원'
-              : current +
-                ' / ' +
-                mission.progress.target +
-                (mission.code === 'AREA_TOP3' ? '위' : '');
+          mission.progress.label = missionLabel(mission.code, current);
           if (
             !mission.achieved &&
             (mission.code === 'AREA_TOP3' ? current <= 3 : current >= mission.progress.target)

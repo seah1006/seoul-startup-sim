@@ -127,3 +127,65 @@ it('4분기 연속 흑자 달성이 결산과 매각 요약·랭킹에 유지된
     true,
   );
 });
+
+it('시작 목표의 금액과 순위 누락값을 장부 형식으로 표시한다', async () => {
+  const base = {
+    ownerName: '연습',
+    background: 'LOCAL',
+    candidateId: 'c1',
+    candidateSeed: 123,
+    focusStats: [],
+  };
+  const profit = await mockRequest<GameState>('/games', 'POST', {
+    ...base,
+    missionCode: 'PROFIT_100M',
+  });
+  expect(profit.mission.progress.label).toBe('0원 / 1억 원');
+  const rank = await mockRequest<GameState>('/games', 'POST', {
+    ...base,
+    missionCode: 'AREA_TOP3',
+  });
+  expect(rank.mission.progress.label).toBe('순위 없음 / 3위 이내');
+  profit.mission.progress.label = '1,383만 원 / 1억 원';
+  const { container } = render(<MissionProgress mission={profit.mission} />);
+  expect(screen.getByText('목표 · 누적 순이익 1억')).toBeInTheDocument();
+  expect(container.querySelector('.mission-progress p > span:first-child .num')).toBeNull();
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', '1,383만 원 / 1억 원');
+});
+it('12분기 생존 달성과 DATA 사건 두 종류의 대응 선택지를 제공한다', async () => {
+  let g = await mockRequest<GameState>('/games', 'POST', {
+    ownerName: '연습',
+    background: 'LOCAL',
+    candidateId: 'c1',
+    candidateSeed: 123,
+    focusStats: [],
+  });
+  const dataTitles = new Set<string>();
+  for (let i = 0; i < 12; i++) {
+    if (g.pendingTurningPoint) {
+      const point = await api.turningPoint(g.gameId);
+      if (point?.source === 'DATA') {
+        dataTitles.add(point.title);
+        expect(point.options).toHaveLength(3);
+        expect(point.options.map((o) => o.label)).not.toContain('행사에 참여한다');
+      }
+      g = (await api.choose(g.gameId, 2)).game;
+    }
+    await api.decision(g, {
+      priceLevel: 'NORMAL',
+      openHours: 10,
+      staff: 2,
+      marketingBudget: 3000000,
+      ownerActivity: 'REST',
+    });
+    const response = await mockRequest<{ game: GameState; result: typeof sampleResult }>(
+      '/games/' + g.gameId + '/advance',
+      'POST',
+      { expectedVersion: g.version },
+    );
+    g = response.game;
+    expect(response.result.missionEvent?.code ?? null).toBe(i === 11 ? 'SURVIVE_3Y' : null);
+  }
+  expect(dataTitles.size).toBe(2);
+  expect(g.mission.achieved).toBe(true);
+});
