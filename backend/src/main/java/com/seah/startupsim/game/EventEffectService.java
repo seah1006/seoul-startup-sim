@@ -103,14 +103,22 @@ public class EventEffectService {
         return view.value().isEmpty() ? view.label() : view.label() + " " + view.value();
     }
 
-    private static String modifierValue(EventDsl.ModifierEffect modifier) {
+    static String modifierValue(EventDsl.ModifierEffect modifier) {
         if (modifier.mode().equals("MULTIPLY")) {
-            return "%+d%%".formatted(Math.round((modifier.value() - 1) * 100));
+            return percent((modifier.value() - 1) * 100) + "%";
         }
         return switch (modifier.target()) {
-            case "costRate" -> "%+d%%p".formatted(Math.round(modifier.value() * 100));
+            case "costRate" -> percent(modifier.value() * 100) + "%p";
             case "rent", "revenue" -> MoneyFormat.signedWon(Math.round(modifier.value()));
             default -> "%+,d명".formatted(Math.round(modifier.value()));
         };
+    }
+
+    /** 소수 한 자리까지, 정수면 소수점 없이: +25, +1.5, -0.8. 작은 사건의 1% 미만 효과가 "+0%"로 보이던 문제를 막는다. */
+    static String percent(double value) {
+        // 라벨을 만드는 SQL round()와 같이 0에서 멀어지는 쪽으로 반올림한다(-0.75 → -0.8).
+        double rounded = Math.signum(value) * Math.round(Math.abs(value) * 10) / 10.0;
+        if (rounded == Math.rint(rounded)) return "%+d".formatted((long) rounded);
+        return "%+.1f".formatted(rounded);
     }
 }
