@@ -383,7 +383,7 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 | --- | --- | --- | --- |
 | SURVIVE_3Y | 3년 버티기 | 12분기 | 정산 12회 |
 | PROFIT_100M | 누적 순이익 1억 | 1억 원 | 누적 순이익 ≥ 100,000,000원 |
-| AREA_TOP3 | 동네 3위 안 | 3위 이내 | 같은 상권·업종 현재 순위 1~3위 |
+| AREA_TOP3 | 동네 5위 안 | 5위 이내 | 같은 상권·업종 현재 순위 1~5위 |
 | BLACK_4 | 4분기 연속 흑자 | 4분기 연속 | 순이익 > 0이 4회 연속(0원은 끊김) |
 | SECOND_SHOP | 2호점 열기 | 2곳 | 매장 수 ≥ 2 |
 
@@ -406,7 +406,7 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ```
 
 - `unit`: `QUARTER | KRW | RANK | STREAK | SHOP`.
-- RANK의 `current`는 마지막 정산 순위이며 정산 전에는 null, `target`은 3이다. 다른 목표는 영업 분기 수·누적 이익·현재 연속 흑자 수·매장 수다.
+- RANK의 `current`는 마지막 정산 순위이며 정산 전에는 null, `target`은 5이다. 다른 목표는 영업 분기 수·누적 이익·현재 연속 흑자 수·매장 수다.
 - `achievedTurn`은 기존 분기 `turn`과 같은 **0 기반** 정수이며 미달성은 null이다.
 
 ### 6.3 사건 등급·출처

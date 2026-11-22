@@ -12,6 +12,6 @@ ALTER TABLE game_records
     ADD COLUMN mission_achieved_turn int;
 INSERT INTO game_settings (key, value) VALUES
     ('event.minor.enabled', 'true'),
-    ('event.minor.rate', '0.9'),
+    ('event.minor.rate', '1.0'),
     ('event.minor.dataFirst', 'true'),
     ('event.minor.dataMax', '4');

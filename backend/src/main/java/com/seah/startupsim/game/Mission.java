@@ -6,7 +6,7 @@ import java.util.List;
 public enum Mission {
     SURVIVE_3Y("3년 버티기", "12분기 동안 가게를 지키세요.", "12분기", 12, "QUARTER"),
     PROFIT_100M("누적 순이익 1억", "누적 순이익 1억 원을 달성하세요.", "1억 원", 100000000, "KRW"),
-    AREA_TOP3("동네 3위 안", "상권 내 같은 업종 3위 안에 들어보세요.", "3위 이내", 3, "RANK"),
+    AREA_TOP3("동네 5위 안", "상권 내 같은 업종 5위 안에 들어보세요.", "5위 이내", 5, "RANK"),
     BLACK_4("4분기 연속 흑자", "4분기 연속으로 순이익을 남기세요.", "4분기 연속", 4, "STREAK"),
     SECOND_SHOP("2호점 열기", "매장을 2곳 이상으로 늘리세요.", "2곳", 2, "SHOP");
 
@@ -34,7 +34,7 @@ public enum Mission {
         return value != null && (this == AREA_TOP3 ? value > 0 && value <= target : value >= target);
     }
     public String label(Long value) {
-        if (this == AREA_TOP3) return value == null ? "순위 없음 / 3위 이내" : value + "위 / 3위 이내";
+        if (this == AREA_TOP3) return value == null ? "순위 없음 / 5위 이내" : value + "위 / 5위 이내";
         if (this == PROFIT_100M) return com.seah.startupsim.common.MoneyFormat.won(value == null ? 0 : value) + " / 1억 원";
         return (value == null ? 0 : value) + " / " + target + (this == SECOND_SHOP ? "곳" : "분기");
     }

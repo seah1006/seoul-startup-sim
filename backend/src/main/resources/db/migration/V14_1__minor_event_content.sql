@@ -248,3 +248,27 @@ INSERT INTO turning_points (code, title, description, condition_expr, base_proba
 INSERT INTO turning_point_options (turning_point_id, order_no, label, success_formula, on_success, on_fail, success_text, fail_text) SELECT id, 1, '건물주와 임대료 재협상', '{"base":0.45,"statBonus":[{"stat":"network","per10":0.06}],"min":0.1,"max":0.9}'::jsonb, '[{"type":"MODIFIER","target":"rent","mode":"ADD","value":-500000,"quarters":3,"label":"임대료 재협상 -50만 원"},{"type":"STAT","stat":"network","delta":1}]'::jsonb, '[{"type":"STAT","stat":"network","delta":-1}]'::jsonb, '빈 점포가 늘어난 사정을 아는 건물주가 한발 물러섰습니다.', '건물주는 "우리 건물은 다르다"며 협상을 받아 주지 않았습니다.' FROM turning_points WHERE code = 'MD_HIGH_CLOSING_RATE';
 INSERT INTO turning_point_options (turning_point_id, order_no, label, success_formula, on_success, on_fail, success_text, fail_text) SELECT id, 2, '비상금 따로 모아 두기', '{"base":1,"min":1,"max":1}'::jsonb, '[{"type":"CASH","amount":800000,"memo":"운영비 절감 비상금"},{"type":"STAT","stat":"marketing","delta":-1}]'::jsonb, '[]'::jsonb, '홍보비를 줄여 비상금을 마련했습니다. 당분간은 조용히 버팁니다.', '-' FROM turning_points WHERE code = 'MD_HIGH_CLOSING_RATE';
 INSERT INTO turning_point_options (turning_point_id, order_no, label, success_formula, on_success, on_fail, success_text, fail_text) SELECT id, 3, '흔들리지 않고 영업', '{"base":1,"min":1,"max":1}'::jsonb, '[{"type":"STAT","stat":"stamina","delta":-1},{"type":"STAT","stat":"management","delta":1}]'::jsonb, '[]'::jsonb, '주변이 흔들려도 우리 가게 문은 제시간에 열었습니다. 폐업 흐름은 이미 결산에 들어 있습니다.', '-' FROM turning_points WHERE code = 'MD_HIGH_CLOSING_RATE';
+
+-- V14 실측 보정: 첫 분기에도 작은 사건을 허용한다. MAJOR의 minTurn 설정은 유지한다.
+UPDATE turning_points SET min_turn = 0 WHERE tier = 'MINOR' AND min_turn = 1;
+-- 분기당 사건 수 증가에 맞춰 현금·수정치 효과를 25%로 줄인다. 능력치/FLAG 체인은 그대로다.
+UPDATE turning_point_options o SET
+    on_success = coalesce((SELECT jsonb_agg(CASE
+        WHEN e->>'type' = 'CASH' THEN jsonb_set(e, '{amount}', to_jsonb(round((e->>'amount')::numeric * 0.25)::bigint))
+        WHEN e->>'type' = 'MODIFIER' AND e->>'mode' = 'MULTIPLY' THEN jsonb_set(e, '{value}', to_jsonb(1 + ((e->>'value')::numeric - 1) * 0.25))
+        WHEN e->>'type' = 'MODIFIER' AND e->>'mode' = 'ADD' THEN jsonb_set(e, '{value}', to_jsonb((e->>'value')::numeric * 0.25)) ELSE e END) FROM jsonb_array_elements(o.on_success) e), '[]'::jsonb),
+    on_fail = coalesce((SELECT jsonb_agg(CASE
+        WHEN e->>'type' = 'CASH' THEN jsonb_set(e, '{amount}', to_jsonb(round((e->>'amount')::numeric * 0.25)::bigint))
+        WHEN e->>'type' = 'MODIFIER' AND e->>'mode' = 'MULTIPLY' THEN jsonb_set(e, '{value}', to_jsonb(1 + ((e->>'value')::numeric - 1) * 0.25))
+        WHEN e->>'type' = 'MODIFIER' AND e->>'mode' = 'ADD' THEN jsonb_set(e, '{value}', to_jsonb((e->>'value')::numeric * 0.25)) ELSE e END) FROM jsonb_array_elements(o.on_fail) e), '[]'::jsonb)
+FROM turning_points p WHERE p.id = o.turning_point_id AND p.tier = 'MINOR';
+-- 원래 수치가 남은 라벨을 피하고, 실제 효과 수치는 API 효과 요약에서 표시한다.
+UPDATE turning_point_options o SET
+    on_success = coalesce((SELECT jsonb_agg(CASE WHEN e->>'type' = 'MODIFIER' THEN jsonb_set(e, '{label}', to_jsonb(('작은 사건 ' || CASE e->>'target' WHEN 'revenue' THEN '매출' WHEN 'visitors' THEN '방문객' WHEN 'rent' THEN '임대료' ELSE '원가율' END || ' 조정')::text)) ELSE e END) FROM jsonb_array_elements(o.on_success) e), '[]'::jsonb),
+    on_fail = coalesce((SELECT jsonb_agg(CASE WHEN e->>'type' = 'MODIFIER' THEN jsonb_set(e, '{label}', to_jsonb(('작은 사건 ' || CASE e->>'target' WHEN 'revenue' THEN '매출' WHEN 'visitors' THEN '방문객' WHEN 'rent' THEN '임대료' ELSE '원가율' END || ' 조정')::text)) ELSE e END) FROM jsonb_array_elements(o.on_fail) e), '[]'::jsonb)
+FROM turning_points p WHERE p.id = o.turning_point_id AND p.tier = 'MINOR';
+-- 능력치 무료 보상의 누적을 완화한다. 양수 능력치 보상은 한 번에 +1까지만 허용한다.
+UPDATE turning_point_options o SET
+    on_success = coalesce((SELECT jsonb_agg(CASE WHEN e->>'type' = 'STAT' AND (e->>'delta')::int > 1 THEN jsonb_set(e, '{delta}', '1'::jsonb) ELSE e END) FROM jsonb_array_elements(o.on_success) e), '[]'::jsonb),
+    on_fail = coalesce((SELECT jsonb_agg(CASE WHEN e->>'type' = 'STAT' AND (e->>'delta')::int > 1 THEN jsonb_set(e, '{delta}', '1'::jsonb) ELSE e END) FROM jsonb_array_elements(o.on_fail) e), '[]'::jsonb)
+FROM turning_points p WHERE p.id = o.turning_point_id AND p.tier = 'MINOR';

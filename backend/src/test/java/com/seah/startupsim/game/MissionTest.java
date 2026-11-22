@@ -16,7 +16,7 @@ class MissionTest {
             assertFalse(mission.achieved(null));
             assertTrue(mission.achieved(mission.target));
             if (mission == Mission.AREA_TOP3) {
-                assertTrue(mission.achieved(1L)); assertFalse(mission.achieved(0L)); assertFalse(mission.achieved(4L));
+                assertTrue(mission.achieved(1L)); assertFalse(mission.achieved(0L)); assertFalse(mission.achieved(mission.target + 1));
             } else {
                 assertFalse(mission.achieved(mission.target - 1));
             }

@@ -71,12 +71,15 @@ class EventBalanceSimulationTest {
     record Fire(int turn, String code, int order, double probability, int ratePct, boolean success) {}
 
     record Outcome(String service, boolean survived, int turns, List<Fire> fires, int moments, int momentSuccesses,
-            List<Integer> reactions) {}
+            List<Integer> reactions, Set<String> missionsAchieved, int bestRank) {}
 
     /** 게임 하나의 메모리 상태. DB의 games·owners·game_modifiers·game_flags·rivals·game_turning_points 대응. */
     static final class State {
         long cash;
         int negatives;
+        int blackStreak;
+        int bestRank = Integer.MAX_VALUE;
+        final Set<String> missionsAchieved = new HashSet<>();
         int shopCount = 1;
         int virtualRivals;
         long cumulativeProfit;
@@ -161,6 +164,23 @@ class EventBalanceSimulationTest {
             }
         }
         sample(areas, markets);
+        if (Boolean.getBoolean("simulation.v14")) {
+            try (var db = new org.testcontainers.containers.PostgreSQLContainer<>(
+                    org.testcontainers.utility.DockerImageName.parse("postgis/postgis:16-3.5").asCompatibleSubstituteFor("postgres"))) {
+                db.start();
+                org.flywaydb.core.Flyway.configure().dataSource(db.getJdbcUrl(), db.getUsername(), db.getPassword()).load().migrate();
+                var jdbc = new org.springframework.jdbc.core.JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                        db.getJdbcUrl(), db.getUsername(), db.getPassword()));
+                var repository = new EventDefinitionRepository(jdbc, json, validator);
+                jdbc.query("SELECT key, value::text FROM game_settings WHERE key LIKE 'event.%'", row -> {
+                    String value = row.getString(2);
+                    settings.put(row.getString(1), value.equals("true") ? 1d : value.equals("false") ? 0d : Double.valueOf(value));
+                });
+                var current = new Definitions(repository.turningPoints(), repository.reactions(), repository.moments(), settings);
+                reportV14(run(current, areas, markets, categories), current);
+            }
+            return;
+        }
         Definitions before = new Definitions(points, reactions, moments, settings);
         Definitions after = tuned(before);
         Definitions withGap = tuned(after, Path.of("src/main/resources/db/migration/V13__event_global_gap.sql"));
@@ -187,6 +207,39 @@ class EventBalanceSimulationTest {
         System.out.println(report);
     }
 
+    private void reportV14(List<Outcome> outcomes, Definitions definitions) throws Exception {
+        var completed = outcomes.stream().filter(o -> o.turns() == 12 && o.survived()).toList();
+        var tier = definitions.points().stream().collect(java.util.stream.Collectors.toMap(EventDefinitionRepository.Definition::code, EventEngine::tier));
+        var source = definitions.points().stream().collect(java.util.stream.Collectors.toMap(EventDefinitionRepository.Definition::code, EventEngine::source));
+        long quarters = completed.size() * 12L;
+        long events = completed.stream().mapToLong(o -> o.fires().size()).sum();
+        StringBuilder report = new StringBuilder("\n\n## V14 콘텐츠 포함 실측\n\n측정: " + Instant.now() + "\n\n");
+        report.append("표준 정책, 고정 시드404, ").append(outcomes.size()).append("게임, 완주 ").append(completed.size()).append("게임. MINOR는 기대효과 봇, MAJOR는 기존 균등 정책.\n\n");
+        report.append(String.format(Locale.ROOT, "전체 생존율 %.2f%%. 완주 기준 선택 없는 분기 %.2f%% (종료 분기 포함), 게임당 사건 %.3f회.\n\n",
+                100.0 * outcomes.stream().filter(Outcome::survived).count() / outcomes.size(), 100.0 * (quarters-events)/quarters, (double)events/completed.size()));
+        for (String kind : List.of("MAJOR", "MINOR", "DATA")) {
+            long count = completed.stream().flatMap(o -> o.fires().stream()).filter(f -> kind.equals("DATA") ? source.get(f.code()).equals("DATA") : tier.get(f.code()).equals(kind)).count();
+            report.append(String.format(Locale.ROOT, "- 게임당 %s: %.3f회\n", kind, (double)count/completed.size()));
+        }
+        report.append("\n| 업종 | 게임 수 | 생존율 |\n| --- | ---: | ---: |\n");
+        for (String service : outcomes.stream().map(Outcome::service).distinct().sorted().toList()) {
+            var rows = outcomes.stream().filter(o -> o.service().equals(service)).toList();
+            report.append(String.format(Locale.ROOT,"| %s | %d | %.2f%% |\n", service, rows.size(),100.0*rows.stream().filter(Outcome::survived).count()/rows.size()));
+        }
+        Files.writeString(REPORT, Files.readString(REPORT) + report);
+        StringBuilder missions = new StringBuilder("# 목표 달성률 (V14)\n\n" + report + "\n모든 목표는 같은 표준 정책 표본에 사후 판정했습니다. 목표별 최적화 봇이 아닙니다. 분모는 중도 폐업을 포함한 전체 게임입니다.\n\n| 목표 | 달성률 |\n| --- | ---: |\n");
+        for (Mission mission : Mission.values()) {
+            double rate = 100.0*outcomes.stream().filter(o -> o.missionsAchieved().contains(mission.name())).count()/outcomes.size();
+            missions.append(String.format(Locale.ROOT,"| %s | %.2f%% |\n",mission.name(),rate));
+        }
+        missions.append("\n지역 목표 임계값 비교(동일 표본·목표는 봇 정책에 영향 없음):\n");
+        for (int threshold : List.of(5, 10, 15, 20, 25, 30)) {
+            missions.append(String.format(Locale.ROOT, "- %d위 이내: %.2f%%\n", threshold,
+                    100.0 * outcomes.stream().filter(o -> o.bestRank() <= threshold).count() / outcomes.size()));
+        }
+        Files.writeString(Path.of("../docs/balance/MISSION_REPORT.md"), missions);
+        System.out.println(report); System.out.println(missions);
+    }
     private List<EventDefinitionRepository.Definition> load(Statement statement, EventDefinitionRepository.Kind kind,
             java.util.function.Consumer<JsonNode> validation) throws Exception {
         String sql = switch (kind) {
@@ -348,7 +401,19 @@ class EventBalanceSimulationTest {
                     Map.copyOf(state.stats), focus, STANDARD, settings, market.district(), service,
                     active(state, turn));
             QuarterOutcome outcome = calculator.calculate(input);
+            state.bestRank = Math.min(state.bestRank, outcome.areaRank().rank());
             state.cumulativeProfit += outcome.profit();
+            state.blackStreak = outcome.profit() > 0 ? state.blackStreak + 1 : 0;
+            for (Mission mission : Mission.values()) {
+                long progress = switch (mission) {
+                    case SURVIVE_3Y -> turn + 1;
+                    case PROFIT_100M -> state.cumulativeProfit;
+                    case AREA_TOP3 -> outcome.areaRank().rank();
+                    case BLACK_4 -> state.blackStreak;
+                    case SECOND_SHOP -> state.shopCount;
+                };
+                if (mission.achieved(progress)) state.missionsAchieved.add(mission.name());
+            }
             state.cash = outcome.cashAfter();
             for (var change : outcome.statChanges()) {
                 state.stats.put(change.stat(), change.after());
@@ -371,7 +436,7 @@ class EventBalanceSimulationTest {
                 reactionCounts.add(reactions(state, context, outcome, variables, definitions, news));
             }
             if (ending == null && !definitions.points().isEmpty()
-                    && turn >= settings.getOrDefault("event.fire.minTurn", 1d)) {
+) {
                 Fire fire = turningPoint(state, context, variables, definitions.points(), chooser, settings);
                 if (fire != null) {
                     fires.add(fire);
@@ -380,7 +445,7 @@ class EventBalanceSimulationTest {
             state.last = new long[] {outcome.profit(), outcome.visitors(), outcome.areaRank().rank()};
         }
         return new Outcome(service, !"CLOSED".equals(ending), turn, fires, momentCount, momentSuccesses,
-                reactionCounts);
+                reactionCounts, Set.copyOf(state.missionsAchieved), state.bestRank);
     }
 
     private static long number(Object value) {
@@ -575,7 +640,8 @@ class EventBalanceSimulationTest {
         points.stream().filter(point -> EventEngine.tier(point).equals("MINOR"))
                 .forEach(point -> majorVariables.remove("history.quartersSince." + point.code()));
         Map<String, Boolean> judged = engine.judge(context, majorVariables, stats,
-                points.stream().filter(point -> EventEngine.tier(point).equals("MAJOR")).toList(),
+                points.stream().filter(point -> EventEngine.tier(point).equals("MAJOR"))
+                    .filter(point -> context.turn() >= settings.getOrDefault("event.fire.minTurn", 1d)).toList(),
                 settings.getOrDefault("event.fire.globalGap", 0d));
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();
         int highest = -1;

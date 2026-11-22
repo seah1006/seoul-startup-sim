@@ -63,7 +63,6 @@ public class EventEngine implements TurnEventHook {
             result.reactions(new ArrayList<Object>(picked));
         }
         if (!context.ended() && !points.isEmpty()
-                && context.turn() >= game.settings().getOrDefault("event.fire.minTurn", 1d)
                 && !games.pendingTurningPoint(context.gameId())) {
             fire(context, variables, points, result, game.settings());
         }
@@ -80,7 +79,8 @@ public class EventEngine implements TurnEventHook {
             majorVariables.keySet().removeIf(key -> key.startsWith("history.quartersSince."));
             majorVariables.put("history.quartersSince.MAJOR", variables.get("history.majorQuartersSince"));
         }
-        var majors = points.stream().filter(point -> tier(point).equals("MAJOR")).toList();
+        var majors = points.stream().filter(point -> tier(point).equals("MAJOR"))
+                .filter(point -> context.turn() >= settings.getOrDefault("event.fire.minTurn", 1d)).toList();
         Map<String, Boolean> judged = judge(context, majorVariables, stats, majors,
                 settings.getOrDefault("event.fire.globalGap", 0d));
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();

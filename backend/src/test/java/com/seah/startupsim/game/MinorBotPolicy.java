@@ -28,7 +28,8 @@ final class MinorBotPolicy {
                     double value = effect.get("value").doubleValue();
                     int duration = effect.get("quarters").intValue();
                     double benefit = effect.get("mode").asString().equals("MULTIPLY") ? value - 1 : value;
-                    yield benefit * duration * (target.equals("rent") || target.equals("costRate") ? -10000000 : 10000000);
+                    double scale = effect.get("mode").asString().equals("ADD") && (target.equals("rent") || target.equals("revenue")) ? 1 : 10000000;
+                    yield benefit * duration * scale * (target.equals("rent") || target.equals("costRate") ? -1 : 1);
                 }
                 default -> 0;
             };

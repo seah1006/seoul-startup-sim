@@ -56,3 +56,14 @@ tasks.register('benchmark', Test) {
     testLogging { showStandardStreams = true }
 }
 
+
+tasks.register('simulateV14', Test) {
+    description = '읽기 전용 실데이터와 Testcontainers V14 콘텐츠로 진행·미션 측정'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'simulation' }
+    filter { includeTestsMatching '*EventBalanceSimulationTest' }
+    systemProperty 'simulation.v14', 'true'
+    systemProperty 'simulation.url', System.getProperty('simulation.url', 'jdbc:postgresql://localhost:5433/seoul_startup_sim')
+    testLogging { showStandardStreams = true }
+}

@@ -103,7 +103,7 @@ class MinorEventContentTest {
                         String where = point.code() + "." + key;
                         switch (effect.get("type").asString()) {
                             case "CASH" -> assertThat(Math.abs(effect.get("amount").longValue())).as(where)
-                                    .isBetween(500_000L, 5_000_000L);
+                                    .isBetween(125_000L, 1_250_000L);
                             case "STAT" -> assertThat(Math.abs(effect.get("delta").intValue())).as(where).isBetween(1, 3);
                             case "MODIFIER" -> {
                                 assertThat(effect.get("quarters").intValue()).as(where).isBetween(1, 3);
