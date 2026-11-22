@@ -21,6 +21,7 @@ public class EventDefinitionRepository {
     private static final String TURNING_POINTS = """
             SELECT p.id, p.rev, jsonb_build_object(
                 'code', p.code, 'title', p.title, 'description', p.description,
+                'tier', p.tier, 'source', p.source,
                 'conditionExpr', p.condition_expr, 'baseProbability', p.base_probability,
                 'statBonus', p.stat_bonus, 'probMin', p.prob_min, 'probMax', p.prob_max,
                 'cooldownQuarters', p.cooldown_quarters, 'maxFires', p.max_fires,

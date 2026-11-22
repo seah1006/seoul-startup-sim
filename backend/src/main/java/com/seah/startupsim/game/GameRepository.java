@@ -152,6 +152,10 @@ public class GameRepository {
     double settingNumber(String key, String value) {
         try {
             var number = json.readTree(value);
+            if ((key.equals("event.minor.enabled") || key.equals("event.minor.dataFirst"))
+                    && number != null && number.isBoolean()) {
+                return number.booleanValue() ? 1d : 0d;
+            }
             if (number == null || !number.isNumber() || !Double.isFinite(number.doubleValue())) {
                 throw GameException.invalid("게임 설정 " + key + "는 유효한 숫자여야 합니다.");
             }

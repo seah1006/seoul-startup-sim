@@ -208,7 +208,7 @@ public final class EventDefinitionValidator {
 
     public void turningPoint(JsonNode node) {
         keys(node, "turningPoint", Set.of("code", "title", "description", "conditionExpr", "baseProbability", "statBonus",
-                "probMin", "probMax", "cooldownQuarters", "maxFires", "minTurn", "priority", "enabled", "options"),
+                "probMin", "probMax", "cooldownQuarters", "maxFires", "minTurn", "priority", "enabled", "options", "tier", "source"),
                 Set.of("code", "title", "conditionExpr", "baseProbability", "options"));
         code(node);
         text(node.get("title"), "title", 2, 60);
@@ -225,6 +225,8 @@ public final class EventDefinitionValidator {
             formula.set("statBonus", node.get("statBonus"));
         }
         formula(formula, "fireFormula");
+        if (node.has("tier")) choice(node.get("tier"), "tier", Set.of("MAJOR", "MINOR"));
+        if (node.has("source")) choice(node.get("source"), "source", Set.of("STORY", "DATA"));
         optionalInteger(node, "cooldownQuarters", 0, 20);
         optionalInteger(node, "maxFires", 1, 10);
         optionalInteger(node, "minTurn", 0, 40);
