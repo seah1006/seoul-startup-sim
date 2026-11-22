@@ -1,3 +1,5 @@
+import { money } from '../../components/ResultCard';
+import type { Mission, MissionState } from '../types';
 import type {
   Area,
   AreaCollection,
@@ -15,6 +17,109 @@ import type {
   TurningPoint,
   RecordSnapshot,
 } from '../types';
+export const missions: Mission[] = [
+  {
+    code: 'SURVIVE_3Y',
+    title: '3년 버티기',
+    description: '12분기 동안 가게를 지키세요.',
+    targetLabel: '12분기',
+  },
+  {
+    code: 'PROFIT_100M',
+    title: '누적 순이익 1억',
+    description: '누적 순이익 1억 원을 모으세요.',
+    targetLabel: '1억 원',
+  },
+  {
+    code: 'AREA_TOP3',
+    title: '동네 5위 안',
+    description: '상권 내 같은 업종 5위 안에 들어보세요.',
+    targetLabel: '5위 이내',
+  },
+  {
+    code: 'BLACK_4',
+    title: '4분기 연속 흑자',
+    description: '4분기 연속 순이익을 남기세요.',
+    targetLabel: '4분기 연속',
+  },
+  {
+    code: 'SECOND_SHOP',
+    title: '2호점 열기',
+    description: '두 번째 매장을 여세요.',
+    targetLabel: '2개 매장',
+  },
+];
+function missionLabel(code: MissionState['code'], current: number | null): string {
+  switch (code) {
+    case 'PROFIT_100M':
+      return money(current ?? 0) + ' / 1억 원';
+    case 'AREA_TOP3':
+      return (current ? current + '위' : '순위 없음') + ' / 5위 이내';
+    case 'SURVIVE_3Y':
+      return (current ?? 0) + '분기 / 12분기';
+    case 'BLACK_4':
+      return (current ?? 0) + '분기 / 4분기 연속';
+    case 'SECOND_SHOP':
+      return (current ?? 0) + '개 / 2개 매장';
+  }
+}
+function mockPoint(turn: number): TurningPoint {
+  const major = turn % 4 === 2;
+  const data = !major && turn % 3 === 1;
+  const sales = data && turn % 2 === 0;
+  const labels = data
+    ? sales
+      ? ['가격 인하', '메뉴 정비', '버티기']
+      : ['차별화 마케팅', '단골 이벤트', '그대로']
+    : ['행사에 참여한다', '가게 운영에 집중한다'];
+  return {
+    gameTurningPointId: turn,
+    code: data ? (sales ? 'SALES_DOWN' : 'NEW_STORES') : 'LOCAL_EVENT',
+    tier: major ? 'MAJOR' : 'MINOR',
+    source: data ? 'DATA' : 'STORY',
+    dataNote: data ? '연습용 가상 상권 데이터입니다. 실제 서울시 통계가 아닙니다.' : null,
+    title: data
+      ? sales
+        ? '같은 업종 매출이 줄었습니다'
+        : '같은 업종 가게가 새로 열었습니다'
+      : '동네 행사 참여 제안',
+    description: data
+      ? sales
+        ? '이 상권의 매출이 12% 줄었습니다. 하락분은 결산에 반영되어 있으며, 선택은 대응 효과만 더합니다.'
+        : '같은 업종 가게가 3곳 열렸습니다. 우리 가게의 대응을 골라 주세요.'
+      : '이웃에게 가게를 알릴 기회가 찾아왔습니다.',
+    options: labels.map((label, index) => ({
+      optionId: index + 1,
+      label,
+      successRatePct: index === 0 ? 70 : 100,
+      onSuccess:
+        index === 0 ? '보유금 +300만 원' : data && index === 1 ? '보유금 +100만 원' : '변화 없음',
+      onFail: index === 0 ? '보유금 -100만 원' : '변화 없음',
+    })),
+  };
+}
+function initialMission(code = 'SURVIVE_3Y'): MissionState {
+  const definition = missions.find((m) => m.code === code);
+  if (!definition)
+    throw Object.assign(new Error('목표를 확인해 주세요.'), {
+      status: 400,
+      code: 'VALIDATION_FAILED',
+    });
+  const index = missions.indexOf(definition);
+  return {
+    code: definition.code,
+    title: definition.title,
+    description: definition.description,
+    achieved: false,
+    achievedTurn: null,
+    progress: {
+      current: index === 2 ? null : 0,
+      target: [12, 100000000, 3, 4, 2][index],
+      unit: (['QUARTER', 'KRW', 'RANK', 'STREAK', 'SHOP'] as const)[index],
+      label: missionLabel(definition.code, index === 2 ? null : 0),
+    },
+  };
+}
 export const industries: Industry[] = [
   '한식음식점',
   '중식음식점',
@@ -93,6 +198,7 @@ export function candidates(background: Background, seed: number): Candidate[] {
   });
 }
 export const sampleResult: QuarterResult = {
+  missionEvent: null,
   turn: 0,
   quarter: '20231',
   headline: { label: '이번 분기 순이익', amount: 12400000 },
@@ -216,6 +322,14 @@ export async function mockRequest<T>(
   key?: string,
 ): Promise<T> {
   const db = load();
+  for (const row of Object.values(db)) {
+    row.game.mission ||= initialMission();
+    row.game.mission.progress.label = missionLabel(
+      row.game.mission.code,
+      row.game.mission.progress.current,
+    );
+  }
+  if (url === '/missions') return structuredClone(missions) as T;
   const path = url.split('?')[0];
   const query = new URLSearchParams(url.split('?')[1]);
   let result: unknown;
@@ -262,6 +376,9 @@ export async function mockRequest<T>(
                     Math.max(0, ...r.turns.map((t) => t.profit)),
               ) + 1,
             gameId: r.game.gameId,
+            missionCode: r.game.mission.code,
+            missionTitle: r.game.mission.title,
+            missionAchieved: r.game.mission.achieved,
             nickname: '연습 사장님',
             ownerName: r.game.owner.name,
             shopName: r.game.shop?.shopName || '연습 가게',
@@ -353,7 +470,7 @@ export async function mockRequest<T>(
             status: 404,
             code: 'NOT_FOUND',
           });
-        return { ...record, bestQuarterProfit: 0, shopCount: 1 } as T;
+        return { ...record, mission: initialMission(), bestQuarterProfit: 0, shopCount: 1 } as T;
       },
     },
     {
@@ -364,6 +481,7 @@ export async function mockRequest<T>(
         while (demoRecords.some((r) => r.gameId === gameId)) gameId++;
         const game: GameState = {
           gameId,
+          mission: initialMission(b.missionCode),
           version: 0,
           status: 'PLAYING',
           endingType: null,
@@ -412,25 +530,19 @@ export async function mockRequest<T>(
           if (!row.game.pendingTurningPoint)
             throw Object.assign(new Error('대기 중인 전환점이 없습니다.'), { status: 409 });
           const optionId = (body as { optionId: number }).optionId;
-          if (![1, 2].includes(optionId)) throw new Error('선택지를 확인해 주세요.');
-          const success = optionId === 2 || row.game.currentTurn % 4 === 2;
+          const point = mockPoint(row.game.currentTurn);
+          const option = point.options.find((o) => o.optionId === optionId);
+          if (!option) throw new Error('선택지를 확인해 주세요.');
+          const success = optionId !== 1 || row.game.currentTurn % 4 === 2;
           row.game.pendingTurningPoint = false;
           row.game.version++;
           if (optionId === 1) row.game.cash += success ? 3000000 : -1000000;
+          if (point.source === 'DATA' && optionId === 2) row.game.cash += 1000000;
           result = {
             success,
             resultText:
-              optionId === 2
-                ? '독립 가게의 길을 이어갑니다.'
-                : success
-                  ? '동네 행사 참여가 좋은 반응을 얻었어요.'
-                  : '행사 준비 비용이 예상보다 컸어요.',
-            effects: [
-              {
-                label: '보유금',
-                value: optionId === 2 ? '변화 없음' : success ? '+300만 원' : '-100만 원',
-              },
-            ],
+              option.label + ' 선택의 결과입니다. ' + (success ? option.onSuccess : option.onFail),
+            effects: [{ label: '대응 효과', value: success ? option.onSuccess : option.onFail }],
             game: row.game,
           };
         },
@@ -438,30 +550,7 @@ export async function mockRequest<T>(
       {
         matches: () => path.endsWith('/turning-point'),
         handle: function handleGameRoute1() {
-          result = row.game.pendingTurningPoint
-            ? ({
-                gameTurningPointId: row.game.currentTurn,
-                code: 'LOCAL_EVENT',
-                title: '동네 행사 참여 제안',
-                description: '이웃에게 가게를 알릴 기회가 찾아왔어요.',
-                options: [
-                  {
-                    optionId: 1,
-                    label: '행사에 참여한다',
-                    successRatePct: 70,
-                    onSuccess: '보유금 +300만 원',
-                    onFail: '보유금 -100만 원',
-                  },
-                  {
-                    optionId: 2,
-                    label: '가게 운영에 집중한다',
-                    successRatePct: 100,
-                    onSuccess: '변화 없음',
-                    onFail: '-',
-                  },
-                ],
-              } satisfies TurningPoint)
-            : null;
+          result = row.game.pendingTurningPoint ? mockPoint(row.game.currentTurn) : null;
         },
       },
       {
@@ -496,6 +585,7 @@ export async function mockRequest<T>(
               code: 'GAME_NOT_ENDED',
             });
           result = {
+            mission: row.game.mission,
             gameId: row.game.gameId,
             endingType: row.game.endingType,
             ownerName: row.game.owner.name,
@@ -520,6 +610,7 @@ export async function mockRequest<T>(
             serviceName: industries.find((i) => i.serviceCode === b.serviceCode)?.name || '외식',
             rivalCount: 3,
           };
+          row.game.pendingTurningPoint = true;
           row.game.version++;
           result = row.game;
         },
@@ -591,14 +682,46 @@ export async function mockRequest<T>(
           row.game.cash = r.cashAfter;
           row.game.owner.stats[stat] += 3;
           row.game.currentTurn++;
+          const mission = row.game.mission;
+          const total = row.turns.reduce((sum, t) => sum + t.profit, 0);
+          let streak = 0;
+          for (const turn of [...row.turns].reverse()) {
+            if (turn.profit <= 0) break;
+            streak++;
+          }
+          const current =
+            mission.code === 'SURVIVE_3Y'
+              ? row.turns.length
+              : mission.code === 'PROFIT_100M'
+                ? total
+                : mission.code === 'AREA_TOP3'
+                  ? r.areaRank.rank
+                  : mission.code === 'BLACK_4'
+                    ? streak
+                    : 1;
+          mission.progress.current = current;
+          mission.progress.label = missionLabel(mission.code, current);
+          if (
+            !mission.achieved &&
+            (mission.code === 'AREA_TOP3' ? current <= 5 : current >= mission.progress.target)
+          ) {
+            mission.achieved = true;
+            mission.achievedTurn = r.turn;
+            r.missionEvent = {
+              code: mission.code,
+              title: mission.title,
+              text: '목표 달성! ' + mission.title,
+            };
+          }
           row.game.version++;
           row.game.pendingDecision = true;
           const year = Number(quarter.slice(0, 4)),
             q = Number(quarter[4]);
-          row.game.pendingTurningPoint = row.game.currentTurn % 2 === 0 && row.game.currentTurn < 8;
-          if (row.game.currentTurn >= 8 || quarter === row.game.lastQuarter) {
+          row.game.pendingTurningPoint = row.game.currentTurn < 12;
+          if (row.game.currentTurn >= 12 || quarter === row.game.lastQuarter) {
             row.game.status = 'ENDED';
             row.game.endingType = 'LONG_RUNNING';
+            row.game.pendingTurningPoint = false;
           } else row.game.currentQuarter = q === 4 ? `${year + 1}1` : `${year}${q + 1}`;
           delete row.decision;
           result = { result: r, game: row.game };

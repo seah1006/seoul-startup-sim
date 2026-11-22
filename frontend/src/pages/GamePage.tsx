@@ -2,7 +2,7 @@ import { NumericText } from '../components/NumericText';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, advanceWithRecovery } from '../api/client';
-import type { Decision, GameState, QuarterResult } from '../api/types';
+import type { Decision, GameState, QuarterResult, MissionState } from '../api/types';
 import { money, quarterLabel, ResultCard } from '../components/ResultCard';
 import { TurningPointCard, EndingScreen, SellButton } from '../components/GameMilestones';
 import ShopSetup from './ShopSetup';
@@ -62,6 +62,7 @@ export default function Game() {
             {game.shop.areaName} · {game.shop.serviceName} · 보유금{' '}
             <NumericText value={money(game.cash)} />
           </p>
+          <MissionProgress mission={game.mission} />
         </div>
         <div className="game-tabs underline-tabs" aria-label="게임 화면">
           <button aria-pressed={tab === 'play'} onClick={() => setTab('play')}>
@@ -186,5 +187,40 @@ export default function Game() {
         </section>
       )}
     </>
+  );
+}
+
+export function MissionProgress({ mission }: { mission: MissionState }) {
+  if (!mission) return null;
+  const { current, target, unit, label } = mission.progress;
+  const percent = mission.achieved
+    ? 100
+    : current === null
+      ? 0
+      : unit === 'RANK'
+        ? current <= target
+          ? 100
+          : (target / current) * 100
+        : Math.max(0, Math.min(100, (current / target) * 100));
+  return (
+    <div className="mission-progress" aria-label="목표 진행">
+      <p>
+        <span>목표 · {mission.title}</span>
+        <span>
+          <NumericText value={label} />
+        </span>
+        {mission.achieved && <strong className="mission-seal">달성</strong>}
+      </p>
+      <div
+        role="progressbar"
+        aria-label={mission.title}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(percent)}
+        aria-valuetext={label}
+      >
+        <span style={{ width: percent + '%' }} />
+      </div>
+    </div>
   );
 }

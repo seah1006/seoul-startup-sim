@@ -46,10 +46,19 @@ export function TurningPointCard({
     }
   }
   return (
-    <section className="card turning-point" aria-label="전환점">
+    <section
+      className={`card turning-point ${point?.tier === 'MINOR' ? 'minor-event' : ''}`}
+      aria-label="전환점"
+    >
+      <div className="event-label">
+        <strong>{point?.tier === 'MINOR' ? '이번 분기 사건' : '전환점'}</strong>
+        {point?.source === 'DATA' && <strong className="data-tag">실제 데이터</strong>}
+      </div>
       {result ? (
         <>
-          <h2>{result.success ? '선택이 좋은 결실을 맺었어요' : '새로운 경험이 되었어요'}</h2>
+          {point?.tier !== 'MINOR' && (
+            <h2>{result.success ? '선택이 좋은 결실을 맺었어요' : '새로운 경험이 되었어요'}</h2>
+          )}
           <p>
             {result.success ? '성공' : '실패'} · {result.resultText}
           </p>
@@ -61,30 +70,58 @@ export function TurningPointCard({
             ))}
           </div>
           <button className="primary" onClick={() => onGame(result.game)}>
-            계속
+            운영 계획으로
           </button>
         </>
       ) : (
         <>
-          <h2>{point?.title || '전환점을 불러오는 중…'}</h2>
-          <p>{point?.description}</p>
-          <div className="grid two">
-            {point?.options.map((o) => (
-              <article className="card" key={o.optionId}>
-                <h3>{o.label}</h3>
-                <label>
-                  성공 확률 {o.successRatePct}%<meter min="0" max="100" value={o.successRatePct} />
-                </label>
-                <p>성공: {o.onSuccess}</p>
-                <p>실패: {o.onFail}</p>
-                <button disabled={busy} onClick={() => void choose(o.optionId)}>
-                  {busy ? '선택 중…' : o.label}
-                </button>
-              </article>
-            ))}
-          </div>
+          {point?.tier === 'MINOR' ? (
+            <h3>{point.title}</h3>
+          ) : (
+            <h2>{point?.title || '전환점을 불러오는 중…'}</h2>
+          )}
+          <p>
+            <NumericText value={point?.description || ''} />
+          </p>
+          {point?.tier === 'MINOR' ? (
+            <div className="minor-options">
+              {point.options.map((o) => (
+                <div className="minor-option-row" key={o.optionId}>
+                  <button disabled={busy} onClick={() => void choose(o.optionId)}>
+                    {busy ? '선택 중…' : o.label}
+                  </button>
+                  <small>
+                    성공 <NumericText value={o.successRatePct} />% · 성공 시{' '}
+                    <NumericText value={o.onSuccess} /> / 실패 시 <NumericText value={o.onFail} />
+                  </small>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid two">
+              {point?.options.map((o) => (
+                <article className="card" key={o.optionId}>
+                  <h3>{o.label}</h3>
+                  <label>
+                    성공 확률 <NumericText value={o.successRatePct} />%
+                    <meter min="0" max="100" value={o.successRatePct} />
+                  </label>
+                  <p>
+                    성공: <NumericText value={o.onSuccess} />
+                  </p>
+                  <p>
+                    실패: <NumericText value={o.onFail} />
+                  </p>
+                  <button disabled={busy} onClick={() => void choose(o.optionId)}>
+                    {busy ? '선택 중…' : o.label}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
         </>
       )}
+      {point?.dataNote && <p className="data-note">출처: {point.dataNote}</p>}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -141,6 +178,14 @@ export function EndingScreen({ game }: { game: GameState }) {
           <p>
             {summary.areaName} · {summary.serviceName}
           </p>
+          {summary.mission && (
+            <p>
+              목표 · <NumericText value={summary.mission.title} /> ·{' '}
+              <strong className={summary.mission.achieved ? 'mission-seal' : ''}>
+                {summary.mission.achieved ? '달성' : '미달성'}
+              </strong>
+            </p>
+          )}
           <div className="metrics">
             <div>
               생존 기간

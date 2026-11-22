@@ -1,3 +1,23 @@
+export type MissionCode = 'SURVIVE_3Y' | 'PROFIT_100M' | 'AREA_TOP3' | 'BLACK_4' | 'SECOND_SHOP';
+export interface Mission {
+  code: MissionCode;
+  title: string;
+  description: string;
+  targetLabel: string;
+}
+export interface MissionState {
+  code: MissionCode;
+  title: string;
+  description: string;
+  progress: {
+    current: number | null;
+    target: number;
+    unit: 'KRW' | 'QUARTER' | 'RANK' | 'STREAK' | 'SHOP';
+    label: string;
+  };
+  achieved: boolean;
+  achievedTurn: number | null;
+}
 export type Stat = 'cooking' | 'service' | 'management' | 'marketing' | 'stamina' | 'network';
 export type Stats = Record<Stat, number>;
 export type Background = 'OFFICE_WORKER' | 'CULINARY' | 'PART_TIMER' | 'LOCAL';
@@ -13,6 +33,7 @@ export interface OwnerInput {
   candidateSeed: number;
   focusStats: Stat[];
   startQuarter?: string;
+  missionCode?: MissionCode;
 }
 export interface ShopInput {
   areaCode: string;
@@ -29,6 +50,7 @@ export interface Decision {
   ownerActivity: 'MENU_DEV' | 'REGULARS' | 'STUDY' | 'REST';
 }
 export interface GameState {
+  mission: MissionState;
   gameId: number;
   version: number;
   status: 'PLAYING' | 'ENDED';
@@ -44,6 +66,7 @@ export interface GameState {
   pendingDecision: boolean;
 }
 export interface QuarterResult {
+  missionEvent: { code: MissionCode; title: string; text: string } | null;
   turn: number;
   quarter: string;
   headline: { label: string; amount: number };
@@ -127,6 +150,9 @@ export const backgrounds: Record<Background, string> = {
 };
 
 export interface TurningPoint {
+  tier: 'MAJOR' | 'MINOR';
+  source: 'STORY' | 'DATA';
+  dataNote: string | null;
   gameTurningPointId: number;
   code: string;
   title: string;
@@ -146,6 +172,7 @@ export interface TurningPointResult {
   game: GameState;
 }
 export interface GameSummary {
+  mission: Pick<MissionState, 'code' | 'title' | 'achieved' | 'achievedTurn'>;
   gameId: number;
   endingType: NonNullable<GameState['endingType']>;
   ownerName: string;
@@ -160,6 +187,9 @@ export interface GameSummary {
 }
 export type RankingKind = 'ALL' | 'INDUSTRY' | 'AREA';
 export interface RankingEntry {
+  missionCode: MissionCode;
+  missionTitle: string;
+  missionAchieved: boolean;
   gameId: number;
   rank: number;
   nickname: string;
