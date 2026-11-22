@@ -190,9 +190,34 @@ export default function Game() {
   );
 }
 
-export function MissionProgress({mission}: {mission: MissionState}) {
- if (!mission) return null;
- const {current,target,unit,label}=mission.progress;
- const percent = mission.achieved ? 100 : current === null ? 0 : unit === 'RANK' ? (current <= target ? 100 : target/current*100) : Math.max(0,Math.min(100,current/target*100));
- return <div className="mission-progress" aria-label="목표 진행"><p>목표 · <NumericText value={mission.title} /> <NumericText value={label} /> {mission.achieved && <strong className="mission-seal">달성</strong>}</p><div role="progressbar" aria-label={mission.title} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)} aria-valuetext={label}><span style={{width:percent+'%'}} /></div></div>;
+export function MissionProgress({ mission }: { mission: MissionState }) {
+  if (!mission) return null;
+  const { current, target, unit, label } = mission.progress;
+  const percent = mission.achieved
+    ? 100
+    : current === null
+      ? 0
+      : unit === 'RANK'
+        ? current <= target
+          ? 100
+          : (target / current) * 100
+        : Math.max(0, Math.min(100, (current / target) * 100));
+  return (
+    <div className="mission-progress" aria-label="목표 진행">
+      <p>
+        목표 · <NumericText value={mission.title} /> <NumericText value={label} />{' '}
+        {mission.achieved && <strong className="mission-seal">달성</strong>}
+      </p>
+      <div
+        role="progressbar"
+        aria-label={mission.title}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(percent)}
+        aria-valuetext={label}
+      >
+        <span style={{ width: percent + '%' }} />
+      </div>
+    </div>
+  );
 }

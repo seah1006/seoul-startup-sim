@@ -8,7 +8,12 @@ export default function NewOwner() {
   const nav = useNavigate();
   const [missions, setMissions] = useState<Mission[]>([]);
   const [missionCode, setMissionCode] = useState<MissionCode>('SURVIVE_3Y');
-  useEffect(() => { api.missions().then(setMissions).catch(e => setError(e.message)); }, []);
+  useEffect(() => {
+    api
+      .missions()
+      .then(setMissions)
+      .catch((e) => setError(e.message));
+  }, []);
   const [name, setName] = useState('');
   const [background, setBackground] = useState<Background>('OFFICE_WORKER');
   const [seed, setSeed] = useState(123);
@@ -143,7 +148,25 @@ export default function NewOwner() {
       <section className="card" aria-labelledby="mission-heading">
         <h2 id="mission-heading">이번 창업의 목표</h2>
         <div className="mission-list">
-          {missions.map(m => <button key={m.code} aria-pressed={missionCode === m.code} className={missionCode === m.code ? 'selected' : ''} onClick={() => setMissionCode(m.code)}><strong><NumericText value={m.title} /></strong><span><NumericText value={m.description} /></span><small><NumericText value={m.targetLabel} /></small></button>)}
+          {missions.map((m) => (
+            <button
+              key={m.code}
+              aria-label={m.title}
+              aria-pressed={missionCode === m.code}
+              className={missionCode === m.code ? 'selected' : ''}
+              onClick={() => setMissionCode(m.code)}
+            >
+              <strong>
+                <NumericText value={m.title} />
+              </strong>
+              <span>
+                <NumericText value={m.description} />
+              </span>
+              <small>
+                <NumericText value={m.targetLabel} />
+              </small>
+            </button>
+          ))}
         </div>
       </section>
       {error && (

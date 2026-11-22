@@ -1,6 +1,23 @@
 export type MissionCode = 'SURVIVE_3Y' | 'PROFIT_100M' | 'AREA_TOP3' | 'BLACK_4' | 'SECOND_SHOP';
-export interface Mission { code: MissionCode; title: string; description: string; targetLabel: string }
-export interface MissionState { code: MissionCode; title: string; description: string; progress: { current: number | null; target: number; unit: 'KRW' | 'QUARTER' | 'RANK' | 'STREAK' | 'SHOP'; label: string }; achieved: boolean; achievedTurn: number | null }
+export interface Mission {
+  code: MissionCode;
+  title: string;
+  description: string;
+  targetLabel: string;
+}
+export interface MissionState {
+  code: MissionCode;
+  title: string;
+  description: string;
+  progress: {
+    current: number | null;
+    target: number;
+    unit: 'KRW' | 'QUARTER' | 'RANK' | 'STREAK' | 'SHOP';
+    label: string;
+  };
+  achieved: boolean;
+  achievedTurn: number | null;
+}
 export type Stat = 'cooking' | 'service' | 'management' | 'marketing' | 'stamina' | 'network';
 export type Stats = Record<Stat, number>;
 export type Background = 'OFFICE_WORKER' | 'CULINARY' | 'PART_TIMER' | 'LOCAL';

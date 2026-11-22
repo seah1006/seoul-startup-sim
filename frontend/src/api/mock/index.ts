@@ -17,18 +17,58 @@ import type {
   RecordSnapshot,
 } from '../types';
 export const missions: Mission[] = [
- { code: 'SURVIVE_3Y', title: '3년 버티기', description: '12분기 동안 가게를 지키세요.', targetLabel: '12분기' },
- { code: 'PROFIT_100M', title: '누적 순이익 1억', description: '누적 순이익 1억 원을 모으세요.', targetLabel: '1억 원' },
- { code: 'AREA_TOP3', title: '동네 3위 안', description: '같은 업종 순위 3위 안에 도달하세요.', targetLabel: '3위 이내' },
- { code: 'BLACK_4', title: '4분기 연속 흑자', description: '4분기 연속 순이익을 남기세요.', targetLabel: '4분기 연속' },
- { code: 'SECOND_SHOP', title: '2호점 열기', description: '두 번째 매장을 여세요.', targetLabel: '2개 매장' },
+  {
+    code: 'SURVIVE_3Y',
+    title: '3년 버티기',
+    description: '12분기 동안 가게를 지키세요.',
+    targetLabel: '12분기',
+  },
+  {
+    code: 'PROFIT_100M',
+    title: '누적 순이익 1억',
+    description: '누적 순이익 1억 원을 모으세요.',
+    targetLabel: '1억 원',
+  },
+  {
+    code: 'AREA_TOP3',
+    title: '동네 3위 안',
+    description: '같은 업종 순위 3위 안에 도달하세요.',
+    targetLabel: '3위 이내',
+  },
+  {
+    code: 'BLACK_4',
+    title: '4분기 연속 흑자',
+    description: '4분기 연속 순이익을 남기세요.',
+    targetLabel: '4분기 연속',
+  },
+  {
+    code: 'SECOND_SHOP',
+    title: '2호점 열기',
+    description: '두 번째 매장을 여세요.',
+    targetLabel: '2개 매장',
+  },
 ];
 function initialMission(code = 'SURVIVE_3Y'): MissionState {
- const definition = missions.find(m => m.code === code);
- if (!definition) throw Object.assign(new Error('목표를 확인해 주세요.'), {status:400, code:'VALIDATION_FAILED'});
- const index = missions.indexOf(definition);
- return {code: definition.code, title: definition.title, description: definition.description, achieved:false, achievedTurn:null,
- progress:{current:index===2?null:0, target:[12,100000000,3,4,2][index], unit:(['QUARTER','KRW','RANK','STREAK','SHOP'] as const)[index], label:'아직 시작하지 않았습니다.'}};
+  const definition = missions.find((m) => m.code === code);
+  if (!definition)
+    throw Object.assign(new Error('목표를 확인해 주세요.'), {
+      status: 400,
+      code: 'VALIDATION_FAILED',
+    });
+  const index = missions.indexOf(definition);
+  return {
+    code: definition.code,
+    title: definition.title,
+    description: definition.description,
+    achieved: false,
+    achievedTurn: null,
+    progress: {
+      current: index === 2 ? null : 0,
+      target: [12, 100000000, 3, 4, 2][index],
+      unit: (['QUARTER', 'KRW', 'RANK', 'STREAK', 'SHOP'] as const)[index],
+      label: '아직 시작하지 않았습니다.',
+    },
+  };
 }
 export const industries: Industry[] = [
   '한식음식점',
@@ -464,11 +504,30 @@ export async function mockRequest<T>(
             ? ({
                 gameTurningPointId: row.game.currentTurn,
                 tier: row.game.currentTurn % 4 === 2 ? 'MAJOR' : 'MINOR',
-                source: row.game.currentTurn % 3 === 1 ? 'DATA' : 'STORY',
-                dataNote: row.game.currentTurn % 3 === 1 ? '연습용 가상 상권 데이터입니다. 실제 서울시 통계가 아닙니다.' : null,
-                code: 'LOCAL_EVENT',
-                title: row.game.currentTurn % 3 === 1 ? '같은 업종 가게가 새로 열었습니다' : '동네 행사 참여 제안',
-                description: row.game.currentTurn % 3 === 1 ? '새 가게가 3곳 열렸습니다. 단골에게 가게를 알릴 방법을 골라 주세요. 연습용 수치입니다.' : '이웃에게 가게를 알릴 기회가 찾아왔어요.',
+                source:
+                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
+                    ? 'DATA'
+                    : 'STORY',
+                dataNote:
+                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
+                    ? '연습용 가상 상권 데이터입니다. 실제 서울시 통계가 아닙니다.'
+                    : null,
+                code:
+                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
+                    ? 'NEW_STORES'
+                    : row.game.currentTurn % 3 === 0
+                      ? 'GROUP_ORDER'
+                      : 'LOCAL_EVENT',
+                title:
+                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
+                    ? '같은 업종 가게가 새로 열었습니다'
+                    : row.game.currentTurn % 3 === 0
+                      ? '단체 주문 문의가 왔습니다'
+                      : '동네 행사 참여 제안',
+                description:
+                  row.game.currentTurn % 3 === 1 && row.game.currentTurn % 4 !== 2
+                    ? '새 가게가 3곳 열렸습니다. 단골에게 가게를 알릴 방법을 골라 주세요. 연습용 수치입니다.'
+                    : '이웃에게 가게를 알릴 기회가 찾아왔어요.',
                 options: [
                   {
                     optionId: 1,
@@ -619,14 +678,41 @@ export async function mockRequest<T>(
           row.game.owner.stats[stat] += 3;
           row.game.currentTurn++;
           const mission = row.game.mission;
-          const total = row.turns.reduce((sum,t) => sum+t.profit,0);
-          let streak=0; for (const turn of [...row.turns].reverse()) { if (turn.profit <= 0) break; streak++; }
-          const current = mission.code === 'SURVIVE_3Y' ? row.turns.length : mission.code === 'PROFIT_100M' ? total : mission.code === 'AREA_TOP3' ? r.areaRank.rank : mission.code === 'BLACK_4' ? streak : 1;
+          const total = row.turns.reduce((sum, t) => sum + t.profit, 0);
+          let streak = 0;
+          for (const turn of [...row.turns].reverse()) {
+            if (turn.profit <= 0) break;
+            streak++;
+          }
+          const current =
+            mission.code === 'SURVIVE_3Y'
+              ? row.turns.length
+              : mission.code === 'PROFIT_100M'
+                ? total
+                : mission.code === 'AREA_TOP3'
+                  ? r.areaRank.rank
+                  : mission.code === 'BLACK_4'
+                    ? streak
+                    : 1;
           mission.progress.current = current;
-          mission.progress.label = mission.code === 'PROFIT_100M' ? current.toLocaleString('ko-KR')+'원 / 1억 원' : current+' / '+mission.progress.target+(mission.code==='AREA_TOP3'?'위':'');
-          if (!mission.achieved && (mission.code === 'AREA_TOP3' ? current <= 3 : current >= mission.progress.target)) {
-            mission.achieved=true; mission.achievedTurn=r.turn;
-            r.missionEvent={code:mission.code,title:mission.title,text:'목표 달성! '+mission.title};
+          mission.progress.label =
+            mission.code === 'PROFIT_100M'
+              ? current.toLocaleString('ko-KR') + '원 / 1억 원'
+              : current +
+                ' / ' +
+                mission.progress.target +
+                (mission.code === 'AREA_TOP3' ? '위' : '');
+          if (
+            !mission.achieved &&
+            (mission.code === 'AREA_TOP3' ? current <= 3 : current >= mission.progress.target)
+          ) {
+            mission.achieved = true;
+            mission.achievedTurn = r.turn;
+            r.missionEvent = {
+              code: mission.code,
+              title: mission.title,
+              text: '목표 달성! ' + mission.title,
+            };
           }
           row.game.version++;
           row.game.pendingDecision = true;

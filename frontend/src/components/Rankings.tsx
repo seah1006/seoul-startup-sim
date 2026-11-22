@@ -50,7 +50,13 @@ function RankingTable({ data }: { data: Rankings }) {
               <td className="rk-profit">
                 <NumericText value={money(e.totalProfit)} />
               </td>
-              <td className="rk-mission"><NumericText value={e.missionTitle || '3년 버티기'} /><br /><small className={e.missionAchieved ? 'mission-seal' : ''}>{e.missionAchieved ? '달성' : '미달성'}</small></td>
+              <td className="rk-mission">
+                <NumericText value={e.missionTitle || '3년 버티기'} />
+                <br />
+                <small className={e.missionAchieved ? 'mission-seal' : ''}>
+                  {e.missionAchieved ? '달성' : '미달성'}
+                </small>
+              </td>
             </tr>
           ))}
         </tbody>

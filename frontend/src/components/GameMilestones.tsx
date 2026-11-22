@@ -46,7 +46,10 @@ export function TurningPointCard({
     }
   }
   return (
-    <section className={`card turning-point ${point?.tier === 'MINOR' ? 'minor-event' : ''}`} aria-label="전환점">
+    <section
+      className={`card turning-point ${point?.tier === 'MINOR' ? 'minor-event' : ''}`}
+      aria-label="전환점"
+    >
       {point?.source === 'DATA' && <strong className="data-tag">실제 데이터</strong>}
       {result ? (
         <>
@@ -68,16 +71,23 @@ export function TurningPointCard({
       ) : (
         <>
           <h2>{point?.title || '전환점을 불러오는 중…'}</h2>
-          <p>{point?.description}</p>
+          <p>
+            <NumericText value={point?.description || ''} />
+          </p>
           <div className={point?.tier === 'MINOR' ? 'minor-options' : 'grid two'}>
             {point?.options.map((o) => (
               <article className="card" key={o.optionId}>
                 <h3>{o.label}</h3>
                 <label>
-                  성공 확률 <NumericText value={o.successRatePct} />%{point?.tier !== 'MINOR' && <meter min="0" max="100" value={o.successRatePct} />}
+                  성공 확률 <NumericText value={o.successRatePct} />%
+                  {point?.tier !== 'MINOR' && <meter min="0" max="100" value={o.successRatePct} />}
                 </label>
-                <p>성공: {o.onSuccess}</p>
-                <p>실패: {o.onFail}</p>
+                <p>
+                  성공: <NumericText value={o.onSuccess} />
+                </p>
+                <p>
+                  실패: <NumericText value={o.onFail} />
+                </p>
                 <button disabled={busy} onClick={() => void choose(o.optionId)}>
                   {busy ? '선택 중…' : o.label}
                 </button>
@@ -143,7 +153,14 @@ export function EndingScreen({ game }: { game: GameState }) {
           <p>
             {summary.areaName} · {summary.serviceName}
           </p>
-          {summary.mission && <p>목표 · <NumericText value={summary.mission.title} /> · <strong className={summary.mission.achieved ? 'mission-seal' : ''}>{summary.mission.achieved ? '달성' : '미달성'}</strong></p>}
+          {summary.mission && (
+            <p>
+              목표 · <NumericText value={summary.mission.title} /> ·{' '}
+              <strong className={summary.mission.achieved ? 'mission-seal' : ''}>
+                {summary.mission.achieved ? '달성' : '미달성'}
+              </strong>
+            </p>
+          )}
           <div className="metrics">
             <div>
               생존 기간

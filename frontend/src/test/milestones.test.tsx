@@ -44,6 +44,9 @@ it('전환점 선택 결과를 확인한 뒤 응답 version으로 계속한다',
   const updated = { ...g, version: g.version + 1, pendingTurningPoint: false };
   vi.spyOn(api, 'turningPoint').mockResolvedValue({
     gameTurningPointId: 2,
+    tier: 'MAJOR',
+    source: 'STORY',
+    dataNote: null,
     code: 'TEST',
     title: '새로운 기회',
     description: '선택해 주세요',
@@ -73,7 +76,7 @@ it('전환점 선택 결과를 확인한 뒤 응답 version으로 계속한다',
   ).toBeInTheDocument();
   expect(choose).toHaveBeenCalledWith(g.gameId, 1);
   expect(onGame).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: '계속' }));
+  fireEvent.click(screen.getByRole('button', { name: '운영 계획으로' }));
   expect(onGame).toHaveBeenCalledWith(updated);
 });
 it('엔딩 요약과 새 창업을 표시한다', async () => {
@@ -81,6 +84,7 @@ it('엔딩 요약과 새 창업을 표시한다', async () => {
   g.status = 'ENDED';
   g.endingType = 'SOLD';
   vi.spyOn(api, 'summary').mockResolvedValue({
+    mission: g.mission,
     gameId: g.gameId,
     endingType: 'SOLD',
     ownerName: '연습',
@@ -119,12 +123,12 @@ it('날짜는 KST 오늘부터 7일이다', () => {
     '2026-11-13',
   ]);
 });
-it('8분기 목은 2분기마다 전환점과 마지막 엔딩을 만든다', async () => {
+it('12분기 목은 매 분기 사건과 마지막 엔딩을 만든다', async () => {
   let g = await game();
   await expect(mockRequest(`/games/${g.gameId}/summary`, 'GET')).rejects.toMatchObject({
     code: 'GAME_NOT_ENDED',
   });
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     await mockRequest(`/games/${g.gameId}/turns/${i}/decision`, 'PUT', {
       priceLevel: 'NORMAL',
       openHours: 10,
@@ -140,7 +144,7 @@ it('8분기 목은 2분기마다 전환점과 마지막 엔딩을 만든다', as
     );
     g = r.game;
     expect(r.result.reactions).toHaveLength(2);
-    expect(g.pendingTurningPoint).toBe((i + 1) % 2 === 0 && i < 7);
+    expect(g.pendingTurningPoint).toBe(i < 11);
     if (g.pendingTurningPoint) {
       const c = await mockRequest<TurningPointResult>(
         `/games/${g.gameId}/turning-point/choice`,

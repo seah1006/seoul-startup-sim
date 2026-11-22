@@ -188,7 +188,9 @@ test('실제 목 게임 마지막 분기 결과에서 인증하기로 이어지�
   open(`/games/${game.gameId}`);
   await screen.findByRole('heading', { name: '가상 은하정류장' });
   expect(screen.queryByRole('link', { name: '엔딩 인증하기' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /다음 분기/ }));
+  fireEvent.click(await screen.findByRole('button', { name: '가게 운영에 집중한다' }));
+  fireEvent.click(await screen.findByRole('button', { name: '운영 계획으로' }));
+  fireEvent.click(await screen.findByRole('button', { name: /다음 분기/ }));
   fireEvent.click(await screen.findByRole('link', { name: '엔딩 인증하기' }));
   expect(await screen.findByRole('region', { name: '엔딩 인증 카드 미리보기' })).toHaveTextContent(
     '가상 은하정류장',

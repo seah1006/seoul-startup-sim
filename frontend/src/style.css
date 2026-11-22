@@ -1395,28 +1395,121 @@ meter::-moz-meter-bar {
 }
 
 /* TASK-010: 목표 장부와 작은 사건 */
-.mission-list { border-top: 2px solid var(--ink); }
-.mission-list button { width:100%; display:grid; grid-template-columns: minmax(140px,1fr) 2fr auto; gap:12px; text-align:left; border:0; border-bottom:1px solid var(--rule); border-radius:0; min-height:64px; align-items:center; white-space:normal; }
-.mission-list button.selected { background:var(--marker); }
-.mission-list small, .data-note { color:var(--ink-2); }
-.mission-progress { max-width:520px; padding-bottom:12px; }
-.mission-progress p { display:flex; flex-wrap:wrap; gap:6px 12px; }
-.mission-progress [role='progressbar'] { height:4px; background:var(--rule); }
-.mission-progress [role='progressbar'] span { display:block; height:100%; background:var(--ink); }
-.mission-seal { color:var(--sign); border:2px solid var(--sign); padding:2px 6px; display:inline-block; font-weight:800; }
-.mission-banner { padding:20px 0; border-block:2px solid var(--ink); }
-.mission-banner h3 { display:inline; margin-left:12px; }
-.minor-event { max-width:800px; }
-.minor-options { display:flex; flex-wrap:wrap; gap:12px; }
-.minor-options > article { flex:1 1 190px; min-width:0; padding:12px 0; border:0; border-top:1px solid var(--rule); }
-.minor-options h3 { margin-top:0; }
-.minor-options label { display:block; }
-.minor-options button { min-height:44px; max-width:100%; white-space:normal; }
-.data-tag { display:inline-block; border:1px solid var(--ink); padding:4px 8px; }
-.data-note { font-size:13px; }
-@media(max-width:700px) {
- .mission-list button { grid-template-columns:1fr auto; gap:6px; }
- .mission-list button > span { grid-column:1 / -1; grid-row:2; }
- .rk-mission { grid-column:1 / -1; text-align:left; }
- .minor-options > article { flex-basis:100%; }
+.mission-list {
+  border-top: 2px solid var(--ink);
+}
+.mission-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 2fr auto;
+  gap: 12px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  min-height: 64px;
+  align-items: center;
+  white-space: normal;
+}
+.mission-list button.selected {
+  background: var(--marker);
+}
+.mission-list small,
+.data-note {
+  color: var(--ink-2);
+}
+.mission-progress {
+  max-width: 520px;
+  padding-bottom: 12px;
+}
+.mission-progress p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.mission-progress [role='progressbar'] {
+  height: 4px;
+  background: var(--rule);
+}
+.mission-progress [role='progressbar'] span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+}
+.mission-seal {
+  color: var(--sign);
+  border: 2px solid var(--sign);
+  padding: 2px 6px;
+  display: inline-block;
+  font-weight: 800;
+}
+.mission-banner {
+  padding: 20px 0;
+  border-block: 2px solid var(--ink);
+}
+.mission-banner h3 {
+  display: inline;
+  margin-left: 12px;
+}
+.minor-event {
+  max-width: 800px;
+}
+.minor-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.minor-options > article {
+  flex: 1 1 190px;
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+.minor-options h3 {
+  margin-top: 0;
+}
+.minor-options label {
+  display: block;
+}
+.minor-options button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+.data-tag {
+  display: inline-block;
+  border: 1px solid var(--ink);
+  padding: 4px 8px;
+}
+.data-note {
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .mission-list button {
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+  }
+  .mission-list button > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .rk-mission {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .minor-options > article {
+    flex-basis: 100%;
+  }
+}
+
+.mission-progress {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .ranking-table .rk-mission {
+    grid-row: 3;
+    padding-top: 8px;
+  }
 }

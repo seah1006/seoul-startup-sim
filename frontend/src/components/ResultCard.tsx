@@ -98,7 +98,17 @@ export function ResultCard({
           </div>
         </dl>
       </section>
-      {r.missionEvent && <section className="mission-banner" role="status"><strong className="mission-seal">목표 달성</strong><h3><NumericText value={r.missionEvent.title} /></h3><p><NumericText value={r.missionEvent.text} /></p></section>}
+      {r.missionEvent && (
+        <section className="mission-banner" role="status">
+          <strong className="mission-seal">목표 달성</strong>
+          <h3>
+            <NumericText value={r.missionEvent.title} />
+          </h3>
+          <p>
+            <NumericText value={r.missionEvent.text} />
+          </p>
+        </section>
+      )}
       <div className="detail">
         <h3>상권 내 같은 업종 순위</h3>
         <p>

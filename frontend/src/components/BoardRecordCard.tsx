@@ -4,7 +4,7 @@ import type { GameSummary } from '../api/types';
 import { money } from './ResultCard';
 
 const ending = { CLOSED: '폐업', SOLD: '매각', LONG_RUNNING: '장기 운영' };
-type CardData = Omit<GameSummary, 'bestQuarterProfit' | 'shopCount'>;
+type CardData = Omit<GameSummary, 'bestQuarterProfit' | 'shopCount' | 'mission'>;
 export function BoardRecordCard({
   record,
   preview = false,
