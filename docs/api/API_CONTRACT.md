@@ -372,3 +372,61 @@ POST /admin/board/comments/{commentId}/delete       댓글 논리 삭제
 ### 남용 방지
 - `POST /api/guest`, `/api/auth/signup`, `/api/auth/login`: IP당 10분 20회(설정값), 초과 429 `RATE_LIMITED`
 
+
+## 6. 진행 개편 (v1.4, TASK-010)
+
+### 6.1 목표 목록과 게임 생성
+
+- `GET /api/missions`: 인증 없이 5개를 아래 순서로 반환한다. 각 항목은 `code`, `title`, `description`, `targetLabel` 문자열이다.
+
+| code | title | targetLabel | 달성 조건 |
+| --- | --- | --- | --- |
+| SURVIVE_3Y | 3년 버티기 | 12분기 | 정산 12회 |
+| PROFIT_100M | 누적 순이익 1억 | 1억 원 | 누적 순이익 ≥ 100,000,000원 |
+| AREA_TOP3 | 동네 5위 안 | 5위 이내 | 같은 상권·업종 현재 순위 1~5위 |
+| BLACK_4 | 4분기 연속 흑자 | 4분기 연속 | 순이익 > 0이 4회 연속(0원은 끊김) |
+| SECOND_SHOP | 2호점 열기 | 2곳 | 매장 수 ≥ 2 |
+
+- `POST /api/games` 요청에 선택 문자열 `missionCode` 추가. 생략/null은 `SURVIVE_3Y`; 목록 밖 값은 400 `VALIDATION_FAILED`.
+- 게임에 선택 목표를 고정한다. 매 분기 정산 후 판정하며 한 번 달성하면 이후 적자·순위 하락에도 달성을 유지한다.
+
+### 6.2 GameState.mission
+
+```json
+{
+  "mission": {
+    "code": "PROFIT_100M",
+    "title": "누적 순이익 1억",
+    "description": "누적 순이익 1억 원을 달성하세요.",
+    "progress": { "current": 38200000, "target": 100000000, "unit": "KRW", "label": "3,820만 원 / 1억 원" },
+    "achieved": false,
+    "achievedTurn": null
+  }
+}
+```
+
+- `unit`: `QUARTER | KRW | RANK | STREAK | SHOP`.
+- RANK의 `current`는 마지막 정산 순위이며 정산 전에는 null, `target`은 5이다. 다른 목표는 영업 분기 수·누적 이익·현재 연속 흑자 수·매장 수다.
+- `achievedTurn`은 기존 분기 `turn`과 같은 **0 기반** 정수이며 미달성은 null이다.
+
+### 6.3 사건 등급·출처
+
+기존 `GET /api/games/{gameId}/turning-point` 응답에 다음 필드를 추가한다. 선택 엔드포인트와 선택지 형식은 변경하지 않는다.
+
+```json
+{ "tier": "MINOR", "source": "DATA", "dataNote": "서울시 상권분석서비스 2022년 3분기 실제 값" }
+```
+
+- `tier`: `MAJOR | MINOR`, `source`: `STORY | DATA`. STORY의 `dataNote`는 null.
+- 기존 대기 사건 스냅샷에 필드가 없으면 MAJOR/STORY/null로 읽는다.
+- DATA는 게임 생성 때 고정한 데이터 버전의 해당 상권·업종과 **직전 분기**를 비교한다. 원본 결측·전분기 분모 0인 변화율은 조건 불충족이며 다른 상권 추정값으로 대체하지 않는다.
+- 매출 증감은 %, 점포·프랜차이즈 증감은 개수, 개폐업률은 원본 정수 %다. 길단위인구는 절대 인원 단위를 주장하지 않고 원본 간 상대 증감률만 쓴다.
+- 텍스트 숫자는 부호가 붙은 반올림 정수이며 분기·문구·출처는 사건 발생 시 고정한다. 이후 관리자 정의 수정이나 원본 교체는 대기 사건을 바꾸지 않는다.
+
+### 6.4 결산·엔딩·랭킹
+
+- 최초 달성 분기 `QuarterResult.missionEvent`: `{ "code", "title", "text": "목표 달성! …" }`.
+- 비달성 분기는 null과 동등하다. 기존 저장 결산·골든 바이트 호환을 위해 null 필드가 생략될 수 있으므로 클라이언트는 누락도 null로 처리한다.
+- 엔딩 요약 `mission`: `{ "code", "title", "achieved", "achievedTurn" }`.
+- 랭킹 `entries[]`에 `missionCode`, `missionTitle`, `missionAchieved`를 추가한다. **랭킹 정렬 및 동순위 산식은 변경하지 않는다.**
+- 공개 공유 페이지에는 `목표: {title} · 달성/미달성`을 표시한다. 기록 시점 목표·달성 여부·달성 분기를 보존한다.

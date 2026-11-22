@@ -16,10 +16,10 @@ public final class GameResponses {
             String serviceName, String shopName, double lng, double lat, long rivalCount) {}
     public record State(long gameId, long version, String status, String endingType, int currentTurn,
             String startQuarter, String lastQuarter, String currentQuarter, long cash, Owner owner,
-            ShopState shop, boolean pendingDecision, boolean pendingTurningPoint) {
+            ShopState shop, boolean pendingDecision, boolean pendingTurningPoint, Mission.State mission) {
         public State withPendingTurningPoint(boolean pending) {
             return new State(gameId, version, status, endingType, currentTurn, startQuarter,
-                    lastQuarter, currentQuarter, cash, owner, shop, pendingDecision, pending);
+                    lastQuarter, currentQuarter, cash, owner, shop, pendingDecision, pending, mission);
         }
     }
 }

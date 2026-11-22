@@ -8,11 +8,11 @@
     <p>삭제는 제공하지 않습니다. 끄면 다음 분기 판정부터 빠지고, 이미 대기 중인 전환점은 발생 시점 스냅샷을 씁니다.</p>
     <table>
         <tr>
-            <th>코드</th><th>이름</th><th>활성</th><th>리비전</th><th th:if="${turningPoints}">최근 30일 발생</th><th>작업</th>
+            <th>코드</th><th>이름</th><th th:if="${turningPoints}">등급 / 출처</th><th>활성</th><th>리비전</th><th th:if="${turningPoints}">최근 30일 발생</th><th>작업</th>
         </tr>
         <tr th:each="row : ${rows}">
             <td><a th:href="@{/admin/{path}/{id}(path=${path},id=${row.id})}" th:text="${row.code}"></a></td>
-            <td th:text="${row.name}"></td>
+            <td th:text="${row.name}"></td><td th:if="${turningPoints}" th:text="|${row.tier} / ${row.source}|"></td>
             <td th:text="${row.enabled} ? '켜짐' : '꺼짐'"></td>
             <td th:text="${row.rev}"></td>
             <td th:if="${turningPoints}" th:text="${row.recentFires}"></td>

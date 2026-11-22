@@ -63,20 +63,26 @@ public class EventEngine implements TurnEventHook {
             result.reactions(new ArrayList<Object>(picked));
         }
         if (!context.ended() && !points.isEmpty()
-                && context.turn() >= game.settings().getOrDefault("event.fire.minTurn", 1d)
                 && !games.pendingTurningPoint(context.gameId())) {
-            fire(context, variables, points, result, game.settings().getOrDefault("event.fire.globalGap", 0d));
+            fire(context, variables, points, result, game.settings());
         }
     }
 
     private void fire(GameContext context, Map<String, Object> variables,
-            List<EventDefinitionRepository.Definition> points, TurnResultBuilder result, double globalGap) {
+            List<EventDefinitionRepository.Definition> points, TurnResultBuilder result, Map<String, Double> settings) {
         Map<String, Integer> stats = games.stats(context.gameId());
-        Map<String, Boolean> judged = judge(context, variables, stats, points, globalGap);
+        // MINOR는 MAJOR 전역 간격을 소비하지 않는다.
+        var majorVariables = new LinkedHashMap<>(variables);
+        points.stream().filter(point -> tier(point).equals("MINOR"))
+                .forEach(point -> majorVariables.remove("history.quartersSince." + point.code()));
+        var majors = points.stream().filter(point -> tier(point).equals("MAJOR"))
+                .filter(point -> context.turn() >= settings.getOrDefault("event.fire.minTurn", 1d)).toList();
+        Map<String, Boolean> judged = judge(context, majorVariables, stats, majors,
+                settings.getOrDefault("event.fire.globalGap", 0d));
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();
         int highest = -1;
         for (var point : points) {
-            if (!judged.get(point.code())) {
+            if (!judged.getOrDefault(point.code(), false)) {
                 continue;
             }
             int priority = point.data().get("priority").intValue();
@@ -88,12 +94,14 @@ public class EventEngine implements TurnEventHook {
             }
         }
         if (candidates.isEmpty()) {
-            return;
+            var minor = pickMinor(context, variables, stats, points, settings);
+            if (minor == null) return;
+            candidates.add(minor);
         }
         int picked = candidates.size() == 1 ? 0 : (int) (EventRandom.stream(context.seed(), context.turn(),
                 EventRandom.Purpose.TURNING_POINT_PICK, "").nextDouble() * candidates.size());
         var definition = candidates.get(picked);
-        String payload = json.writeValueAsString(freeze(definition, stats));
+        String payload = json.writeValueAsString(freeze(definition, stats, games.shop(context.gameId()), variables));
         games.jdbc().update("""
                 INSERT INTO game_turning_points (game_id, turn, turning_point_id, definition_rev, payload)
                 VALUES (?, ?, ?, ?, ?::jsonb)
@@ -115,6 +123,7 @@ public class EventEngine implements TurnEventHook {
         int sinceAny = variables.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith("history.quartersSince."))
                 .mapToInt(entry -> ((Number) entry.getValue()).intValue()).min().orElse(Integer.MAX_VALUE);
+        if (variables.get("history.majorQuartersSince") instanceof Number majorSince) sinceAny = majorSince.intValue();
         boolean gapPassed = globalGap <= 0 || sinceAny > globalGap;
         Map<String, Boolean> judged = new LinkedHashMap<>();
         for (var point : points) {
@@ -134,6 +143,52 @@ public class EventEngine implements TurnEventHook {
         return judged;
     }
 
+    static String tier(EventDefinitionRepository.Definition point) {
+        return point.data().has("tier") ? point.data().get("tier").asString() : "MAJOR";
+    }
+
+    static String source(EventDefinitionRepository.Definition point) {
+        return point.data().has("source") ? point.data().get("source").asString() : "STORY";
+    }
+
+    /** 별도 스트림을 사용하므로 MINOR 설정이 없으면 기존 골든 난수는 완전히 동일하다. */
+    EventDefinitionRepository.Definition pickMinor(GameContext context, Map<String, Object> variables,
+            Map<String, Integer> stats, List<EventDefinitionRepository.Definition> points,
+            Map<String, Double> settings) {
+        if (settings.getOrDefault("event.minor.enabled", 0d) <= 0
+                || EventRandom.stream(context.seed(), context.turn(), EventRandom.Purpose.MINOR_FIRE, "")
+                    .nextDouble() >= settings.getOrDefault("event.minor.rate", 0.9)) return null;
+        int dataFires = points.stream().filter(point -> source(point).equals("DATA"))
+                .mapToInt(point -> ((Number) variables.getOrDefault("history.timesFired." + point.code(), 0)).intValue()).sum();
+        dataFires = ((Number) variables.getOrDefault("history.dataFires", dataFires)).intValue();
+        var eligible = new ArrayList<EventDefinitionRepository.Definition>();
+        for (var point : points) {
+            if (!tier(point).equals("MINOR")) continue;
+            if (source(point).equals("DATA") && dataFires >= settings.getOrDefault("event.minor.dataMax", 4d)) continue;
+            var data = point.data();
+            EventContextFactory.defaults(data.get("conditionExpr"), variables);
+            int times = ((Number) variables.getOrDefault("history.timesFired." + point.code(), 0)).intValue();
+            int since = ((Number) variables.getOrDefault("history.quartersSince." + point.code(), 999)).intValue();
+            if (context.turn() >= data.get("minTurn").intValue() && times < data.get("maxFires").intValue()
+                    && since >= data.get("cooldownQuarters").intValue()
+                    && validator.condition(data.get("conditionExpr"), EventDefinitionValidator.Scope.TURNING_POINT).matches(variables)
+                    && validator.formula(fireFormula(data)).probability(stats) > 0) eligible.add(point);
+        }
+        if (settings.getOrDefault("event.minor.dataFirst", 1d) > 0
+                && eligible.stream().anyMatch(point -> source(point).equals("DATA"))) {
+            eligible.removeIf(point -> !source(point).equals("DATA"));
+        }
+        int priority = eligible.stream().mapToInt(point -> point.data().get("priority").intValue()).max().orElse(-1);
+        eligible.removeIf(point -> point.data().get("priority").intValue() != priority);
+        eligible.sort(java.util.Comparator.comparing(EventDefinitionRepository.Definition::code));
+        double total = eligible.stream().mapToDouble(point -> validator.formula(fireFormula(point.data())).probability(stats)).sum();
+        double draw = EventRandom.stream(context.seed(), context.turn(), EventRandom.Purpose.MINOR_PICK, "").nextDouble() * total;
+        for (var point : eligible) {
+            draw -= validator.formula(fireFormula(point.data())).probability(stats);
+            if (draw < 0) return point;
+        }
+        return null;
+    }
     private static JsonNode fireFormula(JsonNode data) {
         var formula = JsonNodeFactory.instance.objectNode();
         formula.set("base", data.get("baseProbability"));
@@ -145,20 +200,22 @@ public class EventEngine implements TurnEventHook {
 
     /** 화면 문구·성공률·효과 원본을 함께 고정해 이후 관리자 수정이 대기 중 선택을 바꾸지 못하게 한다. */
     private TurningPointService.FrozenPoint freeze(EventDefinitionRepository.Definition definition,
-            Map<String, Integer> stats) {
+            Map<String, Integer> stats, Shop shop, Map<String, Object> variables) {
         var ids = definitions.optionIds(definition.id());
         List<TurningPointService.FrozenOption> options = new ArrayList<>();
         for (JsonNode option : definition.data().get("options")) {
             int order = option.get("orderNo").intValue();
             double probability = validator.formula(option.get("successFormula")).probability(stats);
-            options.add(new TurningPointService.FrozenOption(ids.get(order), order, option.get("label").asString(),
+            options.add(new TurningPointService.FrozenOption(ids.get(order), order, EventText.render(option.get("label").asString(), shop, variables),
                     probability, (int) Math.round(probability * 100),
                     effects.summary(validator.effects(option.get("onSuccess"), false, "onSuccess")),
                     effects.summary(validator.effects(option.get("onFail"), false, "onFail")),
-                    option.get("onSuccess"), option.get("onFail"), option.get("successText").asString(),
-                    option.get("failText").asString()));
+                    option.get("onSuccess"), option.get("onFail"), EventText.render(option.get("successText").asString(), shop, variables),
+                    EventText.render(option.get("failText").asString(), shop, variables)));
         }
-        return new TurningPointService.FrozenPoint(definition.code(), definition.data().get("title").asString(),
-                definition.data().get("description").asString(), List.copyOf(options));
+        return new TurningPointService.FrozenPoint(definition.code(), EventText.render(definition.data().get("title").asString(), shop, variables),
+                EventText.render(definition.data().get("description").asString(), shop, variables), List.copyOf(options),
+                tier(definition), source(definition), source(definition).equals("DATA")
+                    ? "서울시 상권분석서비스 " + variables.get("area.quarterLabel") + " 실제 값" : null);
     }
 }

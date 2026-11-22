@@ -12,7 +12,7 @@ public final class EventRandom {
     public enum Purpose {
         TURNING_POINT_FIRE, TURNING_POINT_PICK, TURNING_POINT_SUCCESS,
         REACTION_PICK, REACTION_LIKES, MOMENT_PICK, MOMENT_JUDGE,
-        VIRTUAL_RIVAL, RIVAL_CLOSURE
+        VIRTUAL_RIVAL, RIVAL_CLOSURE, MINOR_FIRE, MINOR_PICK
     }
 
     /** UTF-8 바이트를 FNV-1a 64비트로 해시해 JVM과 삽입 순서에 의존하지 않는다. */

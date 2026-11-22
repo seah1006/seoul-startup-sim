@@ -109,7 +109,7 @@ public class GameRepository {
                 """, Boolean.class, id, game.currentTurn()));
         return new State(id, game.version(), game.status(), game.endingType(), game.currentTurn(),
                 game.startQuarter(), game.lastQuarter(), quarter(game.startQuarter(), game.currentTurn()),
-                game.cash(), owner(id), shopState, pending, pendingTurningPoint(id));
+                game.cash(), owner(id), shopState, pending, pendingTurningPoint(id), MissionRepository.state(jdbc, id));
     }
 
     public boolean pendingTurningPoint(long id) {
@@ -152,6 +152,10 @@ public class GameRepository {
     double settingNumber(String key, String value) {
         try {
             var number = json.readTree(value);
+            if ((key.equals("event.minor.enabled") || key.equals("event.minor.dataFirst"))
+                    && number != null && number.isBoolean()) {
+                return number.booleanValue() ? 1d : 0d;
+            }
             if (number == null || !number.isNumber() || !Double.isFinite(number.doubleValue())) {
                 throw GameException.invalid("게임 설정 " + key + "는 유효한 숫자여야 합니다.");
             }

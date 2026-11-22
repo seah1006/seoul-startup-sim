@@ -39,8 +39,8 @@ class EventSeedIntegrationTest {
         try (var connection = DriverManager.getConnection(DB.getJdbcUrl(), DB.getUsername(), DB.getPassword());
                 var statement = connection.createStatement();
                 var result = statement.executeQuery("""
-                        SELECT (SELECT count(*) FROM turning_points),
-                               (SELECT count(*) FROM turning_point_options),
+                        SELECT (SELECT count(*) FROM turning_points WHERE tier = 'MAJOR'),
+                               (SELECT count(*) FROM turning_point_options o JOIN turning_points p ON p.id = o.turning_point_id WHERE p.tier = 'MAJOR'),
                                (SELECT count(*) FROM reaction_templates),
                                (SELECT count(*) FROM moment_templates),
                                (SELECT count(*) FROM turning_points p
@@ -90,17 +90,17 @@ class EventSeedIntegrationTest {
     private void validateDefinitionReader(Connection connection) {
         var jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
         var repository = new EventDefinitionRepository(jdbc, new ObjectMapper(), new EventDefinitionValidator());
-        assertEquals(12, repository.turningPoints().size());
+        assertEquals(12, repository.turningPoints().stream().filter(p -> p.data().get("tier").asString().equals("MAJOR")).count());
         assertEquals(36, repository.reactions().size());
         assertEquals(12, repository.moments().size());
-        var point = repository.turningPoints().getFirst();
+        var point = repository.turningPoints().stream().filter(p -> p.data().get("tier").asString().equals("MAJOR")).findFirst().orElseThrow();
         assertEquals(point.data().get("options").size(), repository.optionIds(point.id()).size());
         jdbc.update("UPDATE reaction_templates SET enabled = false WHERE code = (SELECT min(code) FROM reaction_templates)");
         assertEquals(35, repository.reactions().size());
         jdbc.update("UPDATE reaction_templates SET enabled = true");
         jdbc.update("""
                 UPDATE turning_points SET condition_expr = '{"unknown":1}'
-                WHERE code = (SELECT min(code) FROM turning_points)
+                WHERE code = (SELECT min(code) FROM turning_points WHERE tier = 'MAJOR')
                 """);
         jdbc.update("""
                 UPDATE reaction_templates SET body = '허용되지 않은 {unknown} 치환'
@@ -111,10 +111,10 @@ class EventSeedIntegrationTest {
                 WHERE code = (SELECT min(code) FROM moment_templates)
                 """);
         repository.validateAll();
-        assertEquals(11, repository.turningPoints().size());
+        assertEquals(11, repository.turningPoints().stream().filter(p -> p.data().get("tier").asString().equals("MAJOR")).count());
         assertEquals(35, repository.reactions().size());
         assertEquals(11, repository.moments().size());
-        assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM turning_points WHERE enabled", Integer.class));
+        assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM turning_points WHERE enabled AND tier = 'MAJOR'", Integer.class));
         assertEquals(36, jdbc.queryForObject("SELECT count(*) FROM reaction_templates WHERE enabled", Integer.class));
         assertEquals(12, jdbc.queryForObject("SELECT count(*) FROM moment_templates WHERE enabled", Integer.class));
     }
@@ -167,7 +167,7 @@ class EventSeedIntegrationTest {
                         'onSuccess', o.on_success, 'onFail', o.on_fail,
                         'successText', o.success_text, 'failText', o.fail_text) ORDER BY o.order_no)
                         FROM turning_point_options o WHERE o.turning_point_id = p.id))::text
-                FROM turning_points p ORDER BY p.code
+                FROM turning_points p WHERE p.tier = 'MAJOR' ORDER BY p.code
                 """, validator::turningPoint, 12);
         validate(connection, """
                 SELECT jsonb_build_object('code', code, 'kind', kind, 'author', author,

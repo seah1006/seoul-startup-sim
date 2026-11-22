@@ -34,6 +34,7 @@ public class GameService {
                 || !OwnerCandidates.STATS.containsAll(request.focusStats())) {
             throw GameException.invalid("집중 능력치를 확인해 주세요.");
         }
+        Mission mission = Mission.parse(request.missionCode());
         var candidate = candidates.generate(request.background(), request.candidateSeed()).stream()
                 .filter(value -> value.candidateId().equals(request.candidateId())).findFirst()
                 .orElseThrow(() -> GameException.invalid("사장님 후보가 없습니다."));
@@ -58,10 +59,10 @@ public class GameService {
         repository.requireSettings(settings);
         long capital = settings.get("initialCapital").longValue();
         Long id = repository.jdbc().queryForObject("""
-                INSERT INTO games (user_id, seed, start_quarter, last_quarter, cash, initial_capital, settings)
-                VALUES (?, ?, ?, ?, ?, ?, ?::jsonb) RETURNING id
+                INSERT INTO games (user_id, seed, start_quarter, last_quarter, cash, initial_capital, settings, mission_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, ?) RETURNING id
                 """, Long.class, user, request.candidateSeed(), start, quarters.getLast(), capital, capital,
-                repository.encode(settings));
+                repository.encode(settings), mission.name());
         repository.jdbc().update("""
                 INSERT INTO game_data_pins (game_id, source, version_id)
                 SELECT ?, source, id FROM data_versions WHERE status = 'ACTIVE'

@@ -5,7 +5,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 동네 반응·순간 문구의 치환 변수. 허용 변수는 {@code shopName}, {@code areaName}, {@code serviceName} 셋이고,
+ * 이벤트 문구의 치환 변수. 가게·상권·업종 이름과 화이트리스트 DATA 변수를 허용하며,
  * 뒤에 {@code :이/가}처럼 조사 쌍을 붙이면 값의 끝 글자 받침에 맞는 조사를 고른다.
  * 예: {@code {shopName:이/가}} → "망원커피하나가", "망원역이".
  *
@@ -21,6 +21,8 @@ public final class EventText {
             "이에요/예요", new String[] {"이에요", "예요"});
     private static final Pattern TOKEN = Pattern.compile(
             "\\{(shopName|areaName|serviceName)(?::(이/가|을/를|은/는|과/와|이에요/예요))?}");
+    private static final Pattern DATA_TOKEN = Pattern.compile(
+            "\\{area\\.(quarterLabel|salesChangePct|storeChange|openings|closings|floatingPopChangePct)}");
     /** 숫자를 한국어로 읽었을 때 받침 여부: 영 일 이 삼 사 오 육 칠 팔 구. */
     private static final boolean[] DIGITS = {true, true, false, true, false, false, true, true, true, false};
 
@@ -42,9 +44,24 @@ public final class EventText {
         return rendered.toString();
     }
 
+    /** DATA 숫자는 부호를 포함한 정수로 표시하고 당시 값을 스냅샷에 고정한다. */
+    public static String render(String text, Shop shop, Map<String, Object> variables) {
+        Matcher matcher = DATA_TOKEN.matcher(render(text, shop));
+        StringBuilder rendered = new StringBuilder();
+        while (matcher.find()) {
+            Object value = variables.get("area." + matcher.group(1));
+            String replacement = value instanceof Number number
+                    ? String.format(java.util.Locale.ROOT, "%+d", Math.round(number.doubleValue()))
+                    : value == null ? "자료 없음" : value.toString();
+            matcher.appendReplacement(rendered, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rendered);
+        return rendered.toString();
+    }
+
     /** 검증용: 허용된 치환 변수를 모두 지운 나머지. 여기에 중괄호가 남으면 허용되지 않은 변수다. */
     public static String withoutTokens(String text) {
-        return TOKEN.matcher(text).replaceAll("");
+        return DATA_TOKEN.matcher(TOKEN.matcher(text).replaceAll("")).replaceAll("");
     }
 
     /** 끝 글자 받침을 판정할 수 없으면 "이(가)"처럼 두 형태를 함께 쓴다. */

@@ -57,7 +57,9 @@ class AdminEventWebIntegrationTest {
         mvc().perform(get("/admin/turning-points")).andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/admin/login"));
         mvc().perform(get("/admin/turning-points").with(user("admin").roles("ADMIN"))).andExpect(status().isOk())
-                .andExpect(model().attribute("rows", hasSize(12)))
+                .andExpect(model().attribute("rows", hasSize(jdbc.queryForObject("SELECT count(*) FROM turning_points", Integer.class))))
+                .andExpect(content().string(containsString("MINOR")))
+                .andExpect(content().string(containsString("DATA")))
                 .andExpect(content().string(containsString("최근 30일 발생")));
         mvc().perform(get("/admin/reactions").with(user("admin").roles("ADMIN"))).andExpect(status().isOk())
                 .andExpect(model().attribute("rows", hasSize(36)));
@@ -114,10 +116,14 @@ class AdminEventWebIntegrationTest {
         assertEquals(rev, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
         var title = (tools.jackson.databind.node.ObjectNode) json.readTree(original);
         title.put("title", "임대료 재계약 통보");
+        title.put("tier", "MINOR");
+        title.put("source", "DATA");
         String retitled = json.writeValueAsString(title);
         mvc().perform(post(path).param("definition", retitled).with(user("admin").roles("ADMIN")).with(csrf()))
                 .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(path));
         assertEquals("임대료 재계약 통보", jdbc.queryForObject("SELECT title FROM turning_points WHERE id = ?", String.class, id));
+        assertEquals("MINOR", jdbc.queryForObject("SELECT tier FROM turning_points WHERE id = ?", String.class, id));
+        assertEquals("DATA", jdbc.queryForObject("SELECT source FROM turning_points WHERE id = ?", String.class, id));
         assertEquals(rev + 1, jdbc.queryForObject("SELECT rev FROM turning_points WHERE id = ?", Integer.class, id));
         assertEquals(3, jdbc.queryForObject("SELECT count(*) FROM turning_point_options WHERE turning_point_id = ?", Integer.class, id));
     }

@@ -17,7 +17,9 @@ public final class EventDefinitionValidator {
             "cash", "cumulativeProfit", "lastProfit", "lastRevenue", "areaRank", "areaRankTotal", "areaRankPct",
             "staff", "openHours", "marketingBudget", "shopCount", "rivalCount", "area.storeCount",
             "area.franchiseCount", "area.openingCount", "area.closingCount", "area.openingRate",
-            "area.closingRate", "area.closingRateDelta", "area.salesTrendPct");
+            "area.closingRate", "area.closingRateDelta", "area.salesTrendPct",
+            "area.salesChangePct", "area.storeChange", "area.openings", "area.closings",
+            "area.closingRatePct", "area.openingRatePct", "area.floatingPopChangePct", "area.franchiseChange");
     private static final Set<String> STRINGS = Set.of("priceLevel", "industryCategory", "serviceCode", "area.areaType");
     private static final Map<String, Set<String>> ENUMS = Map.of(
             "priceLevel", Set.of("LOW", "NORMAL", "HIGH"),
@@ -208,12 +210,12 @@ public final class EventDefinitionValidator {
 
     public void turningPoint(JsonNode node) {
         keys(node, "turningPoint", Set.of("code", "title", "description", "conditionExpr", "baseProbability", "statBonus",
-                "probMin", "probMax", "cooldownQuarters", "maxFires", "minTurn", "priority", "enabled", "options"),
+                "probMin", "probMax", "cooldownQuarters", "maxFires", "minTurn", "priority", "enabled", "options", "tier", "source"),
                 Set.of("code", "title", "conditionExpr", "baseProbability", "options"));
         code(node);
-        text(node.get("title"), "title", 2, 60);
+        tokens(text(node.get("title"), "title", 2, 60), "title");
         if (node.has("description")) {
-            text(node.get("description"), "description", 0, 400);
+            tokens(text(node.get("description"), "description", 0, 400), "description");
         }
         condition(node.get("conditionExpr"), Scope.TURNING_POINT);
         number(node.get("baseProbability"), "baseProbability", 0, 1);
@@ -225,6 +227,8 @@ public final class EventDefinitionValidator {
             formula.set("statBonus", node.get("statBonus"));
         }
         formula(formula, "fireFormula");
+        if (node.has("tier")) choice(node.get("tier"), "tier", Set.of("MAJOR", "MINOR"));
+        if (node.has("source")) choice(node.get("source"), "source", Set.of("STORY", "DATA"));
         optionalInteger(node, "cooldownQuarters", 0, 20);
         optionalInteger(node, "maxFires", 1, 10);
         optionalInteger(node, "minTurn", 0, 40);
@@ -239,12 +243,12 @@ public final class EventDefinitionValidator {
             JsonNode option = options.get(index);
             exact(option, p, "orderNo", "label", "successFormula", "onSuccess", "onFail", "successText", "failText");
             require(orders.add(integer(option.get("orderNo"), p + ".orderNo", 1, 3)), p + ".orderNo", "중복 순서입니다.");
-            text(option.get("label"), p + ".label", 1, 40);
+            tokens(text(option.get("label"), p + ".label", 1, 40), p + ".label");
             formula(option.get("successFormula"), p + ".successFormula");
             effects(option.get("onSuccess"), false, p + ".onSuccess");
             effects(option.get("onFail"), false, p + ".onFail");
-            text(option.get("successText"), p + ".successText", 1, 300);
-            text(option.get("failText"), p + ".failText", 1, 300);
+            tokens(text(option.get("successText"), p + ".successText", 1, 300), p + ".successText");
+            tokens(text(option.get("failText"), p + ".failText", 1, 300), p + ".failText");
         }
     }
 
@@ -265,7 +269,7 @@ public final class EventDefinitionValidator {
         tokens(text(node.get("text"), "text", 2, 300), "text");
     }
 
-    /** 치환 변수는 shopName·areaName·serviceName과 선택 조사 쌍({shopName:이/가} 등)만 허용한다. */
+    /** 이름·선택 조사 쌍과 DATA 표시 변수만 허용한다. */
     private void tokens(String text, String path) {
         String rest = EventText.withoutTokens(text);
         require(!rest.contains("{") && !rest.contains("}"), path, "허용되지 않은 치환 변수입니다.");
@@ -276,7 +280,7 @@ public final class EventDefinitionValidator {
                 "successText", "failText", "onSuccess", "onFail"),
                 Set.of("code", "title", "stat", "difficulty", "conditionExpr", "successText", "failText", "onSuccess", "onFail"));
         code(node);
-        text(node.get("title"), "title", 2, 60);
+        tokens(text(node.get("title"), "title", 2, 60), "title");
         stat(node.get("stat"), "stat");
         integer(node.get("difficulty"), "difficulty", 20, 80);
         optionalInteger(node, "weight", 1, 100);

@@ -16,7 +16,7 @@ public class ShareController {
 
     public record SharePage(long gameId, String endingLabel, String shopName, String ownerName, String nickname,
             String areaName, String serviceName, int survivedQuarters, long totalProfit, long bestQuarterProfit,
-            int shopCount, String title, String description) {}
+            int shopCount, String title, String description, String missionTitle, boolean missionAchieved) {}
 
     private final ShareRepository repository;
     private final BoardRecordService boardRecords;
@@ -48,7 +48,6 @@ public class ShareController {
         return new SharePage(ending.gameId(), label, ending.shopName(), ending.ownerName(), ending.nickname(),
                 ending.areaName(), ending.serviceName(), ending.survivedQuarters(), ending.totalProfit(),
                 ending.bestQuarterProfit(), ending.shopCount(), ending.shopName() + " · " + label,
-                ending.survivedQuarters() + "분기 생존 · 누적 순이익 " + MoneyFormat.won(ending.totalProfit()));
+                ending.survivedQuarters() + "분기 생존 · 누적 순이익 " + MoneyFormat.won(ending.totalProfit()), ending.missionTitle(), ending.missionAchieved());
     }
 }
-
