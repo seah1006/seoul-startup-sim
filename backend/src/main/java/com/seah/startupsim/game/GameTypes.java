@@ -20,7 +20,12 @@ public final class GameTypes {
 
     public record Create(@NotBlank @Size(max = 40) String ownerName, @NotNull Background background,
             @NotBlank String candidateId, long candidateSeed, @NotNull @Size(max = 2) List<String> focusStats,
-            String startQuarter) {}
+            String startQuarter, String missionCode) {
+        public Create(String ownerName, Background background, String candidateId, long candidateSeed,
+                List<String> focusStats, String startQuarter) {
+            this(ownerName, background, candidateId, candidateSeed, focusStats, startQuarter, null);
+        }
+    }
 
     public record Shop(@NotBlank String areaCode, @NotBlank String serviceCode,
             double lng, double lat, @NotBlank @Size(max = 80) String shopName) {}

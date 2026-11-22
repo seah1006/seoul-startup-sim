@@ -9,7 +9,18 @@ import java.util.List;
 public record QuarterOutcome(int turn, String quarter, Headline headline, long revenue,
         long visitors, long avgTicket, Costs costs, long profit, long cashAfter,
         AreaRank areaRank, List<StatChange> statChanges, AreaNews areaNews,
-        Object moment, List<Object> reactions, List<String> dataNotes) {
+        Object moment, List<Object> reactions, List<String> dataNotes,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) Mission.Event missionEvent) {
+    public QuarterOutcome(int turn, String quarter, Headline headline, long revenue, long visitors, long avgTicket,
+            Costs costs, long profit, long cashAfter, AreaRank areaRank, List<StatChange> statChanges, AreaNews areaNews,
+            Object moment, List<Object> reactions, List<String> dataNotes) {
+        this(turn, quarter, headline, revenue, visitors, avgTicket, costs, profit, cashAfter, areaRank, statChanges, areaNews,
+                moment, reactions, dataNotes, null);
+    }
+    public QuarterOutcome withMissionEvent(Mission.Event event) {
+        return new QuarterOutcome(turn, quarter, headline, revenue, visitors, avgTicket, costs, profit, cashAfter,
+                areaRank, statChanges, areaNews, moment, reactions, dataNotes, event);
+    }
     public record Headline(long amount, String label) {}
     public record AreaRank(int of, int rank) {}
     public record AreaNews(long closings, long openings, String source) {}
@@ -20,6 +31,6 @@ public record QuarterOutcome(int turn, String quarter, Headline headline, long r
         var combined = new ArrayList<>(dataNotes);
         combined.addAll(notes);
         return new QuarterOutcome(turn, quarter, headline, revenue, visitors, avgTicket, costs, profit,
-                cashAfter, areaRank, statChanges, areaNews, moment, reactions, List.copyOf(combined));
+                cashAfter, areaRank, statChanges, areaNews, moment, reactions, List.copyOf(combined), missionEvent);
     }
 }

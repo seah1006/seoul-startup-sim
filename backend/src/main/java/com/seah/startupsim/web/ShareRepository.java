@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 public class ShareRepository {
     public record Ending(long gameId, String endingType, String nickname, String ownerName, String shopName,
             String areaName, String serviceName, int survivedQuarters, long totalProfit, long bestQuarterProfit,
-            int shopCount) {}
+            int shopCount, String missionTitle, boolean missionAchieved) {}
 
     private final JdbcTemplate jdbc;
 
@@ -20,14 +20,15 @@ public class ShareRepository {
     public Ending ending(long gameId) {
         var rows = jdbc.query("""
                 SELECT r.game_id, r.ending_type, %s AS nickname, r.owner_name, r.shop_name, r.area_name,
-                       r.service_name, r.survived_quarters, r.total_profit, r.best_quarter_profit, r.shop_count
+                       r.service_name, r.survived_quarters, r.total_profit, r.best_quarter_profit, r.shop_count, r.mission_code, r.mission_achieved
                 FROM game_records r JOIN users u ON u.id = r.user_id
                 WHERE r.game_id = ?
                 """.formatted(GameRecordRepository.DISPLAY_NICKNAME), (row, index) -> new Ending(row.getLong("game_id"),
                 row.getString("ending_type"), row.getString("nickname"), row.getString("owner_name"),
                 row.getString("shop_name"), row.getString("area_name"), row.getString("service_name"),
                 row.getInt("survived_quarters"), row.getLong("total_profit"), row.getLong("best_quarter_profit"),
-                row.getInt("shop_count")), gameId);
+                row.getInt("shop_count"), com.seah.startupsim.game.Mission.parse(row.getString("mission_code")).title,
+                row.getBoolean("mission_achieved")), gameId);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 }

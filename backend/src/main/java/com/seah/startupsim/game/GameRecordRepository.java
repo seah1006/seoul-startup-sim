@@ -20,7 +20,7 @@ public class GameRecordRepository {
 
     public record Summary(long gameId, String endingType, String ownerName, String shopName, String areaName,
             String serviceName, int survivedQuarters, long totalProfit, long bestQuarterProfit, int shopCount,
-            String shareUrl) {}
+            String shareUrl, Mission.Ending mission) {}
 
     private final JdbcTemplate jdbc;
 
@@ -42,12 +42,12 @@ public class GameRecordRepository {
                 INSERT INTO game_records
                     (game_id, user_id, nickname, ending_type, survived_quarters, total_profit, best_quarter_profit,
                      shop_count, sale_value, area_code, area_name, service_code, service_name, shop_name, owner_name,
-                     ended_at, ranking_date)
+                     ended_at, ranking_date, mission_code, mission_achieved, mission_achieved_turn)
                 SELECT g.id, g.user_id, u.nickname, ?,
                        (SELECT count(*) FROM turn_results t WHERE t.game_id = g.id),
                        (SELECT coalesce(sum(t.profit), 0) FROM turn_results t WHERE t.game_id = g.id),
                        (SELECT coalesce(max(t.profit), 0) FROM turn_results t WHERE t.game_id = g.id),
-                       g.shop_count, ?, s.area_code, s.area_name, s.service_code, s.service_name, s.name, o.name, ?, ?
+                       g.shop_count, ?, s.area_code, s.area_name, s.service_code, s.service_name, s.name, o.name, ?, ?, g.mission_code, g.mission_achieved_turn IS NOT NULL, g.mission_achieved_turn
                 FROM games g
                 JOIN users u ON u.id = g.user_id
                 JOIN shops s ON s.game_id = g.id
@@ -62,12 +62,13 @@ public class GameRecordRepository {
     public Summary summary(long gameId) {
         var rows = jdbc.query("""
                 SELECT game_id, ending_type, owner_name, shop_name, area_name, service_name, survived_quarters,
-                       total_profit, best_quarter_profit, shop_count
+                       total_profit, best_quarter_profit, shop_count, mission_code, mission_achieved, mission_achieved_turn
                 FROM game_records WHERE game_id = ?
                 """, (row, index) -> new Summary(row.getLong("game_id"), row.getString("ending_type"),
                 row.getString("owner_name"), row.getString("shop_name"), row.getString("area_name"),
                 row.getString("service_name"), row.getInt("survived_quarters"), row.getLong("total_profit"),
-                row.getLong("best_quarter_profit"), row.getInt("shop_count"), shareUrl(row.getLong("game_id"))), gameId);
+                row.getLong("best_quarter_profit"), row.getInt("shop_count"), shareUrl(row.getLong("game_id")),
+                MissionRepository.ending(row.getString("mission_code"), row.getBoolean("mission_achieved"), (Integer) row.getObject("mission_achieved_turn"))), gameId);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 }

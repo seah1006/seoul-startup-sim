@@ -109,7 +109,7 @@ public class GameRepository {
                 """, Boolean.class, id, game.currentTurn()));
         return new State(id, game.version(), game.status(), game.endingType(), game.currentTurn(),
                 game.startQuarter(), game.lastQuarter(), quarter(game.startQuarter(), game.currentTurn()),
-                game.cash(), owner(id), shopState, pending, pendingTurningPoint(id));
+                game.cash(), owner(id), shopState, pending, pendingTurningPoint(id), MissionRepository.state(jdbc, id));
     }
 
     public boolean pendingTurningPoint(long id) {

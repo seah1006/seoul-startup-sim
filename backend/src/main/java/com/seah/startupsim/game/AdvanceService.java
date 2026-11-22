@@ -49,6 +49,7 @@ public class AdvanceService {
         QuarterSnapshot snapshot = loadSnapshot(game);
         QuarterOutcome outcome = calculator.calculate(snapshot.input()).withAdditionalDataNotes(snapshot.dataNotes());
         saveSettlement(game, snapshot, outcome);
+        outcome = outcome.withMissionEvent(MissionRepository.evaluate(games.jdbc(), game.id(), outcome.turn()));
         String ending = finishQuarter(game, outcome);
         TurnResultBuilder result = applyEvents(game, outcome, ending);
         Advanced response = new Advanced(result.build(),

@@ -298,10 +298,12 @@ class EndingIntegrationTest {
                 .andExpect(jsonPath("$.totalProfit").value(row.get("total_profit")))
                 .andExpect(jsonPath("$.bestQuarterProfit").value(row.get("best_quarter_profit")))
                 .andExpect(jsonPath("$.shopCount").value(1))
+                .andExpect(jsonPath("$.mission.code").value("SURVIVE_3Y"))
+                .andExpect(jsonPath("$.mission.achieved").value(false))
                 .andExpect(jsonPath("$.shareUrl").value("/share/" + id))
                 .andReturn().getResponse().getContentAsString();
         assertEquals(List.of("gameId", "endingType", "ownerName", "shopName", "areaName", "serviceName", "survivedQuarters",
-                "totalProfit", "bestQuarterProfit", "shopCount", "shareUrl"),
+                "totalProfit", "bestQuarterProfit", "shopCount", "shareUrl", "mission"),
                 List.copyOf(json.readTree(body).propertyNames()));
     }
     @Test

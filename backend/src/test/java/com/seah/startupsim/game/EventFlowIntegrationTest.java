@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** V8 시드 콘텐츠를 켠 상태에서 8분기 재현성, 반응·순간 형식, 정의 추가에 대한 판정 불변을 검증한다. */
@@ -167,6 +168,48 @@ class EventFlowIntegrationTest {
         assertEquals("2023년 1분기 같은 업종 개업 +1곳", view.description());
         jdbc.update("UPDATE area_stores_q SET opening_count = 999 WHERE version_id = 100");
         assertEquals(view.description(), points.view(id, user).description());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void allMissionStatesPersistOnceAndReachEndingRecord() {
+        for (Mission mission : Mission.values()) {
+            long id = game(789);
+            jdbc.update("UPDATE games SET mission_code = ?, shop_count = 2 WHERE id = ?", mission.name(), id);
+            assertEquals(mission.name(), repository.state(id, user).mission().code());
+            for (int turn = 0; turn < 12; turn++) {
+                jdbc.update("""
+                        INSERT INTO turn_results(game_id,turn,market_size,share,revenue,visitors,cost,profit,area_rank,stat_changes,response)
+                        VALUES (?,?,1,1,10000000,1,0,10000000,3,'[]','{}')
+                        """, id, turn);
+            }
+            var event = MissionRepository.evaluate(jdbc, id, 11);
+            assertNotNull(event);
+            assertEquals(mission.name(), event.code());
+            assertNull(MissionRepository.evaluate(jdbc, id, 12));
+            jdbc.update("UPDATE turn_results SET profit = -1, area_rank = 10 WHERE game_id = ?", id);
+            assertTrue(repository.state(id, user).mission().achieved());
+            assertEquals(11, repository.state(id, user).mission().achievedTurn());
+            var records = new GameRecordRepository(jdbc);
+            records.insert(id, "LONG_RUNNING", null, java.time.Instant.now());
+            assertTrue(records.summary(id).mission().achieved());
+            assertEquals(mission.name(), records.summary(id).mission().code());
+            assertEquals(11, records.summary(id).mission().achievedTurn());
+        }
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void selectedMissionAchievesInsideSettlementAndIsCached() {
+        long id = game(1000);
+        jdbc.update("UPDATE games SET mission_code = 'SECOND_SHOP', shop_count = 2 WHERE id = ?", id);
+        var state = repository.state(id, user);
+        games.decision(id, user, 0, new GameTypes.Decision(GameTypes.Price.NORMAL, 10, 1, 0, GameTypes.Activity.REST));
+        var settled = advance.advance(id, user, "mission-settle", state.version());
+        assertEquals("SECOND_SHOP", settled.result().missionEvent().code());
+        assertTrue(settled.game().mission().achieved());
+        assertEquals(0, settled.game().mission().achievedTurn());
+        assertEquals(settled, advance.advance(id, user, "mission-settle", state.version()));
     }
 
     private int shopCount(long id) {

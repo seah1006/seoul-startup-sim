@@ -8,7 +8,8 @@ ALTER TABLE games
     ADD COLUMN mission_achieved_turn int;
 ALTER TABLE game_records
     ADD COLUMN mission_code text NOT NULL DEFAULT 'SURVIVE_3Y',
-    ADD COLUMN mission_achieved boolean NOT NULL DEFAULT false;
+    ADD COLUMN mission_achieved boolean NOT NULL DEFAULT false,
+    ADD COLUMN mission_achieved_turn int;
 INSERT INTO game_settings (key, value) VALUES
     ('event.minor.enabled', 'true'),
     ('event.minor.rate', '0.9'),

@@ -35,6 +35,6 @@ public final class TurnResultBuilder {
         return new QuarterOutcome(outcome.turn(), outcome.quarter(), outcome.headline(),
                 outcome.revenue(), outcome.visitors(), outcome.avgTicket(), outcome.costs(),
                 outcome.profit(), outcome.cashAfter(), outcome.areaRank(), outcome.statChanges(),
-                outcome.areaNews(), moment, reactions, outcome.dataNotes());
+                outcome.areaNews(), moment, reactions, outcome.dataNotes(), outcome.missionEvent());
     }
 }

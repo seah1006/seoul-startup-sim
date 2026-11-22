@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class RankingRepository {
     public record Entry(int rank, long gameId, String nickname, String ownerName, String shopName, String areaName,
-            String serviceName, String endingType, int survivedQuarters, long totalProfit) {}
+            String serviceName, String endingType, int survivedQuarters, long totalProfit, String missionCode, String missionTitle, boolean missionAchieved) {}
     public record DateCount(LocalDate date, int records, Instant refreshedAt) {}
 
     private final JdbcTemplate jdbc;
@@ -25,7 +25,7 @@ public class RankingRepository {
     public List<Entry> entries(LocalDate date, RankingKind kind, String key, int limit) {
         return jdbc.query("""
                 SELECT s.rank, r.game_id, %s AS nickname, r.owner_name, r.shop_name, r.area_name, r.service_name,
-                       r.ending_type, r.survived_quarters, r.total_profit
+                       r.ending_type, r.survived_quarters, r.total_profit, r.mission_code, r.mission_achieved
                 FROM ranking_snapshots s
                 JOIN game_records r ON r.game_id = s.game_id
                 JOIN users u ON u.id = r.user_id
@@ -35,7 +35,8 @@ public class RankingRepository {
                 """.formatted(GameRecordRepository.DISPLAY_NICKNAME), (row, index) -> new Entry(row.getInt("rank"),
                 row.getLong("game_id"), row.getString("nickname"), row.getString("owner_name"),
                 row.getString("shop_name"), row.getString("area_name"), row.getString("service_name"),
-                row.getString("ending_type"), row.getInt("survived_quarters"), row.getLong("total_profit")),
+                row.getString("ending_type"), row.getInt("survived_quarters"), row.getLong("total_profit"), row.getString("mission_code"),
+                com.seah.startupsim.game.Mission.parse(row.getString("mission_code")).title, row.getBoolean("mission_achieved")),
                 Date.valueOf(date), kind.name(), key, limit);
     }
 

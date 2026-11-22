@@ -32,6 +32,7 @@ h1,.meta,.ending{text-align:center}.ending{padding:0 40px}.meta{padding-bottom:1
   <span class="stamp" th:text="${page.totalProfit &gt;= 0 ? '흑자' : '적자'}">흑자</span>
   <h1 th:text="${page.shopName}">가게 이름</h1>
   <p class="meta"><span th:text="${page.areaName}">상권</span> · <span th:text="${page.serviceName}">업종</span></p>
+  <p th:text="|목표: ${page.missionTitle} · ${page.missionAchieved ? '달성' : '미달성'}|"></p>
   <dl>
     <div><dt>사장님</dt><dd th:text="${page.ownerName}"></dd></div>
     <div><dt>플레이어</dt><dd th:text="${page.nickname}"></dd></div>
@@ -53,4 +54,3 @@ h1,.meta,.ending{text-align:center}.ending{padding:0 40px}.meta{padding-bottom:1
 </div>
 </body>
 </html>
-
