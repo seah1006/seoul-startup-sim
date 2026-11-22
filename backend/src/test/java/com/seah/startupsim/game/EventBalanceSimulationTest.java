@@ -115,7 +115,7 @@ class EventBalanceSimulationTest {
                 }
                 try (ResultSet rs = statement.executeQuery("SELECT key, value::text FROM game_settings")) {
                     while (rs.next()) {
-                        settings.put(rs.getString(1), Double.valueOf(rs.getString(2)));
+                        settings.put(rs.getString(1), rs.getString(2).equals("true") ? 1d : rs.getString(2).equals("false") ? 0d : Double.valueOf(rs.getString(2)));
                     }
                 }
                 try (ResultSet rs = statement.executeQuery(
@@ -128,15 +128,16 @@ class EventBalanceSimulationTest {
                         SELECT s.area_code, s.service_code, s.quarter, s.sales_amount,
                                coalesce(t.store_count, 0), a.district_code, coalesce(a.area_m2, 1), a.area_type_name,
                                t.store_count, t.franchise_count, t.opening_count, t.closing_count,
-                               t.opening_rate, t.closing_rate
-                        FROM area_sales_q s
+                               t.opening_rate, t.closing_rate, f.total_population
+                        FROM area_sales_q_active s
                         JOIN trade_areas a USING (area_code)
-                        LEFT JOIN area_stores_q t USING (area_code, service_code, quarter)
+                        LEFT JOIN area_stores_q_active t USING (area_code, service_code, quarter)
+                        LEFT JOIN area_floating_pop_q_active f USING (area_code, quarter)
                         WHERE s.service_code LIKE 'CS1%' AND s.sales_amount IS NOT NULL
                         ORDER BY s.service_code, s.area_code, s.quarter
                         """)) {
                     String[] names = {"storeCount", "franchiseCount", "openingCount", "closingCount", "openingRate",
-                            "closingRate"};
+                            "closingRate", "floatingPopulation"};
                     while (rs.next()) {
                         Map<String, Object> values = new HashMap<>();
                         for (int index = 0; index < names.length; index++) {
@@ -192,6 +193,7 @@ class EventBalanceSimulationTest {
             case TURNING_POINT -> """
                     SELECT p.id, p.rev, jsonb_build_object(
                         'code', p.code, 'title', p.title, 'description', p.description,
+                        'tier', coalesce(to_jsonb(p)->>'tier', 'MAJOR'), 'source', coalesce(to_jsonb(p)->>'source', 'STORY'),
                         'conditionExpr', p.condition_expr, 'baseProbability', p.base_probability,
                         'statBonus', p.stat_bonus, 'probMin', p.prob_min, 'probMax', p.prob_max,
                         'cooldownQuarters', p.cooldown_quarters, 'maxFires', p.max_fires,
@@ -370,7 +372,7 @@ class EventBalanceSimulationTest {
             }
             if (ending == null && !definitions.points().isEmpty()
                     && turn >= settings.getOrDefault("event.fire.minTurn", 1d)) {
-                Fire fire = turningPoint(state, context, variables, definitions.points(), chooser, settings.getOrDefault("event.fire.globalGap", 0d));
+                Fire fire = turningPoint(state, context, variables, definitions.points(), chooser, settings);
                 if (fire != null) {
                     fires.add(fire);
                 }
@@ -430,6 +432,18 @@ class EventBalanceSimulationTest {
         if (market.areaValues().get("closingRate") instanceof Double current && previous != null
                 && previous.areaValues().get("closingRate") instanceof Double before) {
             values.put("area.closingRateDelta", current - before);
+        }
+        values.put("area.quarterLabel", market.quarter().substring(0, 4) + "년 " + market.quarter().substring(4) + "분기");
+        Map.of("openingCount", "openings", "closingCount", "closings", "openingRate", "openingRatePct", "closingRate", "closingRatePct")
+                .forEach((source, target) -> { if (market.areaValues().containsKey(source)) values.put("area." + target, market.areaValues().get(source)); });
+        if (previous != null) {
+            EventContextFactory.change(values, "area.salesChangePct", market.sales(), previous.sales());
+            EventContextFactory.change(values, "area.floatingPopChangePct", (Number) market.areaValues().get("floatingPopulation"),
+                    (Number) previous.areaValues().get("floatingPopulation"));
+            Map.of("storeCount", "storeChange", "franchiseCount", "franchiseChange").forEach((source, target) -> {
+                if (market.areaValues().get(source) instanceof Number current && previous.areaValues().get(source) instanceof Number before)
+                    values.put("area." + target, current.doubleValue() - before.doubleValue());
+            });
         }
         Market yearAgo = markets.get(key(service, market.area(), GameRepository.quarter(market.quarter(), -4)));
         if (yearAgo != null && market.sales() > 0 && yearAgo.sales() > 0) {
@@ -555,13 +569,18 @@ class EventBalanceSimulationTest {
      * {@link TurningPointService#choose}의 성공 판정과 효과 적용. 선택지는 게임별 시드로 균등하게 고른다.
      */
     private Fire turningPoint(State state, GameContext context, Map<String, Object> variables,
-            List<EventDefinitionRepository.Definition> points, SplittableRandom chooser, double globalGap) {
+            List<EventDefinitionRepository.Definition> points, SplittableRandom chooser, Map<String, Double> settings) {
         Map<String, Integer> stats = Map.copyOf(state.stats);
-        Map<String, Boolean> judged = engine.judge(context, variables, stats, points, globalGap);
+        var majorVariables = new HashMap<>(variables);
+        points.stream().filter(point -> EventEngine.tier(point).equals("MINOR"))
+                .forEach(point -> majorVariables.remove("history.quartersSince." + point.code()));
+        Map<String, Boolean> judged = engine.judge(context, majorVariables, stats,
+                points.stream().filter(point -> EventEngine.tier(point).equals("MAJOR")).toList(),
+                settings.getOrDefault("event.fire.globalGap", 0d));
         List<EventDefinitionRepository.Definition> candidates = new ArrayList<>();
         int highest = -1;
         for (var point : points) {
-            if (!judged.get(point.code())) {
+            if (!judged.getOrDefault(point.code(), false)) {
                 continue;
             }
             int priority = point.data().get("priority").intValue();
@@ -573,13 +592,16 @@ class EventBalanceSimulationTest {
             }
         }
         if (candidates.isEmpty()) {
-            return null;
+            var minor = engine.pickMinor(context, variables, stats, points, settings);
+            if (minor == null) return null;
+            candidates.add(minor);
         }
         int picked = candidates.size() == 1 ? 0 : (int) (EventRandom.stream(context.seed(), context.turn(),
                 EventRandom.Purpose.TURNING_POINT_PICK, "").nextDouble() * candidates.size());
         var definition = candidates.get(picked);
         JsonNode options = definition.data().get("options");
-        JsonNode option = options.get(chooser.nextInt(options.size()));
+        JsonNode option = EventEngine.tier(definition).equals("MINOR")
+                ? MinorBotPolicy.choose(options, stats, validator) : options.get(chooser.nextInt(options.size()));
         int order = option.get("orderNo").intValue();
         double probability = validator.formula(option.get("successFormula")).probability(stats);
         boolean success = EventRandom.stream(context.seed(), context.turn(), EventRandom.Purpose.TURNING_POINT_SUCCESS,
