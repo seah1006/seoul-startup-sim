@@ -64,6 +64,7 @@ tasks.register('simulateV14', Test) {
     useJUnitPlatform { includeTags 'simulation' }
     filter { includeTestsMatching '*EventBalanceSimulationTest' }
     systemProperty 'simulation.v14', 'true'
+    systemProperty 'simulation.minorOff', System.getProperty('simulation.minorOff', 'false')
     systemProperty 'simulation.url', System.getProperty('simulation.url', 'jdbc:postgresql://localhost:5433/seoul_startup_sim')
     testLogging { showStandardStreams = true }
 }

@@ -176,6 +176,7 @@ class EventBalanceSimulationTest {
                     String value = row.getString(2);
                     settings.put(row.getString(1), value.equals("true") ? 1d : value.equals("false") ? 0d : Double.valueOf(value));
                 });
+                if (Boolean.getBoolean("simulation.minorOff")) settings.put("event.minor.enabled", 0d);
                 var current = new Definitions(repository.turningPoints(), repository.reactions(), repository.moments(), settings);
                 reportV14(run(current, areas, markets, categories), current);
             }
@@ -213,7 +214,7 @@ class EventBalanceSimulationTest {
         var source = definitions.points().stream().collect(java.util.stream.Collectors.toMap(EventDefinitionRepository.Definition::code, EventEngine::source));
         long quarters = completed.size() * 12L;
         long events = completed.stream().mapToLong(o -> o.fires().size()).sum();
-        StringBuilder report = new StringBuilder("\n\n## V14 콘텐츠 포함 실측\n\n측정: " + Instant.now() + "\n\n");
+        StringBuilder report = new StringBuilder("\n\n## " + (Boolean.getBoolean("simulation.minorOff") ? "V14 MINOR-off 기준선" : "V14 콘텐츠 포함 실측") + "\n\n측정: " + Instant.now() + "\n\n");
         report.append("표준 정책, 고정 시드404, ").append(outcomes.size()).append("게임, 완주 ").append(completed.size()).append("게임. MINOR는 기대효과 봇, MAJOR는 기존 균등 정책.\n\n");
         report.append(String.format(Locale.ROOT, "전체 생존율 %.2f%%. 완주 기준 선택 없는 분기 %.2f%% (종료 분기 포함), 게임당 사건 %.3f회.\n\n",
                 100.0 * outcomes.stream().filter(Outcome::survived).count() / outcomes.size(), 100.0 * (quarters-events)/quarters, (double)events/completed.size()));
@@ -237,7 +238,7 @@ class EventBalanceSimulationTest {
             missions.append(String.format(Locale.ROOT, "- %d위 이내: %.2f%%\n", threshold,
                     100.0 * outcomes.stream().filter(o -> o.bestRank() <= threshold).count() / outcomes.size()));
         }
-        Files.writeString(Path.of("../docs/balance/MISSION_REPORT.md"), missions);
+        if (!Boolean.getBoolean("simulation.minorOff")) Files.writeString(Path.of("../docs/balance/MISSION_REPORT.md"), missions);
         System.out.println(report); System.out.println(missions);
     }
     private List<EventDefinitionRepository.Definition> load(Statement statement, EventDefinitionRepository.Kind kind,
